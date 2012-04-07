@@ -1,4 +1,7 @@
-#include "filename_utils.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "utils.h"
 
 // From Randy Sargent's public domain library, 2001-2012
 
@@ -103,4 +106,3 @@ string string_printf(const char *fmt, ...) {
   va_end(args);
   return ret;
 }
-

@@ -1,6 +1,8 @@
 #ifndef FILENAME_UTILS_H
 #define FILENAME_UTILS_H
 
+#include <stdarg.h>
+
 #include <string>
 
 std::string filename_sans_directory(const std::string &filename);
