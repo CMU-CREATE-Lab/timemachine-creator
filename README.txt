@@ -1,6 +1,7 @@
 To compile:
 
 OS X:
+-----
 Prereqs: Install xcode
 Download and install Qt 4.8.x libraries (using online installer from http://qt.nokia.com/downloads/)
 Find the Qt 4.8 "qmake" executable
@@ -9,18 +10,23 @@ Run qmake to generate Makefile, e.g.
 Make:
 make
 
+
+
 Windows:
-Install Visual Studio express (version #?)
-Download and install Qt 4.8.x libraries (using online installer from http://qt.nokia.com/downloads/)
-Find the Qt 4.8 "qmake" executable
-Run qmake to generate Makefile, e.g.
-c:\xxx\qmake
-Make:
-nmake
+--------
 
-Note: "nmake.exe" and "cl.exe" must be in your path.  Usually when you install visual studio, there's a submenu under the programs menu that lets you start a command shell with the tools in your path.
+Setup:
+1. Download and install Visual Studio Express 2010 (using online installer from http://www.microsoft.com/visualstudio/en-us/products/2010-editions/visual-cpp-express)
+  1a. Note: this is the last version supported for Windows XP
+2. Download and install Qt 4.8.x libraries (using online installer from http://qt.nokia.com/downloads)
 
+Compile:
+1. cd to the directory with your source files (.cpp, .pro, etc)
+2. From this directory, either run: 'C:\QtSDK\Desktop\Qt\4.8.0\msvc2010\bin\qmake.exe' or add this (without the qmake.exe part) to your PATH and just run 'qmake'. This will generate make files.
+3. Next, you need to run 'nmake.exe' You will need to load a command prompt with Visual Studio environment variables setup. Three ways to do this:
+ 3a. From inside Visual Studio Express: Tools > Visual Studio Command Prompt. Type 'nmake' at the prompt.
+ 3b. From Start Menu: Microsoft Visual Studio 2010 Express > Visual Studio Command Prompt. Type 'nmake' at the prompt.
+ 3c. From your shell of choice: You must first cd to "C:\Program Files\Microsoft Visual Studio 10.0\VC' and run 'vcvarsall.bat' This will setup the necessary environment variables in the shell you ran this from. At this point, cd back to your project source files directory. Type 'nmake' at the prompt.
 
-
-
-
+Run:
+1. cd to /debug (this directory was created by 'qmake' in your source files directory. Double cick the name of your program: {name}.exe
