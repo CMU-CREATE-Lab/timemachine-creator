@@ -26,7 +26,7 @@ Compile:
 3. Next, you need to run 'nmake.exe' You will need to load a command prompt with Visual Studio environment variables setup. Three ways to do this:
  3a. From inside Visual Studio Express: Tools > Visual Studio Command Prompt. Type 'nmake' at the prompt.
  3b. From Start Menu: Microsoft Visual Studio 2010 Express > Visual Studio Command Prompt. Type 'nmake' at the prompt.
- 3c. From your shell of choice: You must first cd to "C:\Program Files\Microsoft Visual Studio 10.0\VC' and run 'vcvarsall.bat' This will setup the necessary environment variables in the shell you ran this from. At this point, cd back to your project source files directory. Type 'nmake' at the prompt.
+ 3c. From your shell of choice: Run '"C:\Program Files\Microsoft Visual Studio 10.0\VC\vcvarsall.bat"' (include double quotes to run a command with spaces in it). This will setup the necessary environment variables in the shell you ran this from. Type 'nmake' at the prompt.
 
 Run:
 1. cd to /debug (this directory was created by 'qmake' in your source files directory. Double cick the name of your program: {name}.exe
