@@ -10,22 +10,23 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <stdexcept>
 
+#include "marshal.h"
 #include "utils.h"
 #include "png_util.h"
+#include "GPTileIdx.h"
+#include "ImageReader.h"
+#include "ImageWriter.h"
 
 using namespace std;
-auto_ptr<int> foo;
+
+unsigned int tilesize = 512;
+bool create_parent_directories = false;
+bool delete_source_tiles = false;
+vector<string> source_tiles_to_delete;
 
 void usage(const char *fmt, ...);
-
-void die(const char *fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  vfprintf(stderr, fmt, args);
-  fprintf(stderr, "\nAborting\n");
-  exit(1);
-}
 
 class Arglist : public list<string> {
 public:
@@ -41,6 +42,10 @@ public:
   double shift_double() {
     string arg = shift();
     return atof(arg.c_str());
+  }
+  double shift_int() {
+    string arg = shift();
+    return atoi(arg.c_str());
   }
 };
 
@@ -59,14 +64,14 @@ class IfstreamReader : public Reader {
   ifstream f;
   string filename;
 public:
-  IfstreamReader(string filename) : f(filename.c_str()), filename(filename) {
-    if (f.bad()) die("Error opening %s for reading\n", filename.c_str());
+  IfstreamReader(string filename) : f(filename.c_str(), ios::in | ios::binary), filename(filename) {
+    if (f.bad()) throw_error("Error opening %s for reading\n", filename.c_str());
   }    
   virtual void read(unsigned char *dest, size_t pos, size_t length) {
     f.seekg(pos, ios_base::beg);
     f.read((char*)dest, length);
     if (f.bad()) {
-      die("Error reading %lld bytes from file %s at position %lld\n",
+      throw_error("Error reading %zd bytes from file %s at position %zd\n",
           length, filename.c_str(), pos);
     }
   }
@@ -88,13 +93,13 @@ class OfstreamWriter : public Writer {
   ofstream f;
   string filename;
 public:
-  OfstreamWriter(string filename) : f(filename.c_str()), filename(filename) {
-    if (f.bad()) die("Error opening %s for writing\n", filename.c_str());
+  OfstreamWriter(string filename) : f(filename.c_str(), ios::out | ios::binary), filename(filename) {
+    if (f.bad()) throw_error("Error opening %s for writing\n", filename.c_str());
   }    
   virtual void write(const unsigned char *src, size_t length) {
     f.write((char*)src, length);
     if (f.bad()) {
-      die("Error writing %lld bytes to file %s\n", length, filename.c_str());
+      throw_error("Error writing %zd bytes to file %s\n", length, filename.c_str());
     }
   }
 };
@@ -119,39 +124,6 @@ Frames-on-demand:
  Disadv: small read (e.g. 400K for uncompressed, 20K for JPEG-compressed)
  Consider reading multiple frames at once
 */
-
-void write_u32(unsigned char *dest, unsigned int src) {
-  dest[0] = src >>  0;
-  dest[1] = src >>  8;
-  dest[2] = src >> 16;
-  dest[3] = src >> 24;
-}
-
-void write_u64(unsigned char *dest, unsigned long long src) {
-  write_u32(dest + 0, (unsigned int) src);
-  write_u32(dest + 4, (unsigned int) (src >> 32));
-}
-
-void write_double64(unsigned char *dest, double src) {
-  assert(sizeof(src) == 8);
-  assert(sizeof(unsigned long long) == 8);
-  write_u64(dest, *(unsigned long long*)&src);
-}
-
-unsigned int read_u32(unsigned char *src) {
-  return src[0] + (src[1]<<8) + (src[2]<<16) + (src[3]<<24);
-}
-
-unsigned long long read_u64(unsigned char *src) {
-  return read_u32(src) + (((unsigned long long)read_u32(src + 4)) << 32);
-}
-
-double read_double_64(unsigned char *src) {
-  unsigned long long d = read_u64(src);
-  assert(sizeof(d) == 8);
-  assert(sizeof(double) == 8);
-  return *(double*)&d;
-}
 
 class Tilestack {
 public:
@@ -183,6 +155,7 @@ public:
   virtual ~Tilestack() {}
 };
 
+// TODO: support compressed formats by splitting all_pixels into multiple frames
 class ResidentTilestack : public Tilestack {
   vector<unsigned char> all_pixels;
   size_t tile_size;
@@ -385,13 +358,21 @@ void save(string dest)
 {
   auto_ptr<Tilestack> tmp(tilestackstack.pop());
   ResidentTilestack *src = dynamic_cast<ResidentTilestack*>(tmp.get());
-  if (!src) die("Can only save type ResidentTilestack (do an operation after reading before writing)");
+  if (!src) throw_error("Can only save type ResidentTilestack (do an operation after reading before writing)");
 
-  OfstreamWriter out(dest);
+  if (create_parent_directories) mkdir_parents(filename_directory(dest));
+
+  string temp_dest = temporary_path(dest);
+
+  {
+    OfstreamWriter out(temp_dest);
+    src->write(out);
+  }
   
-  src->write(out);
+  if (rename(temp_dest.c_str(), dest.c_str())) {
+    throw_error("Can't rename %s to %s", temp_dest.c_str(), dest.c_str());
+  }
 } 
-
 
 // OSX: Download ffmpeg binary from ffmpegmac.net
 class FfmpegEncoder {
@@ -402,7 +383,7 @@ public:
                 double fps, double compression) :
     width(width), height(height) {
     int nthreads = 8;
-    string cmdline = string_printf("./ffmpeg -threads %d", nthreads);
+    string cmdline = string_printf("%s -threads %d", path_to_ffmpeg().c_str(), nthreads);
     // Input
     cmdline += string_printf(" -s %dx%d -vcodec rawvideo -f rawvideo -pix_fmt rgb24 -r %g -i pipe:0",
                              width, height, fps);
@@ -419,16 +400,16 @@ public:
     unlink(dest_filename.c_str());
     out = popen(cmdline.c_str(), "w");
     if (!out) {
-      die("Error trying to run ffmpeg.  Make sure it's installed and in your path\n"
-          "Tried with this commandline:\n"
-          "%s\n", cmdline.c_str());
+      throw_error("Error trying to run ffmpeg.  Make sure it's installed and in your path\n"
+		  "Tried with this commandline:\n"
+		  "%s\n", cmdline.c_str());
     }
   }
 
   void write_pixels(unsigned char *pixels, size_t len) {
     fprintf(stderr, "Writing %zd bytes to ffmpeg\n", len);
     if (1 != fwrite(pixels, len, 1, out)) {
-      die("Error writing to ffmpeg");
+      throw_error("Error writing to ffmpeg");
     }
   }
   
@@ -436,12 +417,21 @@ public:
     if (out) pclose(out);
     out = NULL;
   }
+
+  static string path_to_ffmpeg() {
+    string colocated = filename_directory(executable_path()) + "/ffmpeg";
+    if (filename_exists(colocated)) return colocated;
+    return "ffmpeg";
+  }
 };
   
 void write_video(string dest, double fps, double compression)
 {
   auto_ptr<Tilestack> src(tilestackstack.pop());
-  FfmpegEncoder encoder(dest, src->tile_width, src->tile_height, fps, compression);
+  string temp_dest = temporary_path(dest);
+  
+  fprintf(stderr, "Encoding video to %s\n", temp_dest.c_str());
+  FfmpegEncoder encoder(temp_dest, src->tile_width, src->tile_height, fps, compression);
   assert(src->bands_per_pixel >= 3 && src->bits_per_band == 8);
   vector<unsigned char> destframe(src->tile_width * src->tile_height * 3);
   for (unsigned i = 0; i < src->nframes; i++) {
@@ -458,53 +448,177 @@ void write_video(string dest, double fps, double compression)
     encoder.write_pixels(&destframe[0], destframe.size());
   }
   encoder.close();
+  fprintf(stderr, "Renaming %s to %s\n", temp_dest.c_str(), dest.c_str());
+  if (rename(temp_dest.c_str(), dest.c_str())) {
+    throw_error("Can't rename %s to %s", temp_dest.c_str(), dest.c_str());
+  }
+}
+
+int compute_tile_nlevels(int width, int height, int tilesize) {
+  int max_level = 0;
+  while (max(width, height) > (tilesize << max_level)) {
+    max_level++;
+  }
+  return max_level + 1;
+}
+
+void image2tiles(string dest, string format, string src)
+{
+  if (filename_exists(dest)) {
+    fprintf(stderr, "%s already exists, skipping\n", dest.c_str());
+    return;
+  }
+  auto_ptr<ImageReader> reader(ImageReader::open(src));
+  fprintf(stderr, "Opened %s: %d x %d pixels\n", src.c_str(), reader->width(), reader->height());
+
+  vector<unsigned char> stripe(reader->bytes_per_row() * tilesize);
+  vector<unsigned char> tile(reader->bytes_per_pixel() * tilesize * tilesize);
+
+  int max_level = compute_tile_nlevels(reader->width(), reader->height(), tilesize);
+  string temp_dest = temporary_path(dest);
+  
+  for (unsigned top = 0; top < reader->height(); top += tilesize) {
+    unsigned nrows = min(reader->height() - top, tilesize);
+    reader->read_rows(&stripe[0], nrows);
+    memset(&tile[0], tile.size(), 0);
+    for (unsigned left = 0; left < reader->width(); left += tilesize) {
+      unsigned ncols = min(reader->width() - left, tilesize);
+      for (unsigned y = 0; y < nrows; y++) {
+	memcpy(&tile[y * reader->bytes_per_pixel() * tilesize], 
+	       &stripe[y * reader->bytes_per_row() + left * reader->bytes_per_pixel()],
+	       ncols * reader->bytes_per_pixel());
+      }
+      
+      string path = temp_dest + "/" + GPTileIdx(max_level - 1, left/tilesize, top/tilesize).path() + "." + format;
+      string directory = filename_directory(path);
+      mkdir_parents(directory);
+      
+      ImageWriter::write(path, tilesize, tilesize, reader->bands_per_pixel(), reader->bits_per_band(),
+			 &tile[0]);
+    }
+  }
+  
+  if (rename(temp_dest.c_str(), dest.c_str())) {
+    fprintf(stderr, "Error renaming %s to %s\n", temp_dest.c_str(), dest.c_str());
+    // TODO(RS): Delete temporary directory
+  }
+}
+
+void load_tiles(const vector<string> &srcs)
+{
+  assert(srcs.size() > 0);
+  auto_ptr<ImageReader> tile0(ImageReader::open(srcs[0]));
+
+  auto_ptr<Tilestack> dest(new ResidentTilestack(srcs.size(), tile0->width(), tile0->height(),
+						 tile0->bands_per_pixel(), tile0->bits_per_band(), 0, 0));
+
+  for (unsigned frame = 0; frame < dest->nframes; frame++) {
+    dest->toc[frame].timestamp = 0;
+    auto_ptr<ImageReader> tile(ImageReader::open(srcs[frame]));
+    assert(tile->width() == dest->tile_width);
+    assert(tile->height() == dest->tile_height);
+    assert(tile->bands_per_pixel() == dest->bands_per_pixel);
+    assert(tile->bits_per_band() == dest->bits_per_band);
+    
+    tile->read_rows(dest->frame_pixels(frame), tile->height());
+  }
+  tilestackstack.push(dest);
 }
 
 void usage(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
   vfprintf(stderr, fmt, args);
-  fprintf(stderr, "\nUsage:\n");
-  fprintf(stderr, "tilestacktool [args]\n");
-  fprintf(stderr, "--load src.ts2\n");
-  fprintf(stderr, "--save dest.ts2\n");
-  fprintf(stderr, "--viz min max gamma\n");
-  fprintf(stderr, "--writehtml dest.html\n");
-  fprintf(stderr, "--writevideo dest.mp4 fps compression\n");
-  fprintf(stderr, "              28=typical, 24=high quality, 32=low quality\n");
+  fprintf(stderr, 
+	  "\nUsage:\n"
+	  "tilestacktool [args]\n"
+	  "--load src.ts2\n"
+	  "--save dest.ts2\n"
+	  "--viz min max gamma\n"
+	  "--writehtml dest.html\n"
+	  "--writevideo dest.mp4 fps compression\n"
+	  "              28=typical, 24=high quality, 32=low quality\n"
+	  "--image2tiles dest_dir format src_image\n"
+	  "              Be sure to set tilesize earlier in the commandline\n"
+	  "--tilesize N\n"
+	  "--loadtiles src_image0 src_image1 ... src_imageN\n"
+	  "--delete-source-tiles\n"
+	  );
   exit(1);
 }
-  
+
 int main(int argc, char **argv)
 {
-  Arglist args(argv+1, argv+argc);
-  while (!args.empty()) {
-    std::string arg = args.shift();
-    if (arg == "--load") {
-      string src = args.shift();
-      load(src);
+  try {
+    Arglist args(argv+1, argv+argc);
+    while (!args.empty()) {
+      std::string arg = args.shift();
+      if (arg == "--load") {
+	string src = args.shift();
+	if (filename_suffix(src) != "ts2") {
+	  usage("Filename to load should end in '.ts2'");
+	}
+	load(src);
+      }
+      else if (arg == "--save") {
+	string dest = args.shift();
+	if (filename_suffix(dest) != "ts2") {
+	  usage("Filename to save should end in '.ts2'");
+	}
+	save(dest);
+      }
+      else if (arg == "--viz") {
+	double min = args.shift_double();
+	double max = args.shift_double();
+	double gamma = args.shift_double();
+	viz(min, max, gamma);
+      }
+      else if (arg == "--writehtml") {
+	string dest = args.shift();
+	write_html(dest);
+      }
+      else if (arg == "--writevideo") {
+	string dest = args.shift();
+	double fps = args.shift_double();
+	double compression = args.shift_double();
+	write_video(dest, fps, compression);
+      }
+      else if (arg == "--tilesize") {
+	tilesize = args.shift_int();
+      }
+      else if (arg == "--image2tiles") {
+	string dest = args.shift();
+	string format = args.shift();
+	string src = args.shift();
+	image2tiles(dest, format, src);
+      }
+      else if (arg == "--loadtiles") {
+	vector<string> srcs;
+	while (!args.empty() && args.front().substr(0,1) != "-") {
+	  srcs.push_back(args.shift());
+	}
+	if (srcs.empty()) {
+	  usage("--loadtiles must have at least one tile");
+	}
+	load_tiles(srcs);
+      }
+      else if (arg == "--delete-source-tiles") {
+	delete_source_tiles = true;
+      }
+      else if (arg == "--create-parent-directories") {
+	create_parent_directories = true;
+      }
+      else usage("Unknown argument %s", arg.c_str());
     }
-    else if (arg == "--save") {
-      string dest = args.shift();
-      save(dest);
+    if (source_tiles_to_delete.size()) {
+      fprintf(stderr, "Deleting %zd source tiles\n", source_tiles_to_delete.size());
+      for (unsigned i = 0; i < source_tiles_to_delete.size(); i++) {
+	unlink(source_tiles_to_delete[i].c_str());
+      }
     }
-    else if (arg == "--viz") {
-      double min = args.shift_double();
-      double max = args.shift_double();
-      double gamma = args.shift_double();
-      viz(min, max, gamma);
-    }
-    else if (arg == "--writehtml") {
-      string dest = args.shift();
-      write_html(dest);
-    }
-    else if (arg == "--writevideo") {
-      string dest = args.shift();
-      double fps = args.shift_double();
-      double compression = args.shift_double();
-      write_video(dest, fps, compression);
-    }
-    else usage("Unknown argument %s", arg.c_str());
+    return 0;
+  } catch (const std::exception &e) {
+    fprintf(stderr, "Error: %s\n", e.what());
+    return 1;
   }
-  return 0;
 }

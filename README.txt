@@ -1,3 +1,7 @@
+//
+
+
+
 // TODO: 
 //    factor out Tilestack from TilestackReader
 //    demand paged Tilestack vs single memory block
@@ -56,6 +60,30 @@ Make combined tile for quadtree
 --combine:  creates 8-bit fully populated, then fills
 --write:  writes fully-populated 
 
-
 --writehtml 8.html
+
+--loadtiles src0.jpg src1.jpg ... srcN.jpg
+
+--image2tiles dest src.{jpg,tif,png}
+
+When creating tilestacks, use whatever automatically-extractable timestamp is available.  Otherwise, use sequence #.
+GEE: timestamp from database
+Stitcher: timestamp from stitch
+- Only works if timestamp is valid.  Might not be.
+- Can we read this efficiently?
+
+What happens if we add a new picture:
+ at the end of old pictures?  Append.  This just works.
+ in the middle of old pictures?  Need to recompile.  That's OK.
+
+ct.rb knows which frames contributed to all tilestacks
+So let's maintain timestamps separately from tilestacks, except in case where we 
+
+ct.rb can (a) trust timestamps from tilestacks (e.g. GEE), or (b) know how to independently get timestamps (e.g. stitch)
+Future: spare tilestacks that use timestamps as IDs
+
+
+
+
+
 
