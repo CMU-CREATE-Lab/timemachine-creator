@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 
 #include <fstream>
@@ -65,12 +66,12 @@ class IfstreamReader : public Reader {
   string filename;
 public:
   IfstreamReader(string filename) : f(filename.c_str(), ios::in | ios::binary), filename(filename) {
-    if (f.bad()) throw_error("Error opening %s for reading\n", filename.c_str());
+    if (!f.good()) throw_error("Error opening %s for reading\n", filename.c_str());
   }    
   virtual void read(unsigned char *dest, size_t pos, size_t length) {
     f.seekg(pos, ios_base::beg);
     f.read((char*)dest, length);
-    if (f.bad()) {
+    if (f.fail()) {
       throw_error("Error reading %zd bytes from file %s at position %zd\n",
           length, filename.c_str(), pos);
     }
@@ -94,11 +95,11 @@ class OfstreamWriter : public Writer {
   string filename;
 public:
   OfstreamWriter(string filename) : f(filename.c_str(), ios::out | ios::binary), filename(filename) {
-    if (f.bad()) throw_error("Error opening %s for writing\n", filename.c_str());
+    if (!f.good()) throw_error("Error opening %s for writing\n", filename.c_str());
   }    
   virtual void write(const unsigned char *src, size_t length) {
     f.write((char*)src, length);
-    if (f.bad()) {
+    if (f.fail()) {
       throw_error("Error writing %zd bytes to file %s\n", length, filename.c_str());
     }
   }
