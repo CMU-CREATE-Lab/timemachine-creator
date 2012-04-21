@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <sys/utsname.h>
 
-#include "utils.h"
+#include "cpp-utils.h"
 
 // From Randy Sargent's public domain library, 2001-2012
 
@@ -195,7 +195,7 @@ void throw_error(const char *fmt, ...) {
 // BSD with procfs: readlink /proc/curproc/file
 // Windows: GetModuleFileName() with hModule = NULL
 
-#ifdef __APPLE__
+#if defined(__APPLE__)
 #include <mach-o/dyld.h>
 string executable_path() {
   uint32_t len = 0;
@@ -204,5 +204,16 @@ string executable_path() {
   vector<char> buf(len);
   ret = _NSGetExecutablePath(&buf[0], &len);
   return string(&buf[0]);
+}
+#else
+// Linux
+string executable_path() {
+  vector<char> buf(1000);
+  while (1) {
+    int ret = readlink("/proc/self/exe", &buf[0], buf.size());
+    assert(ret > 0);
+    if (ret < (int)buf.size()) return string(&buf[0], ret);
+    buf.resize(buf.size()*2);
+  }
 }
 #endif
