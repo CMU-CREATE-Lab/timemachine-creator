@@ -13,6 +13,6 @@ test-modis: tilestacktool
 	./tilestacktool --load test-modis/r12.8.ts2 --writehtml r12.8.html
 	./tilestacktool --load test-modis/r12.8.ts2 --writevideo r12.8.mp4 1 26
 
-tilestacktool: tilestacktool.cpp utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp
-	g++ -g -I/opt/local/include -Wall $^ -o $@ -L/opt/local/lib -lpng -ljpeg
+tilestacktool: tilestacktool.cpp cpp-utils/cpp-utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp
+	g++ -g -I/opt/local/include -Icpp-utils -Wall $^ -o $@ -L/opt/local/lib -lpng -ljpeg
 

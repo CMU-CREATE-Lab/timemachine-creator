@@ -13,7 +13,7 @@
 #include <stdexcept>
 
 #include "marshal.h"
-#include "utils.h"
+#include "cpp-utils.h"
 #include "png_util.h"
 #include "GPTileIdx.h"
 #include "ImageReader.h"

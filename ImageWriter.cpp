@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "marshal.h"
-#include "utils.h"
+#include "cpp-utils.h"
 
 #include "ImageWriter.h"
 
