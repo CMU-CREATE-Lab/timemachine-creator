@@ -134,15 +134,27 @@ string string_printf(const char *fmt, ...) {
   return ret;
 }
 
-void mkdir_parents(const string &dirname) {
+void make_directory(const string &dirname) {
+#ifdef _WIN32
+  _wmkdir(Unicode(dirname).path(), 0777);
+#else
+  mkdir(Unicode(dirname).path(), 0777);
+#endif
+}
+
+void make_directory_and_parents(const string &dirname) {
   if (dirname == "") return;
-  mkdir_parents(filename_directory(dirname));
-  mkdir(dirname.c_str(), 0777);
+  make_directory_and_parents(filename_directory(dirname));
+  make_directory(dirname);
 }
 
 bool filename_exists(const string &filename) {
   struct stat s;
-  return (0 == stat(filename.c_str(), &s));
+#ifdef _WIN32
+  return (0 == _wstat(Unicode(filename).path(), &s));
+#else  
+  return (0 == stat(Unicode(filename).path(), &s));
+#endif
 }
 
 bool iequals(const string &a, const string &b)
@@ -187,6 +199,8 @@ void throw_error(const char *fmt, ...) {
   throw runtime_error(msg);
 }
 
+///// executable_path
+
 // From http://stackoverflow.com/questions/1023306/finding-current-executables-path-without-proc-self-exe
 // Mac OS X: _NSGetExecutablePath() (man 3 dyld)
 // Linux: readlink /proc/self/exe
@@ -217,3 +231,38 @@ string executable_path() {
   }
 }
 #endif
+
+///// home_directory
+
+// Linux or OS X
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+
+string home_directory() {
+  struct passwd pwd, *pwdptr;
+  char buf[10000];
+  int ret = getpwuid_r(getuid(), &pwd, buf, sizeof(buf), &pwdptr);
+  assert(ret == 0 && pwdptr);
+  return pwdptr->pw_dir;
+}
+
+///// application_user_state_directory
+
+#if defined(__APPLE__)
+string application_user_state_directory(const string &application_name) {
+  return home_directory() + "/Library/Application Support/" + application_name;  
+}
+#endif
+
+///// Unicode paths
+
+Unicode::Unicode(const std::string &utf8) : utf8(utf8) {}
+Unicode::Unicode(const char *utf8) : utf8(utf8) {}
+#ifdef _WIN32
+#error Implement Me!
+const wchar_t *Unicode::path() { assert(0); }
+#else
+const char *Unicode::path() { return utf8.c_str(); }
+#endif
+
