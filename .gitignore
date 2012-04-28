@@ -1,0 +1,6 @@
+*.o
+*.app
+*~
+moc_*.cpp
+moc_*.h
+.DS_Store
