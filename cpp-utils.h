@@ -2,6 +2,7 @@
 #define FILENAME_UTILS_H
 
 #include <stdarg.h>
+#include <stdio.h>
 #ifdef _WIN32
 #include <wchar.h>
 #endif
@@ -17,6 +18,7 @@ std::string string_printf(const char *fmt, ...)  __attribute__((format(printf,1,
 void make_directory(const std::string &dirname);
 void make_directory_and_parents(const std::string &dirname);
 bool filename_exists(const std::string &filename);
+FILE *fopen_utf8(const std::string &path, const char *mode);
 bool iequals(const std::string &a, const std::string &b);
 std::string temporary_path(const std::string &path);
 std::string hostname();

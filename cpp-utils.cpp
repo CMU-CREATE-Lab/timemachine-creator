@@ -157,6 +157,16 @@ bool filename_exists(const string &filename) {
 #endif
 }
 
+FILE *fopen_utf8(const std::string &filename, const char *mode) {
+#ifdef _WIN32
+  return _wfopen(Unicode(filename).path(), mode);
+#else  
+  return fopen(filename.c_str(), mode);
+#endif
+  
+}
+
+
 bool iequals(const string &a, const string &b)
 {
 #ifdef _WIN32
@@ -265,4 +275,5 @@ const wchar_t *Unicode::path() { assert(0); }
 #else
 const char *Unicode::path() { return utf8.c_str(); }
 #endif
+
 
