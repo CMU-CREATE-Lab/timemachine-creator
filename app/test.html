@@ -1,10 +1,16 @@
 <html>
+<head>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+</head>
 <body>
-
-<img id="thumbnail" style="width:160px; height:120px"><br>Thumbnail
+<img id="thumbnail" style="width:160px; height:120px">
+<div>Thumbnail</div>
+PATP10 Time: <span id="time"></span><br>
+PITT10x1 Time: <span id="time2"></span><br>
 <script>
 window.api.readThumbnail("../patp10/00IMG_9946.JPG").assignToHTMLImageElement(document.getElementById('thumbnail'));
+$('#time').text(window.api.exifTime("../patp10/00IMG_9946.JPG"));
+$('#time2').text(window.api.exifTime("../pitt10x1/IMG_5000.JPG"));
 </script>
 </body>
 </html>
-

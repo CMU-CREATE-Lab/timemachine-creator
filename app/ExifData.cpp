@@ -1,3 +1,5 @@
+// Adapted from Vision Workbench, which is licensed under the NASA Open Source Agreement, version 1.3
+
 // __BEGIN_LICENSE__
 // Copyright (C) 2006-2011 United States Government as represented by
 // the Administrator of the National Aeronautics and Space Administration.
@@ -491,7 +493,11 @@ bool ExifData::get_tag_value(const uint16 tag, int &value) const {
     case DoubleType:
       value = (int)(*tag_iter).second.value.d;
       break;
+    case StringType:
+      value = atoi((*tag_iter).second.value.s);
+      break;
     default:
+      fprintf(stderr, "but the type was %d\n", (*tag_iter).second.type);
       return false;
   }
   return true;

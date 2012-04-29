@@ -1,3 +1,6 @@
+// Adapted from Vision Workbench, which is licensed under the NASA Open Source Agreement, version 1.3
+
+
 // __BEGIN_LICENSE__
 // Copyright (C) 2006-2011 United States Government as represented by
 // the Administrator of the National Aeronautics and Space Administration.

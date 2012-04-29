@@ -49,3 +49,31 @@ QPixmap API::readThumbnail(QString path) {
     return QPixmap();
   }
 }
+
+double API::exifTime(QString path) {
+  try {
+    string path_utf8 = path.toUtf8().constData();
+    ExifView exif(path_utf8);
+    ExifDateTime capture_time = exif.get_capture_time();
+    struct tm tm;
+    memset(&tm, 0, sizeof(tm));
+    tm.tm_year = capture_time.m_year - 1900;
+    tm.tm_mon = capture_time.m_month - 1;
+    tm.tm_mday = capture_time.m_day;
+    tm.tm_hour = capture_time.m_hour;
+    tm.tm_min = capture_time.m_minute;
+    tm.tm_sec = capture_time.m_second;
+    double seconds = (double) timegm(&tm);
+
+    int32 hundredths = 0;
+    try {
+      exif.query_by_tag(EXIF_SubSecTimeDigitized, hundredths);
+    } catch (ExifErr &e) {}
+    
+    return seconds + hundredths / 100.0;
+  } catch (ExifErr &e) {
+    fprintf(stderr, "ExifErr: %s\n", e.what());
+    // Would be nicer to return null here, but don't know how to do that
+    return -1.0;
+  }
+}

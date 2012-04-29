@@ -16,6 +16,7 @@ public slots:
   int log();
   void addJSObject();
   QPixmap readThumbnail(QString path);
+  double exifTime(QString path);
 signals:
   int logged();
 };
