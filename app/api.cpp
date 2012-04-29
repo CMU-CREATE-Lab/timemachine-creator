@@ -2,7 +2,9 @@
 #include <string>
 
 #include <QDir>
+#include <QFileDialog>
 #include <QFileInfoList>
+#include <QTextStream>
 
 #include "api.h"
 #include "cpp-utils.h"
@@ -113,4 +115,31 @@ QStringList API::droppedFilesRecursive() {
   ret.removeDuplicates();
   ret.sort();
   return ret;
+}
+
+// filter, e.g. "*.timemachinedefinition"
+QString API::saveAsDialog(QString caption, QString startingDirectory, QString filter) {
+  return QFileDialog::getSaveFileName(NULL, caption, startingDirectory, filter);
+}
+  
+bool API::writeFile(QString path, QString data)
+{
+  QFile file(path);
+  if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    return false;
+  }
+  QTextStream(&file) << data;
+  return true;
+}
+
+QString API::readFile(QString path)
+{
+  QFile file(path);
+  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return ""; // null would be better
+  return QTextStream(&file).readAll();
+}
+
+bool API::makeDirectory(QString path)
+{
+  return QDir().mkdir(path);
 }

@@ -19,6 +19,10 @@ public slots:
   QPixmap readThumbnail(QString path);
   double exifTime(QString path);
   QStringList droppedFilesRecursive();
+  QString saveAsDialog(QString caption, QString startingDirectory, QString filter);
+  bool writeFile(QString path, QString data);
+  QString readFile(QString path);
+  bool makeDirectory(QString path);
 signals:
   int logged();
 protected:

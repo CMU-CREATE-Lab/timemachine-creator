@@ -3,20 +3,55 @@
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
 </head>
 <body>
+
+<!--  Thumbnail -->
+
 <img id="thumbnail" style="width:160px; height:120px">
-<div>Thumbnail</div>
-PATP10 Time: <span id="time"></span><br>
-PITT10x1 Time: <span id="time2"></span><br>
-<div>
-<div id="dropbox" style="background: #4f4; padding: 20px; display: table">Drop here</div>
-</div>
-<pre id="dropped"></pre>
+
 <script>
 window.api.readThumbnail("../patp10/00IMG_9946.JPG").assignToHTMLImageElement(document.getElementById('thumbnail'));
+</script>
+
+<hr>
+
+<!-- EXIF times -->
+
+<div>PATP10 Time: <span id="time"></span></div>
+<div>PITT10x1 Time: <span id="time2"></span></div>
+
+<script>
 $('#time').text(window.api.exifTime("../patp10/00IMG_9946.JPG"));
 $('#time2').text(window.api.exifTime("../pitt10x1/IMG_5000.JPG"));
-var dropbox = document.getElementById("dropbox")
- // init event handlers
+</script>
+
+<hr>
+
+<!-- Save as -->
+
+<button id="save_as">Save As...</button>
+
+<script>
+function saveAs() {
+  var startDirectory = '';
+  var saveDir = window.api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.timemachinedefinition');
+  if (saveDir == '') {
+    alert('saveAs canceled');
+  } else {
+    alert('saveAs: ' + saveDir);
+  }
+}
+
+$('#save_as').click(saveAs);
+</script>
+
+<hr>
+
+<!-- Drag and drop files and folders -->
+
+<div id="dropbox" style="background: #4f4; padding: 20px; display: table">Drop here</div>
+<pre id="dropped"></pre>
+
+<script>
 function noopHandler(evt) {
   evt.stopPropagation();
   evt.preventDefault();
@@ -27,10 +62,47 @@ function dropHandler(evt) {
   var droppedFiles = window.api.droppedFilesRecursive();
   $('#dropped').text(droppedFiles.join('\n'));
 }
+var dropbox = document.getElementById("dropbox");
 dropbox.addEventListener("dragenter", noopHandler, false);
 dropbox.addEventListener("dragexit", noopHandler, false);
 dropbox.addEventListener("dragover", noopHandler, false);
 dropbox.addEventListener("drop", dropHandler, false);
 </script>
+
+<hr>
+
+<!-- Test save as, write, and read -->
+
+<button id="swr">Save, write, and read...</button>
+<div id="swr_out"></div>
+<script>
+function saveWriteRead() {
+  $('#swr_out').text('');
+  var startDirectory = '';
+  var saveDir = window.api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.timemachinedefinition');
+  if (saveDir == '') {
+    alert('saveAs canceled');
+  } else {
+    if (!window.api.makeDirectory(saveDir)) {
+      alert('Error creating directory ' + saveDir);
+      return;
+    }
+    var definitionPath = saveDir + '/definition.timemachinedefinition';
+    var writeData = {foo:3};
+    if (!window.api.writeFile(definitionPath, JSON.stringify(writeData))) {
+       alert('Error creating ' + definitionPath);
+       return;
+    }
+    var readData = JSON.parse(window.api.readFile(definitionPath));
+    $('#swr_out').text('Wrote ' + JSON.stringify(writeData) + ' to ' + definitionPath + ' and read back ' + JSON.stringify(readData));
+  }
+}
+
+$('#swr').click(saveWriteRead);
+</script>
+
+
+
+
 </body>
 </html>
