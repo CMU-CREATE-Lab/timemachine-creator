@@ -7,10 +7,30 @@
 <div>Thumbnail</div>
 PATP10 Time: <span id="time"></span><br>
 PITT10x1 Time: <span id="time2"></span><br>
+<div>
+<div id="dropbox" style="background: #4f4; padding: 20px; display: table">Drop here</div>
+</div>
+<pre id="dropped"></pre>
 <script>
 window.api.readThumbnail("../patp10/00IMG_9946.JPG").assignToHTMLImageElement(document.getElementById('thumbnail'));
 $('#time').text(window.api.exifTime("../patp10/00IMG_9946.JPG"));
 $('#time2').text(window.api.exifTime("../pitt10x1/IMG_5000.JPG"));
+var dropbox = document.getElementById("dropbox")
+ // init event handlers
+function noopHandler(evt) {
+  evt.stopPropagation();
+  evt.preventDefault();
+}
+function dropHandler(evt) {
+  evt.stopPropagation();
+  evt.preventDefault();
+  var droppedFiles = window.api.droppedFilesRecursive();
+  $('#dropped').text(droppedFiles.join('\n'));
+}
+dropbox.addEventListener("dragenter", noopHandler, false);
+dropbox.addEventListener("dragexit", noopHandler, false);
+dropbox.addEventListener("dragover", noopHandler, false);
+dropbox.addEventListener("drop", dropHandler, false);
 </script>
 </body>
 </html>

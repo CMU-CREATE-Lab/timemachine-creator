@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <string>
 
+#include <QDir>
+#include <QFileInfoList>
+
 #include "api.h"
 #include "cpp-utils.h"
 #include "Exif.h"
@@ -76,4 +79,38 @@ double API::exifTime(QString path) {
     // Would be nicer to return null here, but don't know how to do that
     return -1.0;
   }
+}
+
+QStringList listDirectoryRecursively(QString path) {
+  QStringList ret;
+  QFileInfoList dir = QDir(path).entryInfoList();
+  for (int i = 0; i < dir.length(); i++) {
+    if (dir[i].fileName() == "." || dir[i].fileName() == "..") {
+      // ignore
+    } else if (dir[i].isDir()) {
+      ret << listDirectoryRecursively(dir[i].absoluteFilePath());
+    } else {
+      ret << dir[i].absoluteFilePath();
+    }
+  }
+  return ret;
+}
+
+void API::dropPaths(QStringList paths) {
+  droppedPaths = paths;
+}
+
+QStringList API::droppedFilesRecursive() {
+  QStringList ret;
+  for (int i = 0; i < droppedPaths.length(); i++) {
+    QFileInfo info(droppedPaths[i]);
+    if (info.isDir()) {
+      ret << listDirectoryRecursively(droppedPaths[i]);
+    } else {
+      ret << info.absoluteFilePath();
+    }
+  }
+  ret.removeDuplicates();
+  ret.sort();
+  return ret;
 }
