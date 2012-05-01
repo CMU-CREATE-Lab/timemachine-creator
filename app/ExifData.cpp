@@ -22,6 +22,10 @@
 //    -Matthias Wandel
 //
 
+#ifdef _WIN32
+	#define _CRT_SECURE_NO_WARNINGS 1
+#endif
+
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -357,7 +361,7 @@ void ExifData::process_exif(unsigned char * ExifSection, unsigned int length) {
 bool ExifData::read_tiff_ifd(const std::string &filename) {
   // Memory-map the file so we can use the same process_exif_dir function
   // unchanged for both jpg and tiff).
-  
+
   // If we need to read TIFFs, uncomment the following and making it compile
   throw ExifErr() << "Reading TIFFs not yet implemented: " << filename;
 

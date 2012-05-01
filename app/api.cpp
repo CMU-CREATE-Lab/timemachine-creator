@@ -5,6 +5,7 @@
 #include <QFileDialog>
 #include <QFileInfoList>
 #include <QTextStream>
+#include <QMessageBox>
 
 #include "api.h"
 #include "cpp-utils.h"
@@ -25,7 +26,7 @@ void API::addJSObject() {
   frame->addToJavaScriptWindowObject(QString("api"), this);
 }
 
-// readThumbnail:  
+// readThumbnail:
 // Example
 // <img id="thumbnail" style="width:160px; height:120px">
 // <script>
@@ -35,7 +36,8 @@ void API::addJSObject() {
 QPixmap API::readThumbnail(QString path) {
   try {
     string path_utf8 = path.toUtf8().constData();
-    FILE *in = fopen_utf8(path_utf8, "rw");
+
+    FILE *in = fopen_utf8(path_utf8, "rb"); //was rw
     EXIF_ASSERT(in, ExifErr() << "Can't read " << path_utf8);
     ExifView exif(path_utf8);
     size_t offset = exif.get_thumbnail_location();
@@ -44,10 +46,13 @@ QPixmap API::readThumbnail(QString path) {
     EXIF_ASSERT(length > 0, ExifErr() << "Illegal thumbnail length");
     vector<unsigned char> buf(length);
     EXIF_ASSERT(fseek(in, offset, SEEK_SET) == 0, ExifErr() << "Error reading thumbnail");
-    EXIF_ASSERT(1 == (int32)fread(&buf[0], length, 1, in), ExifErr() << "Error reading thumbnail");
+	  //EXIF_ASSERT(1 == (int32)fread(&buf[0], length, 1, in), ExifErr() << "Error reading thumbnail");
+    fread(&buf[0], length, 1, in);
     fclose(in);
+
     QPixmap ret;
     ret.loadFromData(&buf[0], length);
+
     return ret;
   } catch (ExifErr &e) {
     fprintf(stderr, "ExifErr: %s\n", e.what());
@@ -68,13 +73,13 @@ double API::exifTime(QString path) {
     tm.tm_hour = capture_time.m_hour;
     tm.tm_min = capture_time.m_minute;
     tm.tm_sec = capture_time.m_second;
-    double seconds = (double) timegm(&tm);
+    double seconds = (double) mktime(&tm);
 
     int32 hundredths = 0;
     try {
       exif.query_by_tag(EXIF_SubSecTimeDigitized, hundredths);
-    } catch (ExifErr &e) {}
-    
+    } catch (ExifErr &) {}
+
     return seconds + hundredths / 100.0;
   } catch (ExifErr &e) {
     fprintf(stderr, "ExifErr: %s\n", e.what());
@@ -103,8 +108,10 @@ void API::dropPaths(QStringList paths) {
 }
 
 QStringList API::droppedFilesRecursive() {
+
   QStringList ret;
   for (int i = 0; i < droppedPaths.length(); i++) {
+		//fprintf(stderr, "dfr: >%s<\n", droppedPaths[i].toUtf8().constData());
     QFileInfo info(droppedPaths[i]);
     if (info.isDir()) {
       ret << listDirectoryRecursively(droppedPaths[i]);
@@ -121,7 +128,7 @@ QStringList API::droppedFilesRecursive() {
 QString API::saveAsDialog(QString caption, QString startingDirectory, QString filter) {
   return QFileDialog::getSaveFileName(NULL, caption, startingDirectory, filter);
 }
-  
+
 bool API::writeFile(QString path, QString data)
 {
   QFile file(path);
