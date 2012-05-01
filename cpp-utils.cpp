@@ -1,13 +1,27 @@
+#ifdef _WIN32
+#define _CRT_SECURE_NO_WARNINGS 1
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
 #include <assert.h>
-
 #include <stdexcept>
 #include <vector>
-
 #include <sys/stat.h>
+
+
+#ifdef _WIN32
+#include <process.h>
+#include <Windows.h>
+#include <Userenv.h>
+#pragma comment(lib, "userenv.lib")
+#pragma comment(lib, "Advapi32.lib")
+#else
+#include <strings.h>
 #include <sys/utsname.h>
+#endif
+
+
 
 #include "cpp-utils.h"
 
@@ -108,10 +122,11 @@ string string_vprintf(const char *fmt, va_list args) {
   // grow the buffer size until the output is no longer truncated
   while (1) {
     va_list args_copy;
-    va_copy(args_copy, args);
 #if defined(_WIN32)
+    args_copy = args;
     size_t nwritten = _vsnprintf(buf, size-1, fmt, args_copy);
 #else
+    va_copy(args_copy, args);
     size_t nwritten = vsnprintf(buf, size-1, fmt, args_copy);
 #endif
     // Some c libraries return -1 for overflow, some return a number larger than size-1
@@ -136,7 +151,7 @@ string string_printf(const char *fmt, ...) {
 
 void make_directory(const string &dirname) {
 #ifdef _WIN32
-  _wmkdir(Unicode(dirname).path(), 0777);
+  _wmkdir(Unicode(dirname).path());
 #else
   mkdir(Unicode(dirname).path(), 0777);
 #endif
@@ -149,28 +164,29 @@ void make_directory_and_parents(const string &dirname) {
 }
 
 bool filename_exists(const string &filename) {
-  struct stat s;
 #ifdef _WIN32
+  struct _stat64i32 s;
   return (0 == _wstat(Unicode(filename).path(), &s));
-#else  
+#else
+  struct stat s;
   return (0 == stat(Unicode(filename).path(), &s));
 #endif
 }
 
 FILE *fopen_utf8(const std::string &filename, const char *mode) {
 #ifdef _WIN32
-  return _wfopen(Unicode(filename).path(), mode);
-#else  
+  return _wfopen(Unicode(filename).path(), Unicode(mode).path());
+#else
   return fopen(filename.c_str(), mode);
 #endif
-  
+
 }
 
 
 bool iequals(const string &a, const string &b)
 {
 #ifdef _WIN32
-  return !stricmp(a.c_str(), b.c_str());
+  return !_stricmp(a.c_str(), b.c_str());
 #else
   return !strcasecmp(a.c_str(), b.c_str());
 #endif
@@ -182,15 +198,29 @@ string temporary_path(const std::string &path)
   static unsigned int counter = 0;
   static string cached_hostname;
   if (!counter) cached_hostname = hostname();
+#ifdef _WIN32
+	int pid = _getpid();
+#else
+	int pid = getpid();
+#endif
   return string_printf("%s_%s_%d_%d_%d%s",
 		       filename_sans_suffix(path).c_str(),
 		       cached_hostname.c_str(),
 		       (int) time(0),
-		       getpid(),
+		       pid,
 		       counter++,
 		       filename_suffix_with_dot(path).c_str());
 }
 
+#ifdef _WIN32
+string hostname()
+{
+	char buf[1000];
+	DWORD bufsize = sizeof(buf);
+	GetComputerNameExA(ComputerNameDnsHostname, buf, &bufsize);
+	return string(buf, bufsize);
+}
+#else
 string hostname()
 {
   struct utsname u;
@@ -200,6 +230,7 @@ string hostname()
   }
   return u.nodename;
 }
+#endif
 
 void throw_error(const char *fmt, ...) {
   va_list args;
@@ -219,7 +250,15 @@ void throw_error(const char *fmt, ...) {
 // BSD with procfs: readlink /proc/curproc/file
 // Windows: GetModuleFileName() with hModule = NULL
 
-#if defined(__APPLE__)
+#if defined(_WIN32)
+string executable_path() {
+	wchar_t buf[10000];
+	DWORD bufsize = sizeof(buf);
+	GetModuleFileName(NULL, buf, bufsize);
+	return Unicode(buf).utf8();
+}
+
+#elif defined(__APPLE__)
 #include <mach-o/dyld.h>
 string executable_path() {
   uint32_t len = 0;
@@ -244,6 +283,19 @@ string executable_path() {
 
 ///// home_directory
 
+#ifdef _WIN32
+string home_directory() {
+	TCHAR buf[10000]={0};
+	DWORD bufsize = sizeof(buf);
+	HANDLE token = 0;
+	OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token);
+	GetUserProfileDirectory(token, buf, &bufsize);
+	CloseHandle(token);
+	return Unicode(buf).utf8();
+}
+
+#else
+
 // Linux or OS X
 #include <unistd.h>
 #include <sys/types.h>
@@ -256,24 +308,44 @@ string home_directory() {
   assert(ret == 0 && pwdptr);
   return pwdptr->pw_dir;
 }
+#endif
 
 ///// application_user_state_directory
 
-#if defined(__APPLE__)
+#if defined(_WIN32)
 string application_user_state_directory(const string &application_name) {
-  return home_directory() + "/Library/Application Support/" + application_name;  
+  return home_directory() + "/Application Data/" + application_name;
+}
+
+#elif defined(__APPLE__)
+string application_user_state_directory(const string &application_name) {
+  return home_directory() + "/Library/Application Support/" + application_name;
 }
 #endif
 
 ///// Unicode paths
 
-Unicode::Unicode(const std::string &utf8) : utf8(utf8) {}
-Unicode::Unicode(const char *utf8) : utf8(utf8) {}
+Unicode::Unicode(const std::string &utf8) : m_utf8(utf8) {
+	init_from_utf8();
+}
+Unicode::Unicode(const char *utf8) : m_utf8(utf8) {
+	init_from_utf8();
+}
+const char *Unicode::utf8() { return m_utf8.c_str(); }
 #ifdef _WIN32
-#error Implement Me!
-const wchar_t *Unicode::path() { assert(0); }
+Unicode::Unicode(const wchar_t *utf16) : m_utf16(utf16, utf16+wcslen(utf16)+1) {
+	vector<char> tmp(m_utf16.size() * 4);
+	wcstombs(&tmp[0], utf16, tmp.size());
+	m_utf8 = string(&tmp[0]);
+}
+const wchar_t *Unicode::utf16() { return &m_utf16[0]; }
+void Unicode::init_from_utf8() {
+	// convert from utf8 to utf16
+	m_utf16.resize(m_utf8.length()+1); // overkill for utf16, which may have fewer chars
+	m_utf16.resize(1+mbstowcs(&m_utf16[0], m_utf8.c_str(), m_utf16.size()));
+}
+const wchar_t *Unicode::path() { return utf16(); }
 #else
-const char *Unicode::path() { return utf8.c_str(); }
+const char *Unicode::path() { return utf8(); }
+void init_from_utf8() {}
 #endif
-
-
