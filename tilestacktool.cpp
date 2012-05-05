@@ -20,7 +20,11 @@
 #include "ImageReader.h"
 #include "ImageWriter.h"
 
+#include "json/json.h"
+
 using namespace std;
+
+#define TODO(x) do { fprintf(stderr, "%s:%d: error: TODO %s\n", __FILE__, __LINE__, x); abort(); } while (0)
 
 unsigned int tilesize = 512;
 bool create_parent_directories = false;
@@ -42,11 +46,30 @@ public:
   }
   double shift_double() {
     string arg = shift();
-    return atof(arg.c_str());
+    char *end;
+    double ret = strtod(arg.c_str(), &end);
+    if (end != arg.c_str() + arg.length()) {
+      usage("Can't parse '%s' as floating point value", arg.c_str());
+    }
+    return ret;
   }
   double shift_int() {
     string arg = shift();
-    return atoi(arg.c_str());
+    char *end;
+    double ret = strtol(arg.c_str(), &end, 0);
+    if (end != arg.c_str() + arg.length()) {
+      usage("Can't parse '%s' as integer", arg.c_str());
+    }
+    return ret;
+  }
+  Json::Value shift_json() {
+    string arg = shift();
+    Json::Reader reader;
+    Json::Value ret;
+    if (!reader.parse(arg, ret)) {
+      usage("Can't parse '%s' as json: %s", arg.c_str());
+    }
+    return ret;
   }
 };
 
@@ -126,20 +149,72 @@ Frames-on-demand:
  Consider reading multiple frames at once
 */
 
-class Tilestack {
+struct PixelInfo {
+  unsigned int bands_per_pixel;
+  unsigned int bits_per_band;
+  unsigned int pixel_format; // 0=unsigned integer, 1=floating point,
+  int bytes_per_pixel() { return bands_per_pixel * bits_per_band / 8; }
+
+  double get_pixel_ch(const unsigned char *pixel, unsigned ch) const {
+    switch ((bits_per_band << 1) | pixel_format) {
+    case ((8 << 1) | 0):
+      return ((unsigned char *)pixel)[ch];
+    case ((16 << 1) | 0):
+      return ((unsigned short *)pixel)[ch];
+    case ((32 << 1) | 0):
+      return ((unsigned int *)pixel)[ch];
+    case ((32 << 1) | 1):
+      return ((float *)pixel)[ch];
+    case ((64 << 1) | 1):
+      return ((double *)pixel)[ch];
+    default:
+      throw_error("Can't read pixel type %d:%d", bits_per_band, pixel_format);
+    }
+  }
+
+  static double limit(double x, double minval, double maxval) {
+    return max(min(x, maxval), minval);
+  }
+
+  void set_pixel_ch(unsigned char *pixel, unsigned ch, double val) const {
+    switch ((bits_per_band << 1) | pixel_format) {
+    case ((8 << 1) | 0):
+      ((unsigned char *)pixel)[ch] = (unsigned char)round(limit(val, 0x00, 0xff));
+      break;
+    case ((16 << 1) | 0):
+      ((unsigned short *)pixel)[ch] = (unsigned short)round(limit(val, 0x0000, 0xffff));
+      break;
+    case ((32 << 1) | 0):
+      ((unsigned int *)pixel)[ch] = (unsigned int)round(limit(val, 0x00000000, 0xffffffff));
+      break;
+    case ((32 << 1) | 1):
+      ((float *)pixel)[ch] = (float)val;
+      break;
+    case ((64 << 1) | 1):
+      ((double *)pixel)[ch] = val;
+      break;
+    default:
+      throw_error("Can't write pixel type %d:%d", bits_per_band, pixel_format);
+      break;
+    }
+  }
+};
+
+struct TilestackInfo : public PixelInfo {
+  unsigned int nframes;
+  unsigned int tile_width;
+  unsigned int tile_height;
+  unsigned int compression_format;
+  
+};
+
+class Tilestack : public TilestackInfo {
 public:
   struct TOCEntry {
     double timestamp;
     unsigned long long address, length;
   };
   vector<TOCEntry> toc;
-  unsigned int nframes;
-  unsigned int tile_width;
-  unsigned int tile_height;
-  unsigned int bands_per_pixel;
-  unsigned int bits_per_band;
-  unsigned int pixel_format;
-  unsigned int compression_format;
   std::vector<unsigned char*> pixels;
 
 public:
@@ -151,6 +226,9 @@ public:
     assert(frame < nframes);
     if (!pixels[frame]) instantiate_pixels(frame);
     return pixels[frame];
+  }
+  unsigned char *frame_pixel(unsigned frame, unsigned x, unsigned y) {
+    return frame_pixels(frame) + bytes_per_pixel() * (x + y * tile_width);
   }
   virtual void instantiate_pixels(unsigned frame) = 0;
   virtual ~Tilestack() {}
@@ -225,6 +303,7 @@ public:
   }
   
   virtual void instantiate_pixels(unsigned frame) {
+    // TODO: if this runs out of RAM, consider LRU implementation
     assert(!pixels[frame]);
     pixels[frame] = new unsigned char[toc[frame].length];
     reader->read(pixels[frame], toc[frame].address, toc[frame].length);
@@ -342,11 +421,13 @@ void write_html(string dest)
           "<body>\n");
 
   for (unsigned i = 0; i < src->nframes; i++) {
-    string image_filename = string_printf("%s/%04d.png", dir.c_str(), i);
+    string image_filename = string_printf("%04d.png", i);
+    string image_path = dir + "/" + image_filename;
+    string html_image_path = filename_sans_directory(dir) + "/" + image_filename;
     fprintf(stderr, "Writing %s\n", image_filename.c_str());
-    write_png(image_filename.c_str(), src->tile_width, src->tile_height,
+    write_png(image_path.c_str(), src->tile_width, src->tile_height,
               src->bands_per_pixel, src->bits_per_band, src->frame_pixels(i));
-    fprintf(html, "<div><img src=\"%s\"><br>%04d</div>\n", image_filename.c_str(), i);
+    fprintf(html, "<div><img src=\"%s\"><br>%04d</div>\n", html_image_path.c_str(), i);
   }
   fprintf(html,
           "</body>\n"
@@ -361,7 +442,7 @@ void save(string dest)
   ResidentTilestack *src = dynamic_cast<ResidentTilestack*>(tmp.get());
   if (!src) throw_error("Can only save type ResidentTilestack (do an operation after reading before writing)");
 
-  if (create_parent_directories) mkdir_parents(filename_directory(dest));
+  if (create_parent_directories) make_directory_and_parents(filename_directory(dest));
 
   string temp_dest = temporary_path(dest);
 
@@ -420,7 +501,9 @@ public:
   }
 
   static string path_to_ffmpeg() {
-    string colocated = filename_directory(executable_path()) + "/ffmpeg";
+    string colocated = string_printf("%s/ffmpeg/%s/ffmpeg", 
+				     filename_directory(executable_path()).c_str(),
+				     os().c_str());
     if (filename_exists(colocated)) return colocated;
     return "ffmpeg";
   }
@@ -455,9 +538,9 @@ void write_video(string dest, double fps, double compression)
   }
 }
 
-int compute_tile_nlevels(int width, int height, int tilesize) {
+int compute_tile_nlevels(int width, int height, int tile_width, int tile_height) {
   int max_level = 0;
-  while (max(width, height) > (tilesize << max_level)) {
+  while (width > (tile_width << max_level) || height > (tile_height << max_level)) {
     max_level++;
   }
   return max_level + 1;
@@ -475,24 +558,37 @@ void image2tiles(string dest, string format, string src)
   vector<unsigned char> stripe(reader->bytes_per_row() * tilesize);
   vector<unsigned char> tile(reader->bytes_per_pixel() * tilesize * tilesize);
 
-  int max_level = compute_tile_nlevels(reader->width(), reader->height(), tilesize);
+  int max_level = compute_tile_nlevels(reader->width(), reader->height(), tilesize, tilesize);
   string temp_dest = temporary_path(dest);
+  
+  make_directory_and_parents(temp_dest);
+
+  {
+    Json::Value r;
+    r["width"] = reader->width();
+    r["height"] = reader->height();
+    r["tile_width"] = r["tile_height"] = tilesize;
+    string jsonfile = temp_dest + "/r.json";
+    ofstream jsonout(jsonfile.c_str());
+    if (!jsonout.good()) throw_error("Error opening %s for writing", jsonfile.c_str());
+    jsonout << r;
+  }
   
   for (unsigned top = 0; top < reader->height(); top += tilesize) {
     unsigned nrows = min(reader->height() - top, tilesize);
+    fill(stripe.begin(), stripe.end(), 0);
     reader->read_rows(&stripe[0], nrows);
-    memset(&tile[0], tile.size(), 0);
     for (unsigned left = 0; left < reader->width(); left += tilesize) {
       unsigned ncols = min(reader->width() - left, tilesize);
-      for (unsigned y = 0; y < nrows; y++) {
-	memcpy(&tile[y * reader->bytes_per_pixel() * tilesize], 
-	       &stripe[y * reader->bytes_per_row() + left * reader->bytes_per_pixel()],
-	       ncols * reader->bytes_per_pixel());
+      for (unsigned y = 0; y < tilesize; y++) {
+      	memcpy(&tile[y * reader->bytes_per_pixel() * tilesize], 
+      	       &stripe[y * reader->bytes_per_row() + left * reader->bytes_per_pixel()],
+      	       ncols * reader->bytes_per_pixel());
       }
       
       string path = temp_dest + "/" + GPTileIdx(max_level - 1, left/tilesize, top/tilesize).path() + "." + format;
       string directory = filename_directory(path);
-      mkdir_parents(directory);
+      make_directory_and_parents(directory);
       
       ImageWriter::write(path, tilesize, tilesize, reader->bands_per_pixel(), reader->bits_per_band(),
 			 &tile[0]);
@@ -526,6 +622,194 @@ void load_tiles(const vector<string> &srcs)
   tilestackstack.push(dest);
 }
 
+struct Bbox {
+  double x, y;
+  double width, height;
+  Bbox(double x, double y, double width, double height) : x(x), y(y), width(width), height(height) {}
+};
+
+struct Frame {
+  int frameno;
+  Bbox bounds;
+  Frame(int frameno, const Bbox &bounds) : frameno(frameno), bounds(bounds) {}
+};
+	       
+struct Image {
+  PixelInfo pixel_info;
+  int width;
+  int height;
+  unsigned char *pixels;
+  Image(const PixelInfo &pixel_info, int width, int height, unsigned char *pixels) 
+  : pixel_info(pixel_info), width(width), height(height), pixels(pixels) {}
+  unsigned char *pixel(int x, int y) {
+    return pixels + pixel_info.bytes_per_pixel() * (x + y * width);
+  }
+};
+
+class Stackset : public TilestackInfo {
+protected:  
+  string stackset_path;
+  Json::Value info;
+  int width, height;
+  int nlevels;
+  map<GPTileIdx, TilestackReader* > readers;
+  
+public:
+  Stackset(const string &stackset_path) : stackset_path(stackset_path) {
+    string json_path = stackset_path + "/r.json";
+    Json::Reader reader;
+    ifstream json_in(json_path.c_str());
+    if (!json_in.good()) {
+      throw_error("Can't open %s for reading", json_path.c_str());
+    }
+    if (!reader.parse(json_in, info)) {
+      throw_error("Can't parse %s as JSON", json_path.c_str());
+    }
+    width = info["width"].asInt();
+    height = info["height"].asInt();
+    tile_width = info["tile_width"].asInt();
+    tile_height = info["tile_height"].asInt();
+
+    nlevels = compute_tile_nlevels(width, height, tile_width, tile_height);
+    (TilestackInfo&)(*this) = (TilestackInfo&)(*get_reader(GPTileIdx(nlevels-1, 0, 0)));
+  }
+  
+  TilestackReader *get_reader(const GPTileIdx &idx) {
+    if (readers.find(idx) == readers.end()) {
+      // TODO(RS): If this starts running out of RAM, consider LRU on the readers
+      string path = stackset_path + "/" + idx.path() + ".ts2";
+      
+      try {
+	readers[idx] = new TilestackReader(auto_ptr<Reader>(new IfstreamReader(path)));
+      } catch (runtime_error) {
+	readers[idx] = NULL;
+      }
+    }
+    return readers[idx];
+  }
+
+  double interpolate(double val, double in_min, double in_max, double out_min, double out_max) {
+    return (val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+  }
+
+  void get_pixel(unsigned char *dest, int frame, int level, int x, int y) {
+    if (x >= 0 && y >= 0) {
+      int tile_x = x / tile_width;
+      int tile_y = y / tile_height;
+      TilestackReader *reader = get_reader(GPTileIdx(level, tile_x, tile_y));
+      if (reader) {
+	memcpy(dest, reader->frame_pixel(frame, x % tile_width, y % tile_height), bytes_per_pixel());
+	return;
+      }
+    }
+    memset(dest, 0, bytes_per_pixel());
+  }
+
+  // x and y must vary from 0 to 1
+  double bilinearly_interpolate(double a00, double a01, double a10, double a11, double x, double y) {
+    return 
+      a00 * (1-x) * (1-y) + 
+      a01 * (1-x) *   y   +
+      a10 *   x   * (1-y) +
+      a11 *   x   *   y;
+  }
+
+  void interpolate_pixel(unsigned char *dest, int frame, int level, double x, double y) {
+    vector<unsigned char> p00_store(bytes_per_pixel());
+    vector<unsigned char> p01_store(bytes_per_pixel());
+    vector<unsigned char> p10_store(bytes_per_pixel());
+    vector<unsigned char> p11_store(bytes_per_pixel());
+    
+    unsigned char *p00 = &p00_store[0];
+    unsigned char *p01 = &p01_store[0];
+    unsigned char *p10 = &p10_store[0];
+    unsigned char *p11 = &p11_store[0];
+    
+    int x0 = (int)floor(x);
+    int y0 = (int)floor(y);
+    
+    get_pixel(p00, frame, level, x0+0, y0+0);
+    get_pixel(p01, frame, level, x0+0, y0+1);
+    get_pixel(p10, frame, level, x0+1, y0+0);
+    get_pixel(p11, frame, level, x0+1, y0+1);
+    
+    for (unsigned ch = 0; ch < bands_per_pixel; ch++) {
+      set_pixel_ch(dest, ch, bilinearly_interpolate(get_pixel_ch(p00, ch), 
+						    get_pixel_ch(p01, ch), 
+						    get_pixel_ch(p10, ch), 
+						    get_pixel_ch(p11, ch), 
+						    x - x0, y - y0));
+    }
+  }
+  
+  // frame coords:  x and y are the center of the upper-left pixel
+  void render_image(Image &dest, const Frame &frame) {
+    // scale between original pixels and desination frame.  If less than one, we subsample (sharp), or greater than
+    // one means supersample (blurry)
+    fprintf(stderr, "dest.width = %d, frame.bounds.width = %g\n", dest.width, frame.bounds.width);
+    double scale = dest.width / frame.bounds.width;
+    double cutoff = 0.999;
+    double subsample_nlevels = log(cutoff / scale)/log(2.0);
+    double source_level_d = (nlevels - 1) - subsample_nlevels;
+    int source_level = max((int)ceil(source_level_d), nlevels - 1);
+    if (source_level != nlevels-1) TODO("need to subsample frame here");
+    fprintf(stderr, "source_level_d = %g, source_level = %d\n", source_level_d, source_level);
+    for (int y = 0; y < dest.height; y++) {
+      double source_y = interpolate(y, 0, dest.height-1, frame.bounds.y, frame.bounds.y+frame.bounds.height-1);
+      for (int x = 0; x < dest.width; x++) {
+	double source_x = interpolate(x, 0, dest.width-1, frame.bounds.x, frame.bounds.x+frame.bounds.width-1);
+	interpolate_pixel(dest.pixel(x,y), frame.frameno, source_level, source_x, source_y);
+      }
+    }
+  }
+  
+  ~Stackset() {
+    for (map<GPTileIdx, TilestackReader*>::iterator i = readers.begin(); i != readers.end(); ++i) {
+      if (i->second) delete i->second;
+      i->second = NULL;
+    }
+  }
+};
+
+void parse_path(vector<Frame> &frames, Json::Value path) {
+  // Iterate through an array of frames.  If we don't receive an array, assume we have a single frame path
+  int len = path.isArray() ? path.size() : 1;
+  for (int i = 0; i < len; i++) {
+    Json::Value frame_desc = path.isArray() ? path[i] : path;
+    if (!frame_desc.isObject()) {
+      throw_error("Syntax error translating frame %d (not a JSON object)", i);
+    }
+    Bbox bounds(frame_desc["bounds"]["xmin"].asDouble(),
+		frame_desc["bounds"]["ymin"].asDouble(),
+		frame_desc["bounds"]["width"].asDouble(),
+		frame_desc["bounds"]["height"].asDouble());
+    if (!frame_desc["frames"].isNull()) {
+      int step = frame_desc["frames"]["step"].isNull() ? 1 : frame_desc["frames"]["step"].asInt();
+      for (int j = frame_desc["frames"]["start"].asInt(); true; j += step) {
+	frames.push_back(Frame(j, bounds));
+	if (j == frame_desc["frames"]["end"].asInt()) break;
+      }
+    } else {
+      throw_error("Don't yet know how to parse a path segment without a 'frames' field, sorry");
+    }
+  }
+}
+
+void path2stack(int stack_width, int stack_height, Json::Value path, const string &stackset_path) {
+  Stackset stackset(stackset_path);
+  vector<Frame> frames;
+  parse_path(frames, path);
+  fprintf(stderr, "got %zd frames\n", frames.size());
+  auto_ptr<Tilestack> out(new ResidentTilestack(frames.size(), stack_width, stack_height, 
+						stackset.bands_per_pixel, stackset.bits_per_band,
+						stackset.pixel_format, 0));
+  for (unsigned i = 0; i < frames.size(); i++) {
+    Image image(stackset, stack_width, stack_height, out->frame_pixels(i));
+    stackset.render_image(image, frames[i]);
+  }
+  tilestackstack.push(out);
+}
+
 void usage(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
@@ -544,6 +828,10 @@ void usage(const char *fmt, ...) {
 	  "--tilesize N\n"
 	  "--loadtiles src_image0 src_image1 ... src_imageN\n"
 	  "--delete-source-tiles\n"
+	  "--path2stack width height [frame1, ... frameN] stackset\n"
+	  "        Frame format {\"frameno\":N, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
+	  "        Multiframe with single bounds. from and to are both inclusive.  step defaults to 1:\n"
+          "          {\"frames\":{\"from\":N, \"to\":N, \"step\":N], \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
 	  );
   exit(1);
 }
@@ -608,6 +896,16 @@ int main(int argc, char **argv)
       }
       else if (arg == "--create-parent-directories") {
 	create_parent_directories = true;
+      }
+      else if (arg == "--path2stack") {
+	int stack_width = args.shift_int();
+	int stack_height = args.shift_int();
+	Json::Value path = args.shift_json();
+	string stackset = args.shift();
+	if (stack_width <= 0 || stack_height <= 0) {
+	  usage("--path2stack: width and height must be positive numbers");
+	}
+	path2stack(stack_width, stack_height, path, stackset);
       }
       else usage("Unknown argument %s", arg.c_str());
     }

@@ -49,7 +49,7 @@ void JpegReader::read_rows(unsigned char *pixels, unsigned int nrows) const {
 
 void JpegReader::close() {
   if (in) {
-    jpeg_finish_decompress(&cinfo);
+    jpeg_abort_decompress(&cinfo); // abort rather than finish because we might not have read all lines
     jpeg_destroy_decompress(&cinfo);
     fclose(in);
     in = NULL;

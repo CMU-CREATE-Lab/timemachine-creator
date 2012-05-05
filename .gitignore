@@ -1,4 +1,7 @@
 tilestacktool
-ffmpeg
 test-patp-out
 *~
+patp/out
+*.dSYM
+\#*
+.\#*
