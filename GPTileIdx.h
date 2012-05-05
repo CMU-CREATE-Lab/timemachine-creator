@@ -9,16 +9,8 @@ public:
   GPTileIdx(int level, int x, int y);
   std::string basename() const;
   std::string path() const;
-  bool operator<(const GPTileIdx &rhs) const {
-    if (level < rhs.level) return true;
-    if (level == rhs.level) {
-      if (y < rhs.y) return true;
-      if (y == rhs.y) {
-	if (x < rhs.x) return true;
-      }
-    }
-    return false;
-  }
+  bool operator<(const GPTileIdx &rhs) const;
+  std::string to_string() const;
 };
 
 #endif

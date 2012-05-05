@@ -149,6 +149,11 @@ Frames-on-demand:
  Consider reading multiple frames at once
 */
 
+template <class T>
+T limit(T x, T minval, T maxval) {
+  return max(min(x, maxval), minval);
+}
+
 struct PixelInfo {
   unsigned int bands_per_pixel;
   unsigned int bits_per_band;
@@ -172,20 +177,16 @@ struct PixelInfo {
     }
   }
 
-  static double limit(double x, double minval, double maxval) {
-    return max(min(x, maxval), minval);
-  }
-
   void set_pixel_ch(unsigned char *pixel, unsigned ch, double val) const {
     switch ((bits_per_band << 1) | pixel_format) {
     case ((8 << 1) | 0):
-      ((unsigned char *)pixel)[ch] = (unsigned char)round(limit(val, 0x00, 0xff));
+      ((unsigned char *)pixel)[ch] = (unsigned char)round(limit(val, (double)0x00, (double)0xff));
       break;
     case ((16 << 1) | 0):
-      ((unsigned short *)pixel)[ch] = (unsigned short)round(limit(val, 0x0000, 0xffff));
+      ((unsigned short *)pixel)[ch] = (unsigned short)round(limit(val, (double)0x0000, (double)0xffff));
       break;
     case ((32 << 1) | 0):
-      ((unsigned int *)pixel)[ch] = (unsigned int)round(limit(val, 0x00000000, 0xffffffff));
+      ((unsigned int *)pixel)[ch] = (unsigned int)round(limit(val, (double)0x00000000, (double)0xffffffff));
       break;
     case ((32 << 1) | 1):
       ((float *)pixel)[ch] = (float)val;
@@ -460,12 +461,13 @@ void save(string dest)
 class FfmpegEncoder {
   int width, height;
   FILE *out;
+  size_t total_written;
 public:
   FfmpegEncoder(string dest_filename, int width, int height,
                 double fps, double compression) :
-    width(width), height(height) {
+    width(width), height(height), total_written(0) {
     int nthreads = 8;
-    string cmdline = string_printf("%s -threads %d", path_to_ffmpeg().c_str(), nthreads);
+    string cmdline = string_printf("%s -threads %d -loglevel error", path_to_ffmpeg().c_str(), nthreads);
     // Input
     cmdline += string_printf(" -s %dx%d -vcodec rawvideo -f rawvideo -pix_fmt rgb24 -r %g -i pipe:0",
                              width, height, fps);
@@ -489,15 +491,17 @@ public:
   }
 
   void write_pixels(unsigned char *pixels, size_t len) {
-    fprintf(stderr, "Writing %zd bytes to ffmpeg\n", len);
+    //fprintf(stderr, "Writing %zd bytes to ffmpeg\n", len);
     if (1 != fwrite(pixels, len, 1, out)) {
       throw_error("Error writing to ffmpeg");
     }
+    total_written += len;
   }
   
   void close() {
     if (out) pclose(out);
     out = NULL;
+    fprintf(stderr, "Wrote %zd frames (%zd bytes) to ffmpeg\n", total_written / (width * height * 3), total_written);
   }
 
   static string path_to_ffmpeg() {
@@ -626,6 +630,13 @@ struct Bbox {
   double x, y;
   double width, height;
   Bbox(double x, double y, double width, double height) : x(x), y(y), width(width), height(height) {}
+  Bbox &operator*=(double scale) { 
+    x *= scale; 
+    y *= scale;
+    width *= scale;
+    height *= scale;
+    return *this;
+  }
 };
 
 struct Frame {
@@ -696,10 +707,14 @@ public:
     if (x >= 0 && y >= 0) {
       int tile_x = x / tile_width;
       int tile_y = y / tile_height;
-      TilestackReader *reader = get_reader(GPTileIdx(level, tile_x, tile_y));
-      if (reader) {
-	memcpy(dest, reader->frame_pixel(frame, x % tile_width, y % tile_height), bytes_per_pixel());
-	return;
+      try {
+	TilestackReader *reader = get_reader(GPTileIdx(level, tile_x, tile_y));
+	if (reader) {
+	  memcpy(dest, reader->frame_pixel(frame, x % tile_width, y % tile_height), bytes_per_pixel());
+	  return;
+	}
+      } catch (runtime_error) {
+	// tile_x or tile_y are outside bounds;  return black pixel
       }
     }
     memset(dest, 0, bytes_per_pixel());
@@ -746,18 +761,21 @@ public:
   void render_image(Image &dest, const Frame &frame) {
     // scale between original pixels and desination frame.  If less than one, we subsample (sharp), or greater than
     // one means supersample (blurry)
-    fprintf(stderr, "dest.width = %d, frame.bounds.width = %g\n", dest.width, frame.bounds.width);
     double scale = dest.width / frame.bounds.width;
     double cutoff = 0.999;
     double subsample_nlevels = log(cutoff / scale)/log(2.0);
     double source_level_d = (nlevels - 1) - subsample_nlevels;
-    int source_level = max((int)ceil(source_level_d), nlevels - 1);
-    if (source_level != nlevels-1) TODO("need to subsample frame here");
-    fprintf(stderr, "source_level_d = %g, source_level = %d\n", source_level_d, source_level);
+    int source_level = limit((int)ceil(source_level_d), 0, (int)(nlevels - 1));
+    //fprintf(stderr, "dest.width = %d, frame.bounds.width = %g\n", dest.width, frame.bounds.width);
+    //fprintf(stderr, "nlevels = %d, source_level_d = %g, source_level = %d\n", nlevels, source_level_d, source_level);
+    Bbox bounds = frame.bounds;
+    if (source_level != nlevels-1) {
+      bounds *= (1.0 / (1 << (nlevels-1-source_level)));
+    }
     for (int y = 0; y < dest.height; y++) {
-      double source_y = interpolate(y, 0, dest.height-1, frame.bounds.y, frame.bounds.y+frame.bounds.height-1);
+      double source_y = interpolate(y, 0, dest.height-1, bounds.y, bounds.y+bounds.height-1);
       for (int x = 0; x < dest.width; x++) {
-	double source_x = interpolate(x, 0, dest.width-1, frame.bounds.x, frame.bounds.x+frame.bounds.width-1);
+	double source_x = interpolate(x, 0, dest.width-1, bounds.x, bounds.x+bounds.width-1);
 	interpolate_pixel(dest.pixel(x,y), frame.frameno, source_level, source_x, source_y);
       }
     }

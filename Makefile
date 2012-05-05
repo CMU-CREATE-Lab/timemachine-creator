@@ -11,7 +11,7 @@ test-patp: tilestacktool
 	./tilestacktool --loadtiles patp/out/patp{0,1,2,3}.data/tiles/r3.kro --create-parent-directories --save patp/out/transpose/r3.ts2
 	cp patp/out/patp0.data/tiles/r.json patp/out/transpose/r.json
 	./tilestacktool --path2stack 256 256 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":0, "ymin":0, "width":512, "height":512}}' patp/out/transpose --save patp/out/transpose/r.ts2
-	./tilestacktool --path2stack 80 60 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":100, "ymin":200, "width":400, "height":300}}' patp/out/transpose --writevideo patp/out/testvid.mp4 1 24
+	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' patp/out/transpose --writevideo patp/out/testvid.mp4 1 24
 
 debug-patp: test-patp
 	./tilestacktool --load patp/out/transpose/r0.ts2 --writehtml patp/out/transpose/r0.html
