@@ -346,8 +346,8 @@ void Unicode::init_from_utf8() {
 }
 const wchar_t *Unicode::path() { return utf16(); }
 #else
+void Unicode::init_from_utf8() {}
 const char *Unicode::path() { return utf8(); }
-void init_from_utf8() {}
 #endif
 
 #if defined(__APPLE__)
