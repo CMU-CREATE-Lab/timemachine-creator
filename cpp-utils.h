@@ -25,6 +25,7 @@ std::string hostname();
 void throw_error(const char *fmt, ...) __attribute__((format(printf,1,2))) __attribute__((noreturn));
 std::string executable_path();
 std::string application_user_state_directory(const std::string &application_name);
+std::string os();
 
 class Unicode {
   std::string utf8;

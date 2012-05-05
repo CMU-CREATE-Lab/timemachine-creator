@@ -276,4 +276,16 @@ const wchar_t *Unicode::path() { assert(0); }
 const char *Unicode::path() { return utf8.c_str(); }
 #endif
 
+#if defined(__APPLE__)
+string os() { return "osx"; }
+#elif defined(_WIN32)
+string os() { return "windows"; }
+#else
+string os() { return "linux"; }
+#endif
+
+
+
+
+
 
