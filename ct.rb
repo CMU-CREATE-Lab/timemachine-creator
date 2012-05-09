@@ -38,8 +38,14 @@ end
 
 def usage(msg=nil)
   msg and STDERR.puts msg
-  STDERR.puts "usage: ct.rb [settings.json]"
-  STDERR.puts "reads settings (default is settings.json) and builds Makefile"
+  STDERR.puts "usage: ct.rb [foo.timemachinedefinition]"
+  STDERR.puts "ct.rb [-j N] [-r N] [-v] [-l]"
+  STDERR.puts "-j N:  number of parallel jobs to run (default ${njobs})"
+  STDERR.puts "-r N:  max number of rules per job (default ${rules_per_job})"
+  STDERR.puts "-l:    only run jobs locally (implies -j 1 -r 1)"
+  STDERR.puts "-v:    verbose"
+  STDERR.puts "--tilestacktool path: full path of tilestacktool"
+  exit 1
 end
 
 def without_extension(filename)
@@ -149,7 +155,7 @@ class VideosetCompiler
   end
 
   def initialize_id
-    tokens = [@parent.versioned_id, "crf#{@quality}", "#{@fps.round}fps"]
+    tokens = ["crf#{@quality}", "#{@fps.round}fps"]
     @leader && tokens << "l#{@leader}"
     tokens << "#{@vid_width}x#{@vid_height}"
     @id = tokens.join('-')
@@ -281,6 +287,7 @@ class ImagesSource
     @raw_width = settings["width"]
     @raw_height = settings["height"]
     @subsample = settings["subsample"] || 1
+    @images = settings["images"]
     @capture_time_parser = settings["capture_time_parser"] || "/home/rsargent/bin/extract_exif_capturetimes.rb"
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "0100-unstitched/"    
     initialize_images
@@ -299,10 +306,12 @@ class ImagesSource
   end
 
   def initialize_images
-    @images = (Dir.glob("#{@image_dir}/*.*")+Dir.glob("#{@image_dir}/*/*.*")).sort.select do |image|
-      @@valid_image_extensions.include? File.extname(image).downcase
+    if not @images
+      @images = (Dir.glob("#{@image_dir}/*.*")+Dir.glob("#{@image_dir}/*/*.*")).sort.select do |image|
+        @@valid_image_extensions.include? File.extname(image).downcase
+      end
+      @images.empty? && usage("No images specified, and none found in #{@image_dir}")
     end
-    @images.empty? && usage("No images found in #{@image_dir}")
     @raw = (File.extname(@images[0]).downcase == ".raw")
     initialize_size
   end
@@ -321,21 +330,27 @@ class ImagesSource
     @height /= @subsample
   end
   
-  def framename(image_filename)
-    # image_filename is prefixed with @image_dir;  remove this, translate / to @, and remove file extension
-    without_extension(image_filename[@image_dir.size+1..-1].gsub("/","@"))
-  end
+#  def framename(image_filename)
+#    # TODO: kill this!
+#    # image_filename is prefixed with @image_dir;  remove this, translate / to @, and remove file extension
+#    without_extension(image_filename[@image_dir.size+1..-1].gsub("/","@"))
+#  end
   
   def initialize_framenames
-    @framenames = @images.map {|filename| framename(filename)}
+    frames = @images.map {|filename| File.expand_path(without_extension(filename)).split('/')}
+    # Remove common prefixes
+    while frames[0].length > 1 && frames.map {|x|x[0]}.uniq.length == 1
+      frames = frames.map {|x| x[1..-1]}
+    end
+    @framenames = frames.map {|frame| frame.join('@')}
+    @image_framenames = {}
+    @framenames.size.times {|i| @image_framenames[@images[i]] = @framenames[i]}
   end
   
   def image_to_tiles_rule(image)
-    fn = framename(image)
+    fn = @image_framenames[image]
     target = "#{@parent.tiles_dir}/#{fn}.data/tiles"
     cmd = [$tilestacktool, '--tilesize', @tilesize, '--image2tiles', target, @tileformat, image]
-    # TODO: pass image dims for raw input
-    # @raw and cmd += [@width, @height]
     Rule.new([target], [image],
              [cmd.join(' ')])
   end
@@ -590,7 +605,8 @@ class StitchSource
 end
 
 class Compiler
-  attr_reader :id, :versioned_id, :source, :tiles_dir, :transpose_dir, :videosets_dir, :urls
+  attr_reader :source, :tiles_dir, :transpose_dir, :videosets_dir, :urls
+  # attr_reader :id, :versioned_id
   
   def to_s
     "#<Compiler name=#{name} width=#{@width} height=#{@height}>"
@@ -598,16 +614,14 @@ class Compiler
   
   def initialize(settings)
     @urls = settings["urls"] || {}
-    @id = settings["id"] || raise("Time Machine must have unique ID")
-    @version = settings["version"] || raise("Time Machine must have version")
-    @versioned_id = "#{@id}-v#{@version}"
-    @label = settings["label"] || raise("Time Machine must have label")
-    STDERR.puts "Timemachine #{@id} (#{@label})"
+    # @id = settings["id"] || raise("Time Machine must have unique ID")
+    # @version = settings["version"] || raise("Time Machine must have version")
+    # @versioned_id = "#{@id}-v#{@version}"
+    # @label = settings["label"] || raise("Time Machine must have label")
+    # STDERR.puts "Timemachine #{@id} (#{@label})"
 
     @tiles_dir="0200-tiles"
     @transpose_dir="0300-transpose"
-    @videosets_parent_dir="0400-videosets"
-    @videosets_dir="#{@videosets_parent_dir}/#{@versioned_id}"
 
     source_info = settings["source"] || raise("Time Machine must have source")
     initialize_source(source_info)
@@ -643,18 +657,24 @@ class Compiler
   end
 
   def initialize_destination(destination_info)
-    if File.exists? @videosets_parent_dir
-      return
-    end
-    case destination_info["type"]
-    when "local"
-      Dir.mkdir @videosets_parent_dir
-    when "symlink"
-      target = destination_info["target"] or raise("Must specify 'target' for 'symlink' in 'destination'")
-      File.exists? target or raise("'target' path #{target} does not exist")
-      File.symlink(target, @videosets_parent_dir)
+    if destination_info.class == String
+      @videosets_dir = destination_info
     else
-      raise "Destination type not recognized"
+      @videosets_parent_dir="0400-videosets"
+      @videosets_dir="#{@videosets_parent_dir}/#{@versioned_id}"
+      if File.exists? @videosets_parent_dir
+        return
+      end
+      case destination_info["type"]
+      when "local"
+        Dir.mkdir @videosets_parent_dir
+      when "symlink"
+        target = destination_info["target"] or raise("Must specify 'target' for 'symlink' in 'destination'")
+        File.exists? target or raise("'target' path #{target} does not exist")
+        File.symlink(target, @videosets_parent_dir)
+      else
+        raise "Destination type not recognized"
+      end
     end
   end
 
@@ -805,12 +825,10 @@ def write_makefile
     end
     
   end
-  STDERR.puts "Wrote rules.txt"
   
   open("monitorfiles.txt","w") do |fh|
     fh.puts all_targets.join(" ")
   end
-  STDERR.puts "Wrote monitorfiles.txt"
 end
 
 class Maker
@@ -905,24 +923,20 @@ class Maker
       command = "submit_synchronous '#{command}'"
     end
     
-    if $verbose
-      STDERR.write "Executing #{command}\n"
-    else
-      STDERR.write "Executing #{command[0...50]}\n"
-    end
+    STDERR.puts "#{date} Job #{job_no} executing #{command}"
     
     # Retry up to 3 times if we fail
     while (!(result = system(command)) && counter < 4) do
-    	STDERR.puts "#{date} *** NONZERO EXIT CODE DETECTED, RETRYING: ATTEMPT #{counter}"
-    	counter += 1
+      STDERR.puts "#{date} Job #{job_no} failed, retrying, attempt #{counter}"
+      counter += 1
     end
     
     if !result
-      STDERR.write "#{date} *** NONZERO EXIT CODE; ABORTING\n"
+      STDERR.puts "#{date} Job #{job_no} failed too many times; aborting"
       @aborting = true
       response.push([job_no, [], Thread.current])
     else
-      STDERR.write "#{date} JOB #{job_no} ZERO EXIT CODE\n"
+      STDERR.puts "#{date} Job #{job_no} completed successfully"
       response.push([job_no, rules, Thread.current])
     end
   end
@@ -982,7 +996,7 @@ class Maker
               @status[rule] == :ready or raise("assert")
               @status[rule]=:executing
             end
-            STDERR.write "#{date}: Job #{job_no}: Executing #{to_run.size} rules #{to_run[0]}...\n"
+            STDERR.puts "#{date} Job #{job_no} executing #{to_run.size} rules #{to_run[0]}..."
             Thread.new { execute_rules(job_no, to_run, response) }
             jobs_executing += 1
             rules_executing += to_run.size
@@ -999,7 +1013,6 @@ class Maker
       end
       print_status(rules_executing, jobs_executing)
       (job_no, rules, thread) = response.pop
-      STDERR.write "#{date}: Job #{job_no}: Completed #{rules.size} rules\n"
       thread.join
       jobs_executing -= 1
       rules_executing -= rules.size
@@ -1019,7 +1032,7 @@ class Maker
     rules && jobs && status << "#{rules} rules executing (in #{jobs} jobs)"
     status << "#{@ready.size} rules ready to execute"
     status << "#{@rules.size-@@ndone-@ready.size-rules} rules awaiting dependencies"
-    STDERR.write "#{date}: #{status.join(". ")}\n"
+    STDERR.write "#{date} Rules #{status.join(". ")}\n"
   end
 
 end
@@ -1029,18 +1042,8 @@ rules_per_job = 10
 local = false
 retry_attempts = 0
 
-def usage
-  STDERR.puts "Usage:"
-  STDERR.puts "ct.rb [-j N] [-r N] [-v] [-l]"
-  STDERR.puts "-j N:  number of parallel jobs to run (default ${njobs})"
-  STDERR.puts "-r N:  max number of rules per job (default ${rules_per_job})"
-  STDERR.puts "-l:    only run jobs locally (implies -j 1 -r 1)"
-  STDERR.puts "-v:    verbose"
-  STDERR.puts "--tilestacktool path: full path of tilestacktool"
-  exit 1
-end
-
 $tilestacktool = "tilestacktool"
+jsonfile = ""
 
 while !ARGV.empty?
   arg = ARGV.shift
@@ -1056,7 +1059,13 @@ while !ARGV.empty?
     rules_per_job = 1
   elsif arg == '--tilestacktool'
     $tilestacktool = ARGV.shift
+  elsif File.extname(arg) == '.timemachinedefinition'
+    if File.directory?(arg)
+      arg = "#{arg}/definition.timemachinedefinition"
+    end
+    jsonfile = arg
   else
+    STDERR.puts "Unknown arg #{arg}"
     usage
   end
 end
@@ -1065,7 +1074,10 @@ if `uname`.chomp == 'Darwin'
   local = true
 end
 
-jsonfile = "default.json"
+jsonfile ||= File.exists?('definition.timemachinedefinition') && 'definition.timemachinedefinition'
+jsonfile ||= 'default.json'
+
+Dir.chdir(File.dirname(jsonfile))
 
 while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
   compiler = Compiler.new(open(jsonfile) {|fh| JSON.load(fh)})
