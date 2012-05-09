@@ -14,7 +14,11 @@ void WebViewExt::dropEvent(QDropEvent *de) {
     //fwrite(data.constData(), data.length(), 1, stderr);
     QStringList uris = QUrl::fromPercentEncoding(data).split("\r\n", QString::SkipEmptyParts);
     for (int i = 0; i < uris.length(); i++) {
-      uris[i] = uris[i].remove("file://");
+			#ifdef _WIN32
+				uris[i] = uris[i].remove("file:///");
+			#else
+				uris[i] = uris[i].remove("file://");
+			#endif
     }
     api->dropPaths(uris);
   }

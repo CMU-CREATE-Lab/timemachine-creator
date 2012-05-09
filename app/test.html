@@ -60,6 +60,7 @@ function dropHandler(evt) {
   evt.stopPropagation();
   evt.preventDefault();
   var droppedFiles = window.api.droppedFilesRecursive();
+	window.api.readThumbnail(droppedFiles[0]).assignToHTMLImageElement(document.getElementById('thumbnail'));
   $('#dropped').text(droppedFiles.join('\n'));
 }
 var dropbox = document.getElementById("dropbox");

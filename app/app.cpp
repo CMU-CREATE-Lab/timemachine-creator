@@ -1,3 +1,7 @@
+#ifdef _WIN32
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include <QApplication>
 //#include <QWebView>
 #include <QWebSettings>
@@ -13,17 +17,28 @@
 
 #include "api.h"
 
+#ifdef _WIN32
+#include <io.h>
+#include <Windows.h>
+#endif
+
 int main(int argc, char *argv[])
 {
+	#ifdef _WIN32
+		AllocConsole();
+		freopen("CONOUT$", "w", stderr);
+		freopen("CONOUT$", "w", stdout);
+	#endif
+
   QApplication a(argc, argv);
 
   QWebSettings::globalSettings()->setAttribute(QWebSettings::DeveloperExtrasEnabled, true);
   QWebSettings::globalSettings()->setAttribute(QWebSettings::LocalStorageEnabled, true);
-  
+
   std::string local_storage_path = application_user_state_directory("Time Machine Creator") + "/localstorage.bin";
 
   make_directory(filename_directory(local_storage_path));
-  
+
   QWebSettings::globalSettings()->setLocalStoragePath(local_storage_path.c_str());
   //QWebView view;
   API api;
@@ -39,10 +54,15 @@ int main(int argc, char *argv[])
   // Signal is emitted before frame loads any web content:
   QObject::connect(view.page()->mainFrame(), SIGNAL(javaScriptWindowObjectCleared()),
 		   &api, SLOT(addJSObject()));
-  
 
   QString path = QFileInfo("test.html").absoluteFilePath();
-  view.load(QUrl("file://" + path));
+
+	#ifdef _WIN32
+		view.load(QUrl("file:///" + path));
+	#else
+		view.load(QUrl("file://" + path));
+	#endif
+
   view.show();
 
   return a.exec();
