@@ -1,7 +1,7 @@
 tilestacktool
 test-patp-out
 *~
-patp/out
 *.dSYM
 \#*
 .\#*
+testresults
