@@ -1,6 +1,5 @@
 #!/usr/bin/env ruby
 
-
 # You need Ruby 1.9.x to run this script
 # On mac:
 # curl -L get.rvm.io | bash -s stable
@@ -13,6 +12,13 @@
 # You need the xml-simple gem to run this script
 # [sudo] gem install xml-simple
 
+if RUBY_VERSION < "1.9"
+  # Try to run with ruby19
+  STDERR.puts __FILE__
+  STDERR.puts ENV['PATH']
+  exec("ruby19", __FILE__, *ARGV)
+end
+  
 require 'json'
 require 'set'
 require 'thread'
@@ -923,20 +929,20 @@ class Maker
       command = "submit_synchronous '#{command}'"
     end
     
-    STDERR.puts "#{date} Job #{job_no} executing #{command}"
+    STDERR.write "#{date} Job #{job_no} executing #{command}\n"
     
     # Retry up to 3 times if we fail
     while (!(result = system(command)) && counter < 4) do
-      STDERR.puts "#{date} Job #{job_no} failed, retrying, attempt #{counter}"
+      STDERR.write "#{date} Job #{job_no} failed, retrying, attempt #{counter}\n"
       counter += 1
     end
     
     if !result
-      STDERR.puts "#{date} Job #{job_no} failed too many times; aborting"
+      STDERR.write "#{date} Job #{job_no} failed too many times; aborting\n"
       @aborting = true
       response.push([job_no, [], Thread.current])
     else
-      STDERR.puts "#{date} Job #{job_no} completed successfully"
+      STDERR.write "#{date} Job #{job_no} completed successfully\n"
       response.push([job_no, rules, Thread.current])
     end
   end
@@ -971,13 +977,13 @@ class Maker
     while @@ndone < @rules.size
     	# Restart the process if we are stitching from source and we have not gotten dimensions from the first gigapan
       if @@global_parent.source.class.to_s == "StitchSource" && @@ndone > 0 && @@global_parent.source.width == 1 && @@global_parent.source.height == 1
-        STDERR.puts "Initial .gigapan file created. We now have enough info to get the dimensions."
-        STDERR.puts "Removing old make and monitor file..."
+        STDERR.write "Initial .gigapan file created. We now have enough info to get the dimensions.\n"
+        STDERR.write "Removing old make and monitor file...\n"
         system("rm Makefile monitorfiles.txt")
-        STDERR.puts "Clearing all old rules...."
+        STDERR.write "Clearing all old rules...\n"
         Rule.clear_all
         Maker.reset_ndone
-        STDERR.puts "Restarting process with new dimensions...."
+        STDERR.write "Restarting process with new dimensions...\n"
         return
       end
       # Send jobs
@@ -996,7 +1002,7 @@ class Maker
               @status[rule] == :ready or raise("assert")
               @status[rule]=:executing
             end
-            STDERR.puts "#{date} Job #{job_no} executing #{to_run.size} rules #{to_run[0]}..."
+            STDERR.write "#{date} Job #{job_no} executing #{to_run.size} rules #{to_run[0]}...\n"
             Thread.new { execute_rules(job_no, to_run, response) }
             jobs_executing += 1
             rules_executing += to_run.size
@@ -1058,7 +1064,7 @@ while !ARGV.empty?
     njobs = 1
     rules_per_job = 1
   elsif arg == '--tilestacktool'
-    $tilestacktool = ARGV.shift
+    $tilestacktool = File.expand_path ARGV.shift
   elsif File.extname(arg) == '.timemachinedefinition'
     if File.directory?(arg)
       arg = "#{arg}/definition.timemachinedefinition"
@@ -1078,6 +1084,7 @@ jsonfile ||= File.exists?('definition.timemachinedefinition') && 'definition.tim
 jsonfile ||= 'default.json'
 
 Dir.chdir(File.dirname(jsonfile))
+jsonfile = File.basename(jsonfile)
 
 while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
   compiler = Compiler.new(open(jsonfile) {|fh| JSON.load(fh)})
