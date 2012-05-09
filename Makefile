@@ -1,3 +1,5 @@
+build: tilestacktool
+
 test: test-patp4s
 
 test-patp4s: tilestacktool
@@ -33,4 +35,3 @@ tilestacktool: tilestacktool.cpp cpp-utils/cpp-utils.cpp png_util.cpp ImageReade
 
 clean:
 	rm -rf *.o testresults
-
