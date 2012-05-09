@@ -3,7 +3,13 @@
 	url = ssh://git@create.repositoryhosting.com/create/patp10.git
 [submodule "cpp-utils"]
 	path = cpp-utils
-	url = git@github.com:rsargent/cpp-utils.git
+	url = https://rsargent@github.com/rsargent/cpp-utils.git
 [submodule "pitt10x1"]
 	path = pitt10x1
 	url = ssh://git@create.repositoryhosting.com/create/pitt10x1.git
+[submodule "ct"]
+	path = ct
+	url = ssh://git@create.repositoryhosting.com/create/ct.git
+[submodule "tilestacktool"]
+	path = tilestacktool
+	url = ssh://git@create.repositoryhosting.com/create/tilestacktool.git

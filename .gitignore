@@ -4,3 +4,5 @@
 moc_*.cpp
 moc_*.h
 .DS_Store
+junkyard
+*.dSYM
