@@ -1,0 +1,3 @@
+[submodule "tilestacktool"]
+	path = tilestacktool
+	url = ssh://git@create.repositoryhosting.com/create/tilestacktool.git
