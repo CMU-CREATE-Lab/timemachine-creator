@@ -10,6 +10,3 @@
 [submodule "ct"]
 	path = ct
 	url = ssh://git@create.repositoryhosting.com/create/ct.git
-[submodule "tilestacktool"]
-	path = tilestacktool
-	url = ssh://git@create.repositoryhosting.com/create/tilestacktool.git
