@@ -26,6 +26,7 @@ require 'open-uri'
 require File.dirname(__FILE__) + '/image_size'
 require File.dirname(__FILE__) + '/tile'
 require File.dirname(__FILE__) + '/xmlsimple'
+require 'fileutils'
 
 $verbose = false
 @@global_parent = nil
@@ -76,6 +77,10 @@ class VideoTile
   def to_s
     "#<VideoTile path='#{path}' r=#{@r} c=#{@c} level=#{@level} x=#{@x} y=#{@y} subsample=#{@subsample}>"
   end
+
+  def source_bounds(vid_width, vid_height)
+    {'xmin' => @x, 'ymin' => @y, 'width' => vid_width * @subsample, 'height' => vid_height * @subsample}
+  end
 end
 
 class Rule
@@ -83,14 +88,21 @@ class Rule
   @@all = []
   
   def self.clear_all
-		@@all = []
+    @@all = []
   end
   
   def self.all
     @@all
   end
   
+  def array_of_strings?(a)
+    a.class == Array && a.map{|e| e.class == String}.reduce{|a,b| a && b}
+  end
+
   def initialize(targets, dependencies, commands, options={})
+    array_of_strings?(targets) or raise "targets must be an array of pathnames"
+    array_of_strings?(dependencies) or raise "dependencies must be an array of pathnames"
+    array_of_strings?(commands) or raise "commands must be an array of strings"
     @targets = targets
     @dependencies = dependencies
     @commands = commands
@@ -209,49 +221,74 @@ class VideosetCompiler
     end
   end
   
+
+
+#	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/patp4s/transpose --writevideo testresults/patp4s/testvid.mp4 1 24
+
   def rules(dependencies)
     STDERR.puts "#{id}: #{@videotiles.size} videos"
     @videotiles.map do |vt|
-      cmd = ["make-video.py"]
-      @show_frameno && cmd << "--label"
+      target = "#{@parent.videosets_dir}/#{id}/#{vt.path}.mp4"
+      cmd = [$tilestacktool]
+      cmd << "--create-parent-directories"
+   
+      cmd << '--path2stack'
+      cmd += [@vid_width, @vid_height]
+      frames = {'frames' => {'start' => 0, 'end' => @parent.source.framenames.size - 1}, 
+                'bounds' => vt.source_bounds(@vid_width, @vid_height)};
+      cmd << "'#{JSON.generate(frames)}'"
       cmd << @parent.transpose_dir
-      cmd += [@parent.source.width, @parent.source.height, 0]                             # gigapan dimensions
-      cmd += [0, @parent.source.framenames.size-1]                                         # frames to render
-      cmd += [vt.x, vt.y, @vid_width*vt.subsample, @vid_height*vt.subsample] # crop
-      cmd += [@vid_width, @vid_height]                                      # output size
-      target = "#{@parent.videosets_dir}/#{id}/#{vt.path}"
-      cmd += ["--tilesize", @parent.source.tilesize]
-      @leader && cmd += ["--leader", @leader]
-      case @videotype
-      when "h.264"
-        target += ".mp4"
-        cmd += ["--qtfaststart",
-                "--ffmpeg",
-                # Input settings
-                "-s", "#{@vid_width}x#{@vid_height}",
-                "-vcodec", "rawvideo",
-                "-f", "rawvideo",
-                "-pix_fmt", "rgb24",
-                "-r", @fps,
-                "-i", "-",
-                # Output settings
-                "-y",
-                "-vcodec", "libx264",
-                "-vpre",  "hq",
-                "-crf", @quality,
-                "-g", 10,
-                "-bf", 0,
-                "-r", @fps]
-      when "webm"
-        target += ".webm"
-        cmd << "--webm"
-      else
-        raise "unknown video type #{@videotype}"
-      end
-      cmd << target
+
+      cmd += ['--writevideo', target, @fps, @quality]
+      # TODO: leader!
+      # @leader && cmd += ["--leader", @leader]
       Rule.new([target], dependencies, [cmd.join(" ")])
     end
   end
+
+#*#  def rules(dependencies)
+#*#    STDERR.puts "#{id}: #{@videotiles.size} videos"
+#*#    @videotiles.map do |vt|
+#*#      cmd = ["make-video.py"]
+#*#      @show_frameno && cmd << "--label"
+#*#      cmd << @parent.transpose_dir
+#*#      cmd += [@parent.source.width, @parent.source.height, 0]                             # gigapan dimensions
+#*#      cmd += [0, @parent.source.framenames.size-1]                                         # frames to render
+#*#      cmd += [vt.x, vt.y, @vid_width*vt.subsample, @vid_height*vt.subsample] # crop
+#*#      cmd += [@vid_width, @vid_height]                                      # output size
+#*#      target = "#{@parent.videosets_dir}/#{id}/#{vt.path}"
+#*#      cmd += ["--tilesize", @parent.source.tilesize]
+#*#      @leader && cmd += ["--leader", @leader]
+#*#      case @videotype
+#*#      when "h.264"
+#*#        target += ".mp4"
+#*#        cmd += ["--qtfaststart",
+#*#                "--ffmpeg",
+#*#                # Input settings
+#*#                "-s", "#{@vid_width}x#{@vid_height}",
+#*#                "-vcodec", "rawvideo",
+#*#                "-f", "rawvideo",
+#*#                "-pix_fmt", "rgb24",
+#*#                "-r", @fps,
+#*#                "-i", "-",
+#*#                # Output settings
+#*#                "-y",
+#*#                "-vcodec", "libx264",
+#*#                "-vpre",  "hq",
+#*#                "-crf", @quality,
+#*#                "-g", 10,
+#*#                "-bf", 0,
+#*#                "-r", @fps]
+#*#      when "webm"
+#*#        target += ".webm"
+#*#        cmd << "--webm"
+#*#      else
+#*#        raise "unknown video type #{@videotype}"
+#*#      end
+#*#      cmd << target
+#*#      Rule.new([target], dependencies, [cmd.join(" ")])
+#*#    end
+#*#  end
 
   def info
     {
@@ -282,7 +319,7 @@ end
 
 class ImagesSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :subsample, :raw_width, :raw_height
-  attr_reader :capture_time_parser, :capture_time_parser_inputs, :framenames
+  attr_reader :capture_times, :capture_time_parser, :capture_time_parser_inputs, :framenames
 
   @@valid_image_extensions = Set.new [".jpg",".jpeg",".png",".tif",".tiff", ".raw", ".kro"]
   
@@ -294,6 +331,7 @@ class ImagesSource
     @raw_height = settings["height"]
     @subsample = settings["subsample"] || 1
     @images = settings["images"]
+    @capture_times = settings["capture_times"]
     @capture_time_parser = settings["capture_time_parser"] || "/home/rsargent/bin/extract_exif_capturetimes.rb"
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "0100-unstitched/"    
     initialize_images
@@ -632,6 +670,8 @@ class Compiler
     source_info = settings["source"] || raise("Time Machine must have source")
     initialize_source(source_info)
 
+    initialize_transpose
+
     destination_info = settings["destination"]
     if ! destination_info
       destination_info = {"type" => "local"}
@@ -639,7 +679,6 @@ class Compiler
     end
     initialize_destination(destination_info)
     
-
     STDERR.puts "#{(@source.framenames.size*@source.width*@source.height/1e+9).round(1)} gigapixels total video content"
     STDERR.puts "#{@source.framenames.size} frames"
     STDERR.puts "#{(@source.width*@source.height/1e6).round(1)} megapixels per frame (#{@source.width}px x #{@source.height}px)"
@@ -662,64 +701,94 @@ class Compiler
     open("autogenerated_framenames.txt", "w") { |fh| fh.write @source.framenames.join("\n") }
   end
 
+  def initialize_transpose
+    FileUtils.mkdir_p @transpose_dir
+    r = {'width' => @source.width, 'height' => @source.height,
+         'tile_width' => @source.tilesize, 'tile_height' => @source.tilesize}
+    open("#{@transpose_dir}/r.json", 'w') {|fh| fh.puts(JSON.pretty_generate(r))}
+  end
+
   def initialize_destination(destination_info)
     if destination_info.class == String
       @videosets_dir = destination_info
     else
       @videosets_parent_dir="0400-videosets"
       @videosets_dir="#{@videosets_parent_dir}/#{@versioned_id}"
-      if File.exists? @videosets_parent_dir
-        return
-      end
-      case destination_info["type"]
-      when "local"
-        Dir.mkdir @videosets_parent_dir
-      when "symlink"
-        target = destination_info["target"] or raise("Must specify 'target' for 'symlink' in 'destination'")
-        File.exists? target or raise("'target' path #{target} does not exist")
-        File.symlink(target, @videosets_parent_dir)
-      else
-        raise "Destination type not recognized"
+      if ! File.exists? @videosets_parent_dir
+        case destination_info["type"]
+        when "local"
+          Dir.mkdir @videosets_parent_dir
+        when "symlink"
+          target = destination_info["target"] or raise("Must specify 'target' for 'symlink' in 'destination'")
+          File.exists? target or raise("'target' path #{target} does not exist")
+          File.symlink(target, @videosets_parent_dir)
+        else
+          raise "Destination type not recognized"
+        end
       end
     end
+    FileUtils.mkdir_p @videosets_dir
+    ['css', 'images', 'js', 'player_template.html', 'time_warp_composer.html'].each do |src|
+      FileUtils.cp_r "#{$explorer_source_dir}/#{src}", @videosets_dir
+    end
+    FileUtils.cp "#{$explorer_source_dir}/integrated-viewer.html", "#{@videosets_dir}/view.html"
   end
 
   def initialize_tiles
-    all_tiles = Tile.enumerate(@source.width, @source.height, @source.tilesize)
-    max_level = all_tiles.map{|tile| tile.level}.max
-    @base_tiles = all_tiles.find_all{|tile| tile.level == max_level}
-    @subsampled_tiles = all_tiles.find_all{|tile| tile.level < max_level}
+    @all_tiles = Tile.enumerate(@source.width, @source.height, @source.tilesize)
+    @max_level = @all_tiles.map{|tile| tile.level}.max
+    @base_tiles = @all_tiles.find_all{|tile| tile.level == @max_level}
+    @subsampled_tiles = @all_tiles.find_all{|tile| tile.level < @max_level}
   end
 
-  def transpose_rule(tilepath, dependencies)
-    target = "#{@transpose_dir}/#{tilepath}.ts2"
-    inputs = @source.framenames.map {|frame| "#{@tiles_dir}/#{frame}.data/tiles/#{tilepath}.#{@source.tileformat}"}
+  def all_tiles_rule
+    tileset_targets = @source.tiles_rules.map{|rule| rule.targets}.flatten(1)
+    
+    target = "#{@tiles_dir}/COMPLETE"
+    Rule.new([target], tileset_targets, ["touch #{target}"])
+  end
+
+  def transpose_path(tile)
+    "#{@transpose_dir}/#{tile.path}.ts2"
+  end
+
+  def transpose_rule(tile, dependencies)
+    children = tile.children & @all_tiles
+    if children.size > 0
+      subsampled_transpose_rule(tile, children, dependencies)
+    else
+      base_transpose_rule(tile, dependencies)
+    end
+  end
+
+  def subsampled_transpose_rule(target_idx, children, dependencies)
+    target = transpose_path(target_idx)
+    children = children.map{|child| transpose_rule(child, dependencies).targets}.flatten(1)
+
+    cmd = [$tilestacktool]
+    frames = {'frames' => {'start' => 0, 'end' => @source.framenames.size - 1}, 
+              'bounds' => target_idx.bounds(@source.tilesize, @max_level)}
+    cmd += ['--path2stack', @source.tilesize, @source.tilesize, "'#{JSON.generate(frames)}'", @transpose_dir]
+    cmd += ['--save', target]
+    Rule.new([target], children, [cmd.join(' ')])
+  end
+
+  def base_transpose_rule(target, dependencies)
+    inputs = @source.framenames.map {|frame| "#{@tiles_dir}/#{frame}.data/tiles/#{target.path}.#{@source.tileformat}"}
+    target = transpose_path(target)
     cmd = [$tilestacktool] # , "--delete-source-tiles"]
     cmd += ["--loadtiles"] + inputs
     cmd += ["--create-parent-directories", "--save", target]
     Rule.new([target], dependencies, [cmd.join(" ")])
   end
-    
-  def all_tiles_rule
-    all_tilesets = @source.tiles_rules.map{|rule| rule.targets}.flatten(1)
-    target = "#{@tiles_dir}/COMPLETE"
-    Rule.new([target], all_tilesets, ["touch #{target}"])
-  end
-
-  def transpose_rules
-    atr = all_tiles_rule
-    STDERR.puts "   #{@base_tiles.size} base tiles per input frame (#{@source.tilesize}x#{@source.tilesize} px)"
-    base = @base_tiles.map {|tile| transpose_rule(tile.path, atr.targets)}
-    # TODO(RS): also compute @subsampled_tiles
-    base
-  end
 
   def all_transposes_rule
-    all_transposes = transpose_rules.map{|rule| rule.targets}.flatten(1)
+    atr = all_tiles_rule
+    STDERR.puts "   #{@base_tiles.size} base tiles per input frame (#{@source.tilesize}x#{@source.tilesize} px)"
     target = "#{@transpose_dir}/COMPLETE"
-    Rule.new([target], all_transposes, ["touch #{target}"])
+    Rule.new([target], transpose_rule(Tile.new(0,0,0), atr.targets).targets, ["touch #{target}"])
   end
-
+    
   # def transpose_cleanup_rule
   #   #remove remaining .jpgs leftover and all sub directories
   #   #leave the top-most directory (*.data/tiles/r.info)
@@ -739,7 +808,7 @@ class Compiler
   end
 
   def capture_times_rule()
-  	dependencies = videoset_rules.map{|rule| rule.targets}.flatten(1)
+    dependencies = videoset_rules.map{|rule| rule.targets}.flatten(1)
     cmd = ["ruby #{@@global_parent.source.capture_time_parser}",
            "#{@@global_parent.source.capture_time_parser_inputs}",
            "#{@videosets_dir}/tm.json"]
@@ -747,7 +816,8 @@ class Compiler
   end
 
   def howto_rule
-    dependencies = capture_times_rule.targets
+    # dependencies = capture_times_rule.targets
+    dependencies = videoset_rules.map{|rule| rule.targets}.flatten(1)
     directions = []
     directions << "echo 'Add this to #{@urls['view'] || "your page"}: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{@versioned_id}|timelapse_dataset=1}}'"
     if @urls['track']
@@ -832,9 +902,9 @@ def write_makefile
     
   end
   
-  open("monitorfiles.txt","w") do |fh|
-    fh.puts all_targets.join(" ")
-  end
+  # open("monitorfiles.txt","w") do |fh|
+  #   fh.puts all_targets.join(" ")
+  # end
 end
 
 class Maker
@@ -1047,8 +1117,10 @@ njobs = 75
 rules_per_job = 10
 local = false
 retry_attempts = 0
+destination = nil
 
 $tilestacktool = "tilestacktool"
+$explorer_source_dir = File.expand_path "#{File.dirname(__FILE__)}/time-machine-explorer"
 jsonfile = ""
 
 while !ARGV.empty?
@@ -1065,6 +1137,8 @@ while !ARGV.empty?
     rules_per_job = 1
   elsif arg == '--tilestacktool'
     $tilestacktool = File.expand_path ARGV.shift
+  elsif arg == '--create'
+    destination = File.expand_path ARGV.shift
   elsif File.extname(arg) == '.timemachinedefinition'
     if File.directory?(arg)
       arg = "#{arg}/definition.timemachinedefinition"
@@ -1075,7 +1149,11 @@ while !ARGV.empty?
     usage
   end
 end
-  
+
+if !destination
+  raise "Must specify --destination"
+end
+
 if `uname`.chomp == 'Darwin'
   local = true
 end
@@ -1085,9 +1163,11 @@ jsonfile ||= 'default.json'
 
 Dir.chdir(File.dirname(jsonfile))
 jsonfile = File.basename(jsonfile)
+definition = open(jsonfile) {|fh| JSON.load(fh)}
+definition['destination'] = destination
 
 while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
-  compiler = Compiler.new(open(jsonfile) {|fh| JSON.load(fh)})
+  compiler = Compiler.new(definition)
   compiler.write_json
   compiler.compute_rules # Creates rules, which will be accessible from Rule.all
   write_makefile

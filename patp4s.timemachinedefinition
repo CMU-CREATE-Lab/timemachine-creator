@@ -7,7 +7,6 @@
               "../../tilestacktool/patp4s/patp3.jpg"],
     "tilesize":256
   },
-  "destination":"patp4.timemachine",
   "videosets":[
 	{
 	    "label": "Small",
