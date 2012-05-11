@@ -22,6 +22,8 @@
 
 #include "json/json.h"
 
+#include <cmath>
+
 using namespace std;
 
 #define TODO(x) do { fprintf(stderr, "%s:%d: error: TODO %s\n", __FILE__, __LINE__, x); abort(); } while (0)
@@ -32,6 +34,11 @@ bool delete_source_tiles = false;
 vector<string> source_tiles_to_delete;
 
 void usage(const char *fmt, ...);
+
+//TODO: move, cleanup, etc
+int iround(double x) {
+	return (x > 0.0) ? floor(x + 0.5) : ceil(x - 0.5);
+}
 
 class Arglist : public list<string> {
 public:
@@ -90,7 +97,7 @@ class IfstreamReader : public Reader {
 public:
   IfstreamReader(string filename) : f(filename.c_str(), ios::in | ios::binary), filename(filename) {
     if (!f.good()) throw_error("Error opening %s for reading\n", filename.c_str());
-  }    
+  }
   virtual void read(unsigned char *dest, size_t pos, size_t length) {
     f.seekg(pos, ios_base::beg);
     f.read((char*)dest, length);
@@ -119,7 +126,7 @@ class OfstreamWriter : public Writer {
 public:
   OfstreamWriter(string filename) : f(filename.c_str(), ios::out | ios::binary), filename(filename) {
     if (!f.good()) throw_error("Error opening %s for writing\n", filename.c_str());
-  }    
+  }
   virtual void write(const unsigned char *src, size_t length) {
     f.write((char*)src, length);
     if (f.fail()) {
@@ -180,13 +187,13 @@ struct PixelInfo {
   void set_pixel_ch(unsigned char *pixel, unsigned ch, double val) const {
     switch ((bits_per_band << 1) | pixel_format) {
     case ((8 << 1) | 0):
-      ((unsigned char *)pixel)[ch] = (unsigned char)round(limit(val, (double)0x00, (double)0xff));
+      ((unsigned char *)pixel)[ch] = (unsigned char)iround(limit(val, (double)0x00, (double)0xff));
       break;
     case ((16 << 1) | 0):
-      ((unsigned short *)pixel)[ch] = (unsigned short)round(limit(val, (double)0x0000, (double)0xffff));
+      ((unsigned short *)pixel)[ch] = (unsigned short)iround(limit(val, (double)0x0000, (double)0xffff));
       break;
     case ((32 << 1) | 0):
-      ((unsigned int *)pixel)[ch] = (unsigned int)round(limit(val, (double)0x00000000, (double)0xffffffff));
+      ((unsigned int *)pixel)[ch] = (unsigned int)iround(limit(val, (double)0x00000000, (double)0xffffffff));
       break;
     case ((32 << 1) | 1):
       ((float *)pixel)[ch] = (float)val;
@@ -206,7 +213,7 @@ struct TilestackInfo : public PixelInfo {
   unsigned int tile_width;
   unsigned int tile_height;
   unsigned int compression_format;
-  
+
 };
 
 class Tilestack : public TilestackInfo {
@@ -278,7 +285,7 @@ public:
     w.write(tocdata);
     size_t footer_size = 48;
     vector<unsigned char> footer(footer_size);
-    
+
     write_u64(&footer[ 0], nframes);
     write_u64(&footer[ 8], tile_width);
     write_u64(&footer[16], tile_height);
@@ -289,7 +296,7 @@ public:
     write_u64(&footer[40], 0x646e65326b747374); // ASCII: 'tstk2end'
     w.write(footer);
   }
-  
+
   virtual void instantiate_pixels(unsigned frame) {
     assert(0); // we instantiate all the pixels in our constructor
   }
@@ -302,7 +309,7 @@ public:
     read();
     pixels.resize(nframes);
   }
-  
+
   virtual void instantiate_pixels(unsigned frame) {
     // TODO: if this runs out of RAM, consider LRU implementation
     assert(!pixels[frame]);
@@ -332,7 +339,7 @@ public:
     compression_format =          read_u32(&footer[36]);
     unsigned long long magic =    read_u64(&footer[40]);
     assert(magic == 0x646e65326b747374);
-    
+
     size_t tocentry_size = 24;
     size_t toclen = tocentry_size * nframes;
     vector<unsigned char> tocdata = reader->read(filelen - footer_size - toclen, toclen);
@@ -345,7 +352,7 @@ public:
   }
 
 };
-  
+
 template <typename T>
 class AutoPtrStack {
   list<T*> stack;
@@ -377,7 +384,7 @@ u8 viz_channel(u16 in, double min, double max, double gamma) {
   double ret = (in - min) * 255 / (max - min);
   if (ret < 0) ret = 0;
   if (ret > 255) ret = 255;
-  return (u8)lround(ret);
+  return (u8)(long)iround(ret);
 }
 
 void viz(double min, double max, double gamma) {
@@ -407,7 +414,12 @@ void write_html(string dest)
 {
   auto_ptr<Tilestack> src(tilestackstack.pop());
   string dir = filename_sans_suffix(dest);
-  mkdir(dir.c_str(), 0777);
+
+  #ifdef _WIN32
+    _wmkdir(Unicode(dir).path());
+  #else
+    mkdir(Unicode(dir).path(), 0777);
+  #endif
 
   string html_filename = filename_sans_suffix(dest) + ".html";
   FILE *html = fopen(html_filename.c_str(), "w");
@@ -451,12 +463,12 @@ void save(string dest)
     OfstreamWriter out(temp_dest);
     src->write(out);
   }
-  
+
   if (rename(temp_dest.c_str(), dest.c_str())) {
     throw_error("Can't rename %s to %s", temp_dest.c_str(), dest.c_str());
   }
   fprintf(stderr, "Created %s\n", dest.c_str());
-} 
+}
 
 // OSX: Download ffmpeg binary from ffmpegmac.net
 class FfmpegEncoder {
@@ -477,13 +489,19 @@ public:
     cmdline += " -vcodec libx264";
     //cmdline += string_printf(" -fpre libx264-hq.ffpreset");
     cmdline += " -coder 1 -flags +loop -cmp +chroma -partitions +parti8x8+parti4x4+partp8x8+partb8x8 -me_method umh -subq 8 -me_range 16 -keyint_min 25 -sc_threshold 40 -i_qfactor 0.71 -b_strategy 2 -qcomp 0.6 -qmin 10 -qmax 51 -qdiff 4 -refs 4 -directpred 3 -trellis 1 -flags2 +wpred+mixed_refs+dct8x8+fastpskip";
-      
+
     cmdline += string_printf(" -crf %g -g %d -bf 0 %s",
                              compression, frames_per_keyframe, dest_filename.c_str());
     fprintf(stderr, "Cmdline: %s\n", cmdline.c_str());
-    setenv("AV_LOG_FORCE_NOCOLOR", "1", 1);
+
+		#ifdef _WIN32
+			putenv("AV_LOG_FORCE_NOCOLOR=1");
+		#else
+			setenv("AV_LOG_FORCE_NOCOLOR", "1", 1);
+		#endif
+
     unlink(dest_filename.c_str());
-    out = popen(cmdline.c_str(), "w");
+    out = _popen(cmdline.c_str(), "w");
     if (!out) {
       throw_error("Error trying to run ffmpeg.  Make sure it's installed and in your path\n"
 		  "Tried with this commandline:\n"
@@ -498,27 +516,27 @@ public:
     }
     total_written += len;
   }
-  
+
   void close() {
-    if (out) pclose(out);
+    if (out) _pclose(out);
     out = NULL;
     fprintf(stderr, "Wrote %zd frames (%zd bytes) to ffmpeg\n", total_written / (width * height * 3), total_written);
   }
 
   static string path_to_ffmpeg() {
-    string colocated = string_printf("%s/ffmpeg/%s/ffmpeg", 
+    string colocated = string_printf("%s/ffmpeg/%s/ffmpeg",
 				     filename_directory(executable_path()).c_str(),
 				     os().c_str());
     if (filename_exists(colocated)) return colocated;
     return "ffmpeg";
   }
 };
-  
+
 void write_video(string dest, double fps, double compression)
 {
   auto_ptr<Tilestack> src(tilestackstack.pop());
   string temp_dest = temporary_path(dest);
-  
+
   if (create_parent_directories) make_directory_and_parents(filename_directory(dest));
 
   fprintf(stderr, "Encoding video to %s\n", temp_dest.c_str());
@@ -567,7 +585,7 @@ void image2tiles(string dest, string format, string src)
 
   int max_level = compute_tile_nlevels(reader->width(), reader->height(), tilesize, tilesize);
   string temp_dest = temporary_path(dest);
-  
+
   make_directory_and_parents(temp_dest);
 
   {
@@ -580,7 +598,7 @@ void image2tiles(string dest, string format, string src)
     if (!jsonout.good()) throw_error("Error opening %s for writing", jsonfile.c_str());
     jsonout << r;
   }
-  
+
   for (unsigned top = 0; top < reader->height(); top += tilesize) {
     unsigned nrows = min(reader->height() - top, tilesize);
     fill(stripe.begin(), stripe.end(), 0);
@@ -588,20 +606,20 @@ void image2tiles(string dest, string format, string src)
     for (unsigned left = 0; left < reader->width(); left += tilesize) {
       unsigned ncols = min(reader->width() - left, tilesize);
       for (unsigned y = 0; y < tilesize; y++) {
-      	memcpy(&tile[y * reader->bytes_per_pixel() * tilesize], 
+      	memcpy(&tile[y * reader->bytes_per_pixel() * tilesize],
       	       &stripe[y * reader->bytes_per_row() + left * reader->bytes_per_pixel()],
       	       ncols * reader->bytes_per_pixel());
       }
-      
+
       string path = temp_dest + "/" + GPTileIdx(max_level - 1, left/tilesize, top/tilesize).path() + "." + format;
       string directory = filename_directory(path);
       make_directory_and_parents(directory);
-      
+
       ImageWriter::write(path, tilesize, tilesize, reader->bands_per_pixel(), reader->bits_per_band(),
 			 &tile[0]);
     }
   }
-  
+
   if (rename(temp_dest.c_str(), dest.c_str())) {
     fprintf(stderr, "Error renaming %s to %s\n", temp_dest.c_str(), dest.c_str());
     // TODO(RS): Delete temporary directory
@@ -623,7 +641,7 @@ void load_tiles(const vector<string> &srcs)
     assert(tile->height() == dest->tile_height);
     assert(tile->bands_per_pixel() == dest->bands_per_pixel);
     assert(tile->bits_per_band() == dest->bits_per_band);
-    
+
     tile->read_rows(dest->frame_pixels(frame), tile->height());
   }
   tilestackstack.push(dest);
@@ -633,8 +651,8 @@ struct Bbox {
   double x, y;
   double width, height;
   Bbox(double x, double y, double width, double height) : x(x), y(y), width(width), height(height) {}
-  Bbox &operator*=(double scale) { 
-    x *= scale; 
+  Bbox &operator*=(double scale) {
+    x *= scale;
     y *= scale;
     width *= scale;
     height *= scale;
@@ -647,13 +665,13 @@ struct Frame {
   Bbox bounds;
   Frame(int frameno, const Bbox &bounds) : frameno(frameno), bounds(bounds) {}
 };
-	       
+
 struct Image {
   PixelInfo pixel_info;
   int width;
   int height;
   unsigned char *pixels;
-  Image(const PixelInfo &pixel_info, int width, int height, unsigned char *pixels) 
+  Image(const PixelInfo &pixel_info, int width, int height, unsigned char *pixels)
   : pixel_info(pixel_info), width(width), height(height), pixels(pixels) {}
   unsigned char *pixel(int x, int y) {
     return pixels + pixel_info.bytes_per_pixel() * (x + y * width);
@@ -661,13 +679,13 @@ struct Image {
 };
 
 class Stackset : public TilestackInfo {
-protected:  
+protected:
   string stackset_path;
   Json::Value info;
   int width, height;
   int nlevels;
   map<GPTileIdx, TilestackReader* > readers;
-  
+
 public:
   Stackset(const string &stackset_path) : stackset_path(stackset_path) {
     string json_path = stackset_path + "/r.json";
@@ -687,12 +705,12 @@ public:
     nlevels = compute_tile_nlevels(width, height, tile_width, tile_height);
     (TilestackInfo&)(*this) = (TilestackInfo&)(*get_reader(GPTileIdx(nlevels-1, 0, 0)));
   }
-  
+
   TilestackReader *get_reader(const GPTileIdx &idx) {
     if (readers.find(idx) == readers.end()) {
       // TODO(RS): If this starts running out of RAM, consider LRU on the readers
       string path = stackset_path + "/" + idx.path() + ".ts2";
-      
+
       try {
 	readers[idx] = new TilestackReader(auto_ptr<Reader>(new IfstreamReader(path)));
       } catch (runtime_error) {
@@ -725,8 +743,8 @@ public:
 
   // x and y must vary from 0 to 1
   double bilinearly_interpolate(double a00, double a01, double a10, double a11, double x, double y) {
-    return 
-      a00 * (1-x) * (1-y) + 
+    return
+      a00 * (1-x) * (1-y) +
       a01 * (1-x) *   y   +
       a10 *   x   * (1-y) +
       a11 *   x   *   y;
@@ -737,29 +755,29 @@ public:
     vector<unsigned char> p01_store(bytes_per_pixel());
     vector<unsigned char> p10_store(bytes_per_pixel());
     vector<unsigned char> p11_store(bytes_per_pixel());
-    
+
     unsigned char *p00 = &p00_store[0];
     unsigned char *p01 = &p01_store[0];
     unsigned char *p10 = &p10_store[0];
     unsigned char *p11 = &p11_store[0];
-    
+
     int x0 = (int)floor(x);
     int y0 = (int)floor(y);
-    
+
     get_pixel(p00, frame, level, x0+0, y0+0);
     get_pixel(p01, frame, level, x0+0, y0+1);
     get_pixel(p10, frame, level, x0+1, y0+0);
     get_pixel(p11, frame, level, x0+1, y0+1);
-    
+
     for (unsigned ch = 0; ch < bands_per_pixel; ch++) {
-      set_pixel_ch(dest, ch, bilinearly_interpolate(get_pixel_ch(p00, ch), 
-						    get_pixel_ch(p01, ch), 
-						    get_pixel_ch(p10, ch), 
-						    get_pixel_ch(p11, ch), 
+      set_pixel_ch(dest, ch, bilinearly_interpolate(get_pixel_ch(p00, ch),
+						    get_pixel_ch(p01, ch),
+						    get_pixel_ch(p10, ch),
+						    get_pixel_ch(p11, ch),
 						    x - x0, y - y0));
     }
   }
-  
+
   // frame coords:  x and y are the center of the upper-left pixel
   void render_image(Image &dest, const Frame &frame) {
     // scale between original pixels and desination frame.  If less than one, we subsample (sharp), or greater than
@@ -783,7 +801,7 @@ public:
       }
     }
   }
-  
+
   ~Stackset() {
     for (map<GPTileIdx, TilestackReader*>::iterator i = readers.begin(); i != readers.end(); ++i) {
       if (i->second) delete i->second;
@@ -820,7 +838,7 @@ void path2stack(int stack_width, int stack_height, Json::Value path, const strin
   Stackset stackset(stackset_path);
   vector<Frame> frames;
   parse_path(frames, path);
-  auto_ptr<Tilestack> out(new ResidentTilestack(frames.size(), stack_width, stack_height, 
+  auto_ptr<Tilestack> out(new ResidentTilestack(frames.size(), stack_width, stack_height,
 						stackset.bands_per_pixel, stackset.bits_per_band,
 						stackset.pixel_format, 0));
   for (unsigned i = 0; i < frames.size(); i++) {
@@ -834,7 +852,7 @@ void usage(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
   vfprintf(stderr, fmt, args);
-  fprintf(stderr, 
+  fprintf(stderr,
 	  "\nUsage:\n"
 	  "tilestacktool [args]\n"
 	  "--load src.ts2\n"
