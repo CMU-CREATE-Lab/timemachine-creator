@@ -455,6 +455,7 @@ void save(string dest)
   if (rename(temp_dest.c_str(), dest.c_str())) {
     throw_error("Can't rename %s to %s", temp_dest.c_str(), dest.c_str());
   }
+  fprintf(stderr, "Created %s\n", dest.c_str());
 } 
 
 // OSX: Download ffmpeg binary from ffmpegmac.net
@@ -518,6 +519,8 @@ void write_video(string dest, double fps, double compression)
   auto_ptr<Tilestack> src(tilestackstack.pop());
   string temp_dest = temporary_path(dest);
   
+  if (create_parent_directories) make_directory_and_parents(filename_directory(dest));
+
   fprintf(stderr, "Encoding video to %s\n", temp_dest.c_str());
   FfmpegEncoder encoder(temp_dest, src->tile_width, src->tile_height, fps, compression);
   assert(src->bands_per_pixel >= 3 && src->bits_per_band == 8);
@@ -817,7 +820,6 @@ void path2stack(int stack_width, int stack_height, Json::Value path, const strin
   Stackset stackset(stackset_path);
   vector<Frame> frames;
   parse_path(frames, path);
-  fprintf(stderr, "got %zd frames\n", frames.size());
   auto_ptr<Tilestack> out(new ResidentTilestack(frames.size(), stack_width, stack_height, 
 						stackset.bands_per_pixel, stackset.bits_per_band,
 						stackset.pixel_format, 0));
@@ -846,6 +848,7 @@ void usage(const char *fmt, ...) {
 	  "--tilesize N\n"
 	  "--loadtiles src_image0 src_image1 ... src_imageN\n"
 	  "--delete-source-tiles\n"
+	  "--create-parent-directories\n"
 	  "--path2stack width height [frame1, ... frameN] stackset\n"
 	  "        Frame format {\"frameno\":N, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
 	  "        Multiframe with single bounds. from and to are both inclusive.  step defaults to 1:\n"

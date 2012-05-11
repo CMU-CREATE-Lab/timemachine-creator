@@ -31,7 +31,7 @@ test-modis: tilestacktool
 	./tilestacktool --load modis/r12.8.ts2 --writevideo modis/r12.8.mp4 1 26
 
 tilestacktool: tilestacktool.cpp cpp-utils/cpp-utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp
-	g++ -g -Ijsoncpp -I/opt/local/include -Icpp-utils -Wall $^ -o $@ -L/opt/local/lib -lpng -ljpeg
+	g++ -O3 -g -Ijsoncpp -I/opt/local/include -Icpp-utils -Wall $^ -o $@ -L/opt/local/lib -lpng -ljpeg
 
 clean:
-	rm -rf *.o testresults
+	rm -rf tilestacktool *.o testresults
