@@ -24,6 +24,8 @@
 
 #include <cmath>
 
+#include "tilestacktool.h"
+
 using namespace std;
 
 #define TODO(x) do { fprintf(stderr, "%s:%d: error: TODO %s\n", __FILE__, __LINE__, x); abort(); } while (0)
@@ -32,6 +34,7 @@ unsigned int tilesize = 512;
 bool create_parent_directories = false;
 bool delete_source_tiles = false;
 vector<string> source_tiles_to_delete;
+bool duplicate_video_start_and_end_frames = false;
 
 void usage(const char *fmt, ...);
 
@@ -39,46 +42,6 @@ void usage(const char *fmt, ...);
 int iround(double x) {
 	return (x > 0.0) ? floor(x + 0.5) : ceil(x - 0.5);
 }
-
-class Arglist : public list<string> {
-public:
-  Arglist(char **begin, char **end) {
-    for (char **arg = begin; arg < end; arg++) push_back(string(*arg));
-  }
-  string shift() {
-    if (empty()) usage("Missing argument");
-    string ret = front();
-    pop_front();
-    return ret;
-  }
-  double shift_double() {
-    string arg = shift();
-    char *end;
-    double ret = strtod(arg.c_str(), &end);
-    if (end != arg.c_str() + arg.length()) {
-      usage("Can't parse '%s' as floating point value", arg.c_str());
-    }
-    return ret;
-  }
-  double shift_int() {
-    string arg = shift();
-    char *end;
-    double ret = strtol(arg.c_str(), &end, 0);
-    if (end != arg.c_str() + arg.length()) {
-      usage("Can't parse '%s' as integer", arg.c_str());
-    }
-    return ret;
-  }
-  Json::Value shift_json() {
-    string arg = shift();
-    Json::Reader reader;
-    Json::Value ret;
-    if (!reader.parse(arg, ret)) {
-      usage("Can't parse '%s' as json: %s", arg.c_str());
-    }
-    return ret;
-  }
-};
 
 class Reader {
 public:
@@ -377,14 +340,20 @@ void load(string filename)
 typedef unsigned char u8;
 typedef unsigned short u16;
 
-template <typename T> struct RGBA { T r, g, b, a; };
+template <typename T> struct RGBA {
+  T r, g, b, a; 
+  RGBA(T r, T g, T b, T a) : r(r), g(g), b(b), a(a) {}
+  RGBA(){}
+};
+
 template <typename T> struct RGB { T r, g, b; };
 
 u8 viz_channel(u16 in, double min, double max, double gamma) {
-  double ret = (in - min) * 255 / (max - min);
-  if (ret < 0) ret = 0;
+  double tmp = (in - min) / (max - min);
+  if (tmp < 0) tmp = 0;
+  int ret = (int) floor(256 * pow(tmp, 1.0/gamma));
   if (ret > 255) ret = 255;
-  return (u8)(long)iround(ret);
+  return (u8)ret;
 }
 
 void viz(double min, double max, double gamma) {
@@ -501,7 +470,11 @@ public:
 		#endif
 
     unlink(dest_filename.c_str());
+#ifdef _WIN32
     out = _popen(cmdline.c_str(), "w");
+#else
+    out = popen(cmdline.c_str(), "w");
+#endif
     if (!out) {
       throw_error("Error trying to run ffmpeg.  Make sure it's installed and in your path\n"
 		  "Tried with this commandline:\n"
@@ -518,7 +491,11 @@ public:
   }
 
   void close() {
+#ifdef _WIN32    
     if (out) _pclose(out);
+#else
+    if (out) pclose(out);
+#endif
     out = NULL;
     fprintf(stderr, "Wrote %zd frames (%zd bytes) to ffmpeg\n", total_written / (width * height * 3), total_written);
   }
@@ -536,6 +513,9 @@ void write_video(string dest, double fps, double compression)
 {
   auto_ptr<Tilestack> src(tilestackstack.pop());
   string temp_dest = temporary_path(dest);
+  if (!src->nframes) {
+    throw_error("Tilestack has no frames in write_video");
+  }
 
   if (create_parent_directories) make_directory_and_parents(filename_directory(dest));
 
@@ -543,8 +523,14 @@ void write_video(string dest, double fps, double compression)
   FfmpegEncoder encoder(temp_dest, src->tile_width, src->tile_height, fps, compression);
   assert(src->bands_per_pixel >= 3 && src->bits_per_band == 8);
   vector<unsigned char> destframe(src->tile_width * src->tile_height * 3);
-  for (unsigned i = 0; i < src->nframes; i++) {
-    unsigned char *srcptr = src->frame_pixels(i);
+
+  vector<int> frames;
+  if (duplicate_video_start_and_end_frames) frames.push_back(0);
+  for (unsigned i = 0;i < src->nframes; i++) frames.push_back(i);
+  if (duplicate_video_start_and_end_frames) frames.push_back(src->nframes-1);
+
+  for (unsigned i = 0; i < frames.size(); i++) {
+    unsigned char *srcptr = src->frame_pixels(frames[i]);
     unsigned char *destptr = &destframe[0];
     for (unsigned y = 0; y < src->tile_height; y++) {
       for (unsigned x = 0; x < src->tile_width; x++) {
@@ -885,6 +871,15 @@ void usage(const char *fmt, ...) {
   exit(1);
 }
 
+int n_commands = 0;
+const int MAX_COMMANDS=1000;
+Command commands[MAX_COMMANDS];
+
+bool register_command(Command cmd) {
+  commands[n_commands++] = cmd;
+  return true;
+}
+
 int main(int argc, char **argv)
 {
   try {
@@ -946,6 +941,9 @@ int main(int argc, char **argv)
       else if (arg == "--create-parent-directories") {
 	create_parent_directories = true;
       }
+      else if (arg == "--duplicate-video-start-and-end-frames") {
+        duplicate_video_start_and_end_frames = true;
+      }
       else if (arg == "--path2stack") {
 	int stack_width = args.shift_int();
 	int stack_height = args.shift_int();
@@ -956,7 +954,13 @@ int main(int argc, char **argv)
 	}
 	path2stack(stack_width, stack_height, path, stackset);
       }
-      else usage("Unknown argument %s", arg.c_str());
+      else {
+        for (int i = 0; i < n_commands; i++) {
+          if (commands[i](arg, args)) goto success;
+        }
+        usage("Unknown argument %s", arg.c_str());
+     success:;
+      }
     }
     if (source_tiles_to_delete.size()) {
       fprintf(stderr, "Deleting %zd source tiles\n", source_tiles_to_delete.size());
