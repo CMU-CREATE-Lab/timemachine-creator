@@ -1,28 +1,12 @@
 #!/usr/bin/env ruby
 
-# You need Ruby 1.9.x to run this script
-# On mac:
-# curl -L get.rvm.io | bash -s stable
-# source ~/.bash_profile
-# rvm requirements
-# rvm install 1.9.3 --with-gcc=clang
-# cd ~/bin; ln -s ~/.rvm/rubies/ruby-1.9.3-*/bin/ruby .
-# which ruby
-#
 # You need the xml-simple gem to run this script
 # [sudo] gem install xml-simple
 
-if RUBY_VERSION < "1.9"
-  # Try to run with ruby19
-  STDERR.puts __FILE__
-  STDERR.puts ENV['PATH']
-  exec("ruby19", __FILE__, *ARGV)
-end
-  
-require 'json'
 require 'set'
 require 'thread'
 require 'open-uri'
+require File.dirname(__FILE__) + '/json'
 require File.dirname(__FILE__) + '/image_size'
 require File.dirname(__FILE__) + '/tile'
 require File.dirname(__FILE__) + '/xmlsimple'
@@ -679,9 +663,9 @@ class Compiler
     end
     initialize_destination(destination_info)
     
-    STDERR.puts "#{(@source.framenames.size*@source.width*@source.height/1e+9).round(1)} gigapixels total video content"
+    STDERR.puts "#{(@source.framenames.size*@source.width*@source.height/1e+9*10).round/10} gigapixels total video content"
     STDERR.puts "#{@source.framenames.size} frames"
-    STDERR.puts "#{(@source.width*@source.height/1e6).round(1)} megapixels per frame (#{@source.width}px x #{@source.height}px)"
+    STDERR.puts "#{(@source.width*@source.height/1e6*10).round/10} megapixels per frame (#{@source.width}px x #{@source.height}px)"
 
     #initialize_original_images
     @videoset_compilers = settings["videosets"].map {|json| VideosetCompiler.new(self, json)}
@@ -1104,7 +1088,7 @@ class Maker
 
   def print_status(rules, jobs)
     status = []
-    status << "#{(@@ndone*100.0/@rules.size).round(1)}% rules finished (#{@@ndone}/#{@rules.size})"
+    status << "#{(@@ndone*100.0/@rules.size*10).round/10}% rules finished (#{@@ndone}/#{@rules.size})"
     rules && jobs && status << "#{rules} rules executing (in #{jobs} jobs)"
     status << "#{@ready.size} rules ready to execute"
     status << "#{@rules.size-@@ndone-@ready.size-rules} rules awaiting dependencies"
