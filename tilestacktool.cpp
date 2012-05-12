@@ -6,12 +6,12 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include <fstream>
+#include <cmath>
 #include <list>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
-#include <stdexcept>
 
 #include "marshal.h"
 #include "cpp-utils.h"
@@ -20,10 +20,8 @@
 #include "ImageReader.h"
 #include "ImageWriter.h"
 
-#include "json/json.h"
-
-#include <cmath>
-
+#include "io.h"
+#include "Tilestack.h"
 #include "tilestacktool.h"
 
 using namespace std;
@@ -37,233 +35,6 @@ vector<string> source_tiles_to_delete;
 bool duplicate_video_start_and_end_frames = false;
 
 void usage(const char *fmt, ...);
-
-//TODO: move, cleanup, etc
-int iround(double x) {
-	return (x > 0.0) ? floor(x + 0.5) : ceil(x - 0.5);
-}
-
-class Reader {
-public:
-  virtual void read(unsigned char *dest, size_t offset, size_t length) = 0;
-  virtual size_t length() = 0;
-  vector<unsigned char> read(size_t offset, size_t length) {
-    vector<unsigned char> ret(length);
-    read(&ret[0], offset, length);
-    return ret;
-  }
-};
-
-class IfstreamReader : public Reader {
-  ifstream f;
-  string filename;
-public:
-  IfstreamReader(string filename) : f(filename.c_str(), ios::in | ios::binary), filename(filename) {
-    if (!f.good()) throw_error("Error opening %s for reading\n", filename.c_str());
-  }
-  virtual void read(unsigned char *dest, size_t pos, size_t length) {
-    f.seekg(pos, ios_base::beg);
-    f.read((char*)dest, length);
-    if (f.fail()) {
-      throw_error("Error reading %zd bytes from file %s at position %zd\n",
-          length, filename.c_str(), pos);
-    }
-  }
-  size_t length() {
-    f.seekg(0, ios::end);
-    return f.tellg();
-  }
-};
-
-class Writer {
-public:
-  virtual void write(const unsigned char *src, size_t length) = 0;
-  void write(const vector<unsigned char> &src) {
-    write(&src[0], src.size());
-  }
-};
-
-class OfstreamWriter : public Writer {
-  ofstream f;
-  string filename;
-public:
-  OfstreamWriter(string filename) : f(filename.c_str(), ios::out | ios::binary), filename(filename) {
-    if (!f.good()) throw_error("Error opening %s for writing\n", filename.c_str());
-  }
-  virtual void write(const unsigned char *src, size_t length) {
-    f.write((char*)src, length);
-    if (f.fail()) {
-      throw_error("Error writing %zd bytes to file %s\n", length, filename.c_str());
-    }
-  }
-};
-
-/*
-Options:
-
-File-at-once:
- Read file into memory
- Parse header
- Decompress, or point to, frames only when requested, e.g. frameptr(frame) returns uncompressed
-
- Adv: large read (e.g. 250MB)
- Disadv: large read: higher latency, wasted effort when reading only a few frames, e.g. tour
-
-Frames-on-demand:
- Read header into memory
- Parse header
- Read, and optionally decompress, a frame only when requested
-
- Adv: lower latency, no wasted effort
- Disadv: small read (e.g. 400K for uncompressed, 20K for JPEG-compressed)
- Consider reading multiple frames at once
-*/
-
-template <class T>
-T limit(T x, T minval, T maxval) {
-  return max(min(x, maxval), minval);
-}
-
-struct PixelInfo {
-  unsigned int bands_per_pixel;
-  unsigned int bits_per_band;
-  unsigned int pixel_format; // 0=unsigned integer, 1=floating point,
-  int bytes_per_pixel() { return bands_per_pixel * bits_per_band / 8; }
-
-  double get_pixel_ch(const unsigned char *pixel, unsigned ch) const {
-    switch ((bits_per_band << 1) | pixel_format) {
-    case ((8 << 1) | 0):
-      return ((unsigned char *)pixel)[ch];
-    case ((16 << 1) | 0):
-      return ((unsigned short *)pixel)[ch];
-    case ((32 << 1) | 0):
-      return ((unsigned int *)pixel)[ch];
-    case ((32 << 1) | 1):
-      return ((float *)pixel)[ch];
-    case ((64 << 1) | 1):
-      return ((double *)pixel)[ch];
-    default:
-      throw_error("Can't read pixel type %d:%d", bits_per_band, pixel_format);
-    }
-  }
-
-  void set_pixel_ch(unsigned char *pixel, unsigned ch, double val) const {
-    switch ((bits_per_band << 1) | pixel_format) {
-    case ((8 << 1) | 0):
-      ((unsigned char *)pixel)[ch] = (unsigned char)iround(limit(val, (double)0x00, (double)0xff));
-      break;
-    case ((16 << 1) | 0):
-      ((unsigned short *)pixel)[ch] = (unsigned short)iround(limit(val, (double)0x0000, (double)0xffff));
-      break;
-    case ((32 << 1) | 0):
-      ((unsigned int *)pixel)[ch] = (unsigned int)iround(limit(val, (double)0x00000000, (double)0xffffffff));
-      break;
-    case ((32 << 1) | 1):
-      ((float *)pixel)[ch] = (float)val;
-      break;
-    case ((64 << 1) | 1):
-      ((double *)pixel)[ch] = val;
-      break;
-    default:
-      throw_error("Can't write pixel type %d:%d", bits_per_band, pixel_format);
-      break;
-    }
-  }
-};
-
-struct TilestackInfo : public PixelInfo {
-  unsigned int nframes;
-  unsigned int tile_width;
-  unsigned int tile_height;
-  unsigned int compression_format;
-
-};
-
-class Tilestack : public TilestackInfo {
-public:
-  struct TOCEntry {
-    double timestamp;
-    unsigned long long address, length;
-  };
-  vector<TOCEntry> toc;
-  std::vector<unsigned char*> pixels;
-
-public:
-  double frame_timestamp(unsigned frame) {
-    assert(frame < nframes);
-    toc[frame].timestamp;
-  }
-  unsigned char *frame_pixels(unsigned frame) {
-    assert(frame < nframes);
-    if (!pixels[frame]) instantiate_pixels(frame);
-    return pixels[frame];
-  }
-  unsigned char *frame_pixel(unsigned frame, unsigned x, unsigned y) {
-    return frame_pixels(frame) + bytes_per_pixel() * (x + y * tile_width);
-  }
-  virtual void instantiate_pixels(unsigned frame) = 0;
-  virtual ~Tilestack() {}
-};
-
-// TODO: support compressed formats by splitting all_pixels into multiple frames
-class ResidentTilestack : public Tilestack {
-  vector<unsigned char> all_pixels;
-  size_t tile_size;
-public:
-  ResidentTilestack(unsigned int nframes, unsigned int tile_width,
-                    unsigned int tile_height, unsigned int bands_per_pixel,
-                    unsigned int bits_per_band, unsigned int pixel_format,
-                    unsigned int compression_format)
-    {
-      this->nframes = nframes;
-      this->tile_width = tile_width;
-      this->tile_height = tile_height;
-      this->bands_per_pixel = bands_per_pixel;
-      this->bits_per_band = bits_per_band;
-      this->pixel_format = pixel_format;
-      this->compression_format = compression_format;
-      tile_size =  tile_width * tile_height * bands_per_pixel * bits_per_band / 8;
-      all_pixels.resize(tile_size * nframes);
-      pixels.resize(nframes);
-      toc.resize(nframes);
-      for (unsigned i = 0; i < nframes; i++) {
-        pixels[i] = &all_pixels[tile_size * i];
-      }
-    }
-
-  void write(Writer &w) {
-    vector<unsigned char> header(8);
-    write_u64(&header[0], 0x326b7473656c6974); // ASCII 'tilestk2'
-    w.write(header);
-    w.write(all_pixels);
-    size_t tocentry_size = 24;
-    vector<unsigned char> tocdata(tocentry_size * nframes);
-    size_t address = header.size();
-    for (unsigned i = 0; i < nframes; i++) {
-      write_double64(&tocdata[i*tocentry_size +  0], toc[i].timestamp);
-      write_u64(&tocdata[i*tocentry_size +  8], address);
-      write_u64(&tocdata[i*tocentry_size + 16], tile_size);
-      address += tile_size;
-    }
-    w.write(tocdata);
-    size_t footer_size = 48;
-    vector<unsigned char> footer(footer_size);
-
-    write_u64(&footer[ 0], nframes);
-    write_u64(&footer[ 8], tile_width);
-    write_u64(&footer[16], tile_height);
-    write_u32(&footer[24], bands_per_pixel);
-    write_u32(&footer[28], bits_per_band);
-    write_u32(&footer[32], pixel_format);
-    write_u32(&footer[36], compression_format);
-    write_u64(&footer[40], 0x646e65326b747374); // ASCII: 'tstk2end'
-    w.write(footer);
-  }
-
-  virtual void instantiate_pixels(unsigned frame) {
-    assert(0); // we instantiate all the pixels in our constructor
-  }
-};
 
 class TilestackReader : public Tilestack {
 public:
@@ -316,37 +87,12 @@ public:
 
 };
 
-template <typename T>
-class AutoPtrStack {
-  list<T*> stack;
-public:
-  void push(auto_ptr<T> t) {
-    stack.push_back(t.release());
-  }
-  auto_ptr<T> pop() {
-    T* ret = stack.back();
-    stack.pop_back();
-    return auto_ptr<T>(ret);
-  }
-};
-
 AutoPtrStack<Tilestack> tilestackstack;
 
 void load(string filename)
 {
   tilestackstack.push(auto_ptr<Tilestack>(new TilestackReader(auto_ptr<Reader>(new IfstreamReader(filename)))));
 }
-
-typedef unsigned char u8;
-typedef unsigned short u16;
-
-template <typename T> struct RGBA {
-  T r, g, b, a; 
-  RGBA(T r, T g, T b, T a) : r(r), g(g), b(b), a(a) {}
-  RGBA(){}
-};
-
-template <typename T> struct RGB { T r, g, b; };
 
 u8 viz_channel(u16 in, double min, double max, double gamma) {
   double tmp = (in - min) / (max - min);

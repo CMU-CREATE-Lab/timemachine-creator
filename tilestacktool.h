@@ -1,6 +1,12 @@
 #ifndef TILESTACKTOOL_H
 #define TILESTACKTOOL_H
 
+#include <cstdlib>
+#include <list>
+#include <string>
+
+#include "json/json.h"
+
 void usage(const char *fmt, ...);
 
 class Arglist : public std::list<std::string> {
@@ -42,6 +48,22 @@ public:
     return ret;
   }
 };
+
+template <typename T>
+class AutoPtrStack {
+  std::list<T*> stack;
+public:
+  void push(std::auto_ptr<T> t) {
+    stack.push_back(t.release());
+  }
+  std::auto_ptr<T> pop() {
+    T* ret = stack.back();
+    stack.pop_back();
+    return std::auto_ptr<T>(ret);
+  }
+};
+
+extern AutoPtrStack<Tilestack> tilestackstack;
 
 typedef bool (*Command)(const std::string &flag, Arglist &arglist);
 bool register_command(Command cmd);
