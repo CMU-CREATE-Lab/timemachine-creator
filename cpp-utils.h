@@ -32,6 +32,8 @@ std::string executable_path();
 std::string application_user_state_directory(const std::string &application_name);
 std::string os();
 
+void get_cpu_usage(double &user, double &system);
+
 class Unicode {
   std::string m_utf8;
 #ifdef _WIN32

@@ -8,6 +8,8 @@
 #include <stdexcept>
 #include <vector>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 
 #ifdef _WIN32
@@ -356,4 +358,32 @@ string os() { return "osx"; }
 string os() { return "windows"; }
 #else
 string os() { return "linux"; }
+#endif
+
+#if defined(_WIN32)
+
+double filetime_to_double(struct _FILETIME &ft) {
+  unsigned long long t = ft.dwLowDateTime + (fw.dwHighDateTime << 32);
+  return t / 1e7;
+}
+
+void get_cpu_usage(double &user, double &system) {
+  struct _FILETIME creation_time, exit_time, kernel_time, user_time;
+  GetProcessTimes(GetCurrentProcess(), &creation_time, &exit_time, &kernel_time, &user_time);
+  user = filetime_to_double(user_time);
+  system = filetime_to_double(kernel_time);
+}
+
+#else
+
+double tv_to_double(struct timeval &tv) {
+  return tv.tv_sec + tv.tv_usec / 1e6;
+}
+void get_cpu_usage(double &user, double &system) {
+  struct rusage usage;
+  getrusage(RUSAGE_SELF, &usage);
+  user = tv_to_double(usage.ru_utime);
+  system = tv_to_double(usage.ru_stime);
+}
+
 #endif
