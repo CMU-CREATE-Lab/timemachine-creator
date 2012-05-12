@@ -11,6 +11,12 @@ public:
   std::string path() const;
   bool operator<(const GPTileIdx &rhs) const;
   std::string to_string() const;
+  static unsigned long long idx(int level, int x, int y) {
+    return 
+      (((unsigned long long) level)            << 56) |
+      (((unsigned long long) (y & 0x0fffffff)) << 28) |
+      (((unsigned long long) (x & 0x0fffffff)) <<  0);
+  }
 };
 
 #endif

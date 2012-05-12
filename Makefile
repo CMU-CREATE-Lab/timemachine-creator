@@ -14,6 +14,7 @@ test-patp4s: tilestacktool
 	cp testresults/patp4s/patp0.data/tiles/r.json testresults/patp4s/transpose/r.json
 	./tilestacktool --path2stack 256 256 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":0, "ymin":0, "width":512, "height":512}}' testresults/patp4s/transpose --save testresults/patp4s/transpose/r.ts2
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/patp4s/transpose --writevideo testresults/patp4s/testvid.mp4 1 24
+	./tilestacktool --path2stack 1088 624 '{"frames":{"start":0,"end":3},"bounds":{"xmin":0,"ymin":0,"width":1088,"height":624}}' testresults/patp4s/transpose
 
 debug-patp: test-patp
 	./tilestacktool --load testresults/patp4s/transpose/r0.ts2 --writehtml testresults/patp4s/transpose/r0.html

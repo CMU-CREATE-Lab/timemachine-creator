@@ -17,7 +17,7 @@ string GPTileIdx::basename() const {
 }
 
 string GPTileIdx::path() const {
-  if (x >= (1<<level) || y >= (1<<level)) {
+  if (x < 0 || y < 0 || x >= (1<<level) || y >= (1<<level)) {
     throw_error("Coordinate out of bounds for GPTileIdx");
   }
   string bn = basename();

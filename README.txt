@@ -1,3 +1,16 @@
+Coordinates and interpolation
+
+Pixels centered around integral coords:
+- straighforward bilinear interpolation
+
+Pixels centered around integral + 0.5:
+- straightforward nearest pixel
+- same as OpenGL
+- straightforward resampling and subsampling
+- no negative coords
+
+
+
 //
 
 

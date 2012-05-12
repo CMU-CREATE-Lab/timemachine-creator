@@ -468,7 +468,7 @@ public:
                 double fps, double compression) :
     width(width), height(height), total_written(0) {
     int nthreads = 8;
-    string cmdline = string_printf("%s -threads %d -loglevel error", path_to_ffmpeg().c_str(), nthreads);
+    string cmdline = string_printf("%s -threads %d -loglevel error -benchmark", path_to_ffmpeg().c_str(), nthreads);
     // Input
     cmdline += string_printf(" -s %dx%d -vcodec rawvideo -f rawvideo -pix_fmt rgb24 -r %g -i pipe:0",
                              width, height, fps);
@@ -666,7 +666,7 @@ protected:
   Json::Value info;
   int width, height;
   int nlevels;
-  map<GPTileIdx, TilestackReader* > readers;
+  map<unsigned long long, TilestackReader* > readers;
   
 public:
   Stackset(const string &stackset_path) : stackset_path(stackset_path) {
@@ -685,39 +685,47 @@ public:
     tile_height = info["tile_height"].asInt();
 
     nlevels = compute_tile_nlevels(width, height, tile_width, tile_height);
-    (TilestackInfo&)(*this) = (TilestackInfo&)(*get_reader(GPTileIdx(nlevels-1, 0, 0)));
+    (TilestackInfo&)(*this) = (TilestackInfo&)(*get_reader(nlevels-1, 0, 0));
   }
   
-  TilestackReader *get_reader(const GPTileIdx &idx) {
+  TilestackReader *get_reader(int level, int x, int y) {
+    static unsigned long long cached_idx = -1;
+    static TilestackReader *cached_reader = NULL;
+    unsigned long long idx = GPTileIdx::idx(level, x, y);
+    if (idx == cached_idx) return cached_reader;
     if (readers.find(idx) == readers.end()) {
       // TODO(RS): If this starts running out of RAM, consider LRU on the readers
-      string path = stackset_path + "/" + idx.path() + ".ts2";
-      
       try {
+	string path = stackset_path + "/" + GPTileIdx(level, x, y).path() + ".ts2";
+	
 	readers[idx] = new TilestackReader(auto_ptr<Reader>(new IfstreamReader(path)));
       } catch (runtime_error) {
 	readers[idx] = NULL;
       }
     }
-    return readers[idx];
+    cached_idx = idx;
+    cached_reader = readers[idx];
+    return cached_reader;
   }
 
   double interpolate(double val, double in_min, double in_max, double out_min, double out_max) {
     return (val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
   }
 
+  // 47 vs .182:  250x more CPU than ffmpeg
+  // 1.86 vs .182: 10x more CPU than ffmpeg
+  // .81 vs .182: 4.5x more CPU than ffmpeg
+  // .5 vs .182: 2.75x more CPU than ffmpeg
+  // .41 vs .182: 2.25x more CPU than ffmpeg
+  
   void get_pixel(unsigned char *dest, int frame, int level, int x, int y) {
     if (x >= 0 && y >= 0) {
       int tile_x = x / tile_width;
       int tile_y = y / tile_height;
-      try {
-	TilestackReader *reader = get_reader(GPTileIdx(level, tile_x, tile_y));
-	if (reader) {
-	  memcpy(dest, reader->frame_pixel(frame, x % tile_width, y % tile_height), bytes_per_pixel());
-	  return;
-	}
-      } catch (runtime_error) {
-	// tile_x or tile_y are outside bounds;  return black pixel
+      TilestackReader *reader = get_reader(level, tile_x, tile_y);
+      if (reader) {
+	memcpy(dest, reader->frame_pixel(frame, x % tile_width, y % tile_height), bytes_per_pixel());
+	return;
       }
     }
     memset(dest, 0, bytes_per_pixel());
@@ -732,16 +740,18 @@ public:
       a11 *   x   *   y;
   }
 
+  // Pixels are centered at 0.5
   void interpolate_pixel(unsigned char *dest, int frame, int level, double x, double y) {
-    vector<unsigned char> p00_store(bytes_per_pixel());
-    vector<unsigned char> p01_store(bytes_per_pixel());
-    vector<unsigned char> p10_store(bytes_per_pixel());
-    vector<unsigned char> p11_store(bytes_per_pixel());
-    
-    unsigned char *p00 = &p00_store[0];
-    unsigned char *p01 = &p01_store[0];
-    unsigned char *p10 = &p10_store[0];
-    unsigned char *p11 = &p11_store[0];
+    x -= 0.5;
+    y -= 0.5;
+
+    const int MAX_BYTES_PER_PIXEL = 128;
+    unsigned char p00[MAX_BYTES_PER_PIXEL];
+    unsigned char p01[MAX_BYTES_PER_PIXEL];
+    unsigned char p10[MAX_BYTES_PER_PIXEL];
+    unsigned char p11[MAX_BYTES_PER_PIXEL];
+
+    assert(bytes_per_pixel() < MAX_BYTES_PER_PIXEL);
     
     int x0 = (int)floor(x);
     int y0 = (int)floor(y);
@@ -776,16 +786,16 @@ public:
       bounds *= (1.0 / (1 << (nlevels-1-source_level)));
     }
     for (int y = 0; y < dest.height; y++) {
-      double source_y = interpolate(y, 0, dest.height-1, bounds.y, bounds.y+bounds.height-1);
+      double source_y = interpolate(y + 0.5, 0, dest.height, bounds.y, bounds.y + bounds.height);
       for (int x = 0; x < dest.width; x++) {
-	double source_x = interpolate(x, 0, dest.width-1, bounds.x, bounds.x+bounds.width-1);
+	double source_x = interpolate(x + 0.5, 0, dest.width, bounds.x, bounds.x + bounds.width);
 	interpolate_pixel(dest.pixel(x,y), frame.frameno, source_level, source_x, source_y);
       }
     }
   }
   
   ~Stackset() {
-    for (map<GPTileIdx, TilestackReader*>::iterator i = readers.begin(); i != readers.end(); ++i) {
+    for (map<unsigned long long, TilestackReader*>::iterator i = readers.begin(); i != readers.end(); ++i) {
       if (i->second) delete i->second;
       i->second = NULL;
     }
@@ -936,6 +946,9 @@ int main(int argc, char **argv)
 	unlink(source_tiles_to_delete[i].c_str());
       }
     }
+    double user, system;
+    get_cpu_usage(user, system);
+    fprintf(stderr, "User time %g, System time %g\n", user, system);
     return 0;
   } catch (const std::exception &e) {
     fprintf(stderr, "Error: %s\n", e.what());
