@@ -4,3 +4,6 @@
 [submodule "time-machine-explorer"]
 	path = time-machine-explorer
 	url = ssh://git@create.repositoryhosting.com/create/time-machine-explorer.git
+[submodule "patp10"]
+	path = patp10
+	url = ssh://git@create.repositoryhosting.com/create/patp10.git
