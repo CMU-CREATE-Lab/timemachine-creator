@@ -57,6 +57,7 @@ public:
     stack.push_back(t.release());
   }
   std::auto_ptr<T> pop() {
+    assert(!stack.empty());
     T* ret = stack.back();
     stack.pop_back();
     return std::auto_ptr<T>(ret);
