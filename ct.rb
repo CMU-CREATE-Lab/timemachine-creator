@@ -298,14 +298,14 @@ class ImagesSource
   def initialize(parent, settings)
     @parent = parent
     @@global_parent = parent
-    @image_dir="0100-original-images"
+    @image_dir="#{@parent.store}/0100-original-images"
     @raw_width = settings["width"]
     @raw_height = settings["height"]
     @subsample = settings["subsample"] || 1
     @images = settings["images"]
     @capture_times = settings["capture_times"]
     @capture_time_parser = settings["capture_time_parser"] || "/home/rsargent/bin/extract_exif_capturetimes.rb"
-    @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "0100-unstitched/"    
+    @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0100-unstitched/"    
     initialize_images
     initialize_framenames
     @tilesize = settings["tilesize"] || ideal_tilesize(@framenames.size)
@@ -389,7 +389,7 @@ class GigapanOrgSource
     @ids = @urls.map{|url| id_from_url(url)}
     @subsample = settings["subsample"] || 1
     @capture_time_parser = "/home/rsargent/bin/extract_gigapan_capturetimes.rb"
-    @capture_time_parser_inputs = "0200-tiles"
+    @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
     @tileformat = "jpg"
     initialize_dimensions
   end
@@ -435,14 +435,14 @@ class PrestitchedSource
     @@global_parent = parent
     @subsample = settings["subsample"] || 1
     @capture_time_parser = "/home/rsargent/bin/extract_gigapan_capturetimes.rb"
-    @capture_time_parser_inputs = "0200-tiles"
+    @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
     initialize_frames
   end
 
   def initialize_frames
-    @framenames = Dir.glob("0200-tiles/*.data").map {|dir| File.basename(without_extension(dir))}.sort
+    @framenames = Dir.glob("#{@parent.store}/0200-tiles/*.data").map {|dir| File.basename(without_extension(dir))}.sort
 
-    data = XmlSimple.xml_in("0200-tiles/#{framenames[0]}.data/tiles/r.info")
+    data = XmlSimple.xml_in("#{@parent.store}/0200-tiles/#{framenames[0]}.data/tiles/r.info")
     @width = 
 			data["bounding_box"][0]["bbox"][0]["max"][0]["vector"][0]["elt"][0].to_i -
 			data["bounding_box"][0]["bbox"][0]["min"][0]["vector"][0]["elt"][0].to_i
@@ -486,13 +486,13 @@ class StitchSource
     @rowfirst = settings["rowfirst"] || false
     @directory_per_position = settings["directory_per_position"] || false
     @capture_time_parser = "/home/rsargent/bin/extract_gigapan_capturetimes.rb"
-    @capture_time_parser_inputs = "0200-tiles"
+    @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
     initialize_frames
   end
 
   def initialize_frames
     if @directory_per_position
-      @directories = Dir.glob("0100-unstitched/*").sort
+      @directories = Dir.glob("#{@parent.store}/0100-unstitched/*").sort
       if @cols * @rows != @directories.size
         raise "Found #{@directories.size} directories but expected #{@cols}x#{@rows}=#{@cols*@rows}"
       end
@@ -508,14 +508,14 @@ class StitchSource
       
       @dpp_images[0].size.times { |i| @framenames << sprintf("%06d", i) }
     else 
-      @framenames = Dir.glob("0100-unstitched/*").map {|dir| File.basename(dir)}.sort
+      @framenames = Dir.glob("#{@parent.store}/0100-unstitched/*").map {|dir| File.basename(dir)}.sort
     end
     @tilesize = 256
     @tileformat = "jpg"
     
     # Read in .gigapan if it exists and we actually need the dimensions from it
     # 1x1 are the dummy dimensions we feed the json file
-    first_gigapan = "0200-tiles/#{framenames[0]}.gigapan"
+    first_gigapan = "#{@parent.store}/0200-tiles/#{framenames[0]}.gigapan"
     if @width == 1 && @height == 1 && File.exist?(first_gigapan)
       data = XmlSimple.xml_in(first_gigapan)
       unless data.nil?
@@ -574,8 +574,8 @@ class StitchSource
           raise "align_to is empty for index #{i} but can only be empty for index 0"
         end
       end
-      source_dir = "0100-unstitched/#{framename}"
-      target_prefix = "0200-tiles/#{framename}"
+      source_dir = "#{@parent.store}/0100-unstitched/#{framename}"
+      target_prefix = "#{@parent.store}/0200-tiles/#{framename}"
       stitch_cmd = ["stitch"]
       stitch_cmd += @rowfirst ? ["--rowfirst", "--ncols", @cols] : ["--nrows", @rows]
       # Stitch 1.x:
@@ -627,7 +627,7 @@ end
 $sourcetypes['stitch'] = StitchSource;
 
 class Compiler
-  attr_reader :source, :tiles_dir, :raw_tilestack_dir, :tilestack_dir, :videosets_dir, :urls
+  attr_reader :source, :tiles_dir, :raw_tilestack_dir, :tilestack_dir, :videosets_dir, :urls, :store
   # attr_reader :id, :versioned_id
   
   def to_s
@@ -641,11 +641,12 @@ class Compiler
     # @versioned_id = "#{@id}-v#{@version}"
     # @label = settings["label"] || raise("Time Machine must have label")
     # STDERR.puts "Timemachine #{@id} (#{@label})"
+    @store = settings['store'] || raise("No store")
+    STDERR.puts "Store is #{@store}"
     @stack_filter = settings['stack_filter']
-    @tiles_dir = "0200-tiles"
-    @tilestack_dir = "0300-tilestacks"
-    @raw_tilestack_dir = @stack_filter ? "0250-raw-tilestacks" : @tilestack_dir
-
+    @tiles_dir = "#{store}/0200-tiles"
+    @tilestack_dir = "#{store}/0300-tilestacks"
+    @raw_tilestack_dir = @stack_filter ? "#{store}/0250-raw-tilestacks" : @tilestack_dir
     source_info = settings["source"] || raise("Time Machine must have source")
     initialize_source(source_info)
 
@@ -685,7 +686,7 @@ class Compiler
     if destination_info.class == String
       @videosets_dir = destination_info
     else
-      @videosets_parent_dir="0400-videosets"
+      @videosets_parent_dir="#{store}/0400-videosets"
       @videosets_dir="#{@videosets_parent_dir}/#{@versioned_id}"
       if ! File.exists? @videosets_parent_dir
         case destination_info["type"]
@@ -1157,16 +1158,27 @@ if `uname`.chomp == 'Darwin'
   local = true
 end
 
-jsonfile ||= File.exists?('definition.timemachinedefinition') && 'definition.timemachinedefinition'
-jsonfile ||= 'default.json'
+store = nil
 
-STDERR.puts "Changing directory to #{File.dirname(jsonfile)}"
-Dir.chdir(File.dirname(jsonfile))
+if jsonfile
+  if File.extname(File.dirname(jsonfile)) == ".timemachinedefinition"
+    store = File.dirname(jsonfile)
+  end
+else
+  if File.exists?('definition.timemachinedefinition')
+    jsonfile = 'definition.timemachinedefinition'
+  elsif File.exists?('default.json')
+    jsonfile = 'default.json'
+  else
+    raise "Can't find definition.timemachinedefinition"
+  end
+  store = '.'
+end
 
-jsonfile = File.basename(jsonfile)
 STDERR.puts "Reading #{jsonfile}"
 definition = JSON.parse(ct_read_file(jsonfile))
 definition['destination'] = destination
+definition['store'] ||= store
 
 while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
   compiler = Compiler.new(definition)
