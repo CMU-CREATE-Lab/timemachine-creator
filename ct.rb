@@ -11,6 +11,14 @@ require File.dirname(__FILE__) + '/image_size'
 require File.dirname(__FILE__) + '/tile'
 require File.dirname(__FILE__) + '/xmlsimple'
 require 'fileutils'
+require 'backports'
+
+$sourcetypes = {}
+
+Dir.glob(File.dirname(__FILE__) + "/*_source.rb").each do |file|
+  STDERR.puts "Loading #{File.basename(file)}..."
+  require file
+end
 
 $verbose = false
 @@global_parent = nil
@@ -22,6 +30,7 @@ $verbose = false
 #
 # DOCUMENTATION IS IN README_CT.TXT
 #
+
 
 def date
   Time.now.strftime("%Y-%m-%d %H:%M:%S")
@@ -70,6 +79,7 @@ end
 class Rule
   attr_reader :targets, :dependencies, :commands, :local
   @@all = []
+  @@all_targets = Set.new
   
   def self.clear_all
     @@all = []
@@ -78,12 +88,20 @@ class Rule
   def self.all
     @@all
   end
+
+  def self.has_target?(target)
+    @@all_targets.member? target
+  end
   
   def array_of_strings?(a)
-    a.class == Array && a.map{|e| e.class == String}.reduce{|a,b| a && b}
+    a.class == Array && a.all? {|e| e.class == String}
   end
 
   def initialize(targets, dependencies, commands, options={})
+    if targets.class == String
+      targets = [targets]
+    end
+    commands.map! {|x| x.join(' ')}
     array_of_strings?(targets) or raise "targets must be an array of pathnames"
     array_of_strings?(dependencies) or raise "dependencies must be an array of pathnames"
     array_of_strings?(commands) or raise "commands must be an array of strings"
@@ -92,6 +110,15 @@ class Rule
     @commands = commands
     @local = options[:local] || false
     @@all << self
+    @@all_targets += targets
+  end
+  
+  def self.add(targets, dependencies, commands, options={})
+    Rule.new(targets, dependencies, commands, options).targets
+  end
+
+  def self.touch(target, dependencies)
+    Rule.add(target, dependencies, [['touch', target]], {:local => true})
   end
   
   def to_make
@@ -205,13 +232,9 @@ class VideosetCompiler
     end
   end
   
-
-
-#	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/patp4s/transpose --writevideo testresults/patp4s/testvid.mp4 1 24
-
   def rules(dependencies)
     STDERR.puts "#{id}: #{@videotiles.size} videos"
-    @videotiles.map do |vt|
+    @videotiles.flat_map do |vt|
       target = "#{@parent.videosets_dir}/#{id}/#{vt.path}.mp4"
       cmd = [$tilestacktool]
       cmd << "--create-parent-directories"
@@ -221,58 +244,14 @@ class VideosetCompiler
       frames = {'frames' => {'start' => 0, 'end' => @parent.source.framenames.size - 1}, 
                 'bounds' => vt.source_bounds(@vid_width, @vid_height)};
       cmd << "'#{JSON.generate(frames)}'"
-      cmd << @parent.transpose_dir
+      cmd << @parent.tilestack_dir
 
       cmd += ['--writevideo', target, @fps, @quality]
       # TODO: leader!
       # @leader && cmd += ["--leader", @leader]
-      Rule.new([target], dependencies, [cmd.join(" ")])
+      Rule.add(target, dependencies, [cmd])
     end
   end
-
-#*#  def rules(dependencies)
-#*#    STDERR.puts "#{id}: #{@videotiles.size} videos"
-#*#    @videotiles.map do |vt|
-#*#      cmd = ["make-video.py"]
-#*#      @show_frameno && cmd << "--label"
-#*#      cmd << @parent.transpose_dir
-#*#      cmd += [@parent.source.width, @parent.source.height, 0]                             # gigapan dimensions
-#*#      cmd += [0, @parent.source.framenames.size-1]                                         # frames to render
-#*#      cmd += [vt.x, vt.y, @vid_width*vt.subsample, @vid_height*vt.subsample] # crop
-#*#      cmd += [@vid_width, @vid_height]                                      # output size
-#*#      target = "#{@parent.videosets_dir}/#{id}/#{vt.path}"
-#*#      cmd += ["--tilesize", @parent.source.tilesize]
-#*#      @leader && cmd += ["--leader", @leader]
-#*#      case @videotype
-#*#      when "h.264"
-#*#        target += ".mp4"
-#*#        cmd += ["--qtfaststart",
-#*#                "--ffmpeg",
-#*#                # Input settings
-#*#                "-s", "#{@vid_width}x#{@vid_height}",
-#*#                "-vcodec", "rawvideo",
-#*#                "-f", "rawvideo",
-#*#                "-pix_fmt", "rgb24",
-#*#                "-r", @fps,
-#*#                "-i", "-",
-#*#                # Output settings
-#*#                "-y",
-#*#                "-vcodec", "libx264",
-#*#                "-vpre",  "hq",
-#*#                "-crf", @quality,
-#*#                "-g", 10,
-#*#                "-bf", 0,
-#*#                "-r", @fps]
-#*#      when "webm"
-#*#        target += ".webm"
-#*#        cmd << "--webm"
-#*#      else
-#*#        raise "unknown video type #{@videotype}"
-#*#      end
-#*#      cmd << target
-#*#      Rule.new([target], dependencies, [cmd.join(" ")])
-#*#    end
-#*#  end
 
   def info
     {
@@ -379,15 +358,16 @@ class ImagesSource
     fn = @image_framenames[image]
     target = "#{@parent.tiles_dir}/#{fn}.data/tiles"
     cmd = [$tilestacktool, '--tilesize', @tilesize, '--image2tiles', target, @tileformat, image]
-    Rule.new([target], [image],
-             [cmd.join(' ')])
+    Rule.add(target, [image], [cmd])
   end
  
   def tiles_rules
-    @images.map {|image| image_to_tiles_rule(image)}
+    @images.flat_map {|image| image_to_tiles_rule(image)}
   end
 
 end
+
+$sourcetypes['images'] = ImagesSource;
 
 class GigapanOrgSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :framenames, :subsample
@@ -395,7 +375,7 @@ class GigapanOrgSource
   
   def initialize(parent, settings)
     @parent = parent
-		@@global_parent = parent
+    @@global_parent = parent
     @urls = settings["urls"]
     @ids = @urls.map{|url| id_from_url(url)}
     @subsample = settings["subsample"] || 1
@@ -423,9 +403,9 @@ class GigapanOrgSource
   end
 
   def tiles_rules
-    (0...@ids.size).map do |i|
+    @ids.size.times.flat_map do |i|
       target = "#{@parent.tiles_dir}/#{framename(i)}.data/tiles"
-      Rule.new([target], [], ["mirror-gigapan.rb #{@ids[i]} #{target}"])
+      Rule.add(target, [], [['mirror-gigapan.rb', @ids[i], target]])
     end
   end
 
@@ -435,13 +415,15 @@ class GigapanOrgSource
   end
 end    
 
+$sourcetypes['gigapan.org'] = GigapanOrgSource;
+
 class PrestitchedSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :framenames, :subsample
   attr_reader :capture_time_parser, :capture_time_parser_inputs
   
   def initialize(parent, settings)
     @parent = parent
-		@@global_parent = parent
+    @@global_parent = parent
     @subsample = settings["subsample"] || 1
     @capture_time_parser = "/home/rsargent/bin/extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = "0200-tiles"
@@ -468,7 +450,9 @@ class PrestitchedSource
   def tiles_rules
     []
   end
-end    
+end
+
+$sourcetypes['prestitched'] = PrestitchedSource;
 
 class StitchSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :framenames, :subsample
@@ -557,8 +541,8 @@ class StitchSource
   end
 
   def tiles_rules
-    rules = []
-    @framenames.each_with_index do |framename, i|
+    @framenames.size.times.flat_map do |i|
+      framenae = @framenames[i]
       align_to = []
       copy_master_geometry_exactly = false
       align_to_eval = eval(@align_to)
@@ -621,19 +605,20 @@ class StitchSource
       stitch_cmd << "--xvfb"
       stitch_cmd << "--nolog"
 
-      rules << Rule.new(["#{target_prefix}.gigapan"], 
-                        align_to, 
-                        [stitch_cmd.join(" "),
-                         "mv #{target_prefix}-#{suffix}.gigapan #{target_prefix}.gigapan",
-                         "mv #{target_prefix}-#{suffix}.data #{target_prefix}.data"
-                        ])
+      Rule.add("#{target_prefix}.gigapan", 
+               align_to, 
+               [stitch_cmd,
+                ['mv', "#{target_prefix}-#{suffix}.gigapan", "#{target_prefix}.gigapan"],
+                ['mv', "#{target_prefix}-#{suffix}.data", "#{target_prefix}.data"]
+               ])
     end
-    rules
   end    
 end
 
+$sourcetypes['stitch'] = StitchSource;
+
 class Compiler
-  attr_reader :source, :tiles_dir, :transpose_dir, :videosets_dir, :urls
+  attr_reader :source, :tiles_dir, :raw_tilestack_dir, :tilestack_dir, :videosets_dir, :urls
   # attr_reader :id, :versioned_id
   
   def to_s
@@ -647,14 +632,15 @@ class Compiler
     # @versioned_id = "#{@id}-v#{@version}"
     # @label = settings["label"] || raise("Time Machine must have label")
     # STDERR.puts "Timemachine #{@id} (#{@label})"
-
-    @tiles_dir="0200-tiles"
-    @transpose_dir="0300-transpose"
+    @stack_filter = settings['stack_filter']
+    @tiles_dir = "0200-tiles"
+    @tilestack_dir = "0300-tilestacks"
+    @raw_tilestack_dir = @stack_filter ? "0250-raw-tilestacks" : @tilestack_dir
 
     source_info = settings["source"] || raise("Time Machine must have source")
     initialize_source(source_info)
 
-    initialize_transpose
+    initialize_tilestack
 
     destination_info = settings["destination"]
     if ! destination_info
@@ -663,9 +649,9 @@ class Compiler
     end
     initialize_destination(destination_info)
     
-    STDERR.puts "#{(@source.framenames.size*@source.width*@source.height/1e+9*10).round/10} gigapixels total video content"
+    STDERR.puts "#{(@source.framenames.size*@source.width*@source.height/1e+9).round(1)} gigapixels total video content"
     STDERR.puts "#{@source.framenames.size} frames"
-    STDERR.puts "#{(@source.width*@source.height/1e6*10).round/10} megapixels per frame (#{@source.width}px x #{@source.height}px)"
+    STDERR.puts "#{(@source.width*@source.height/1e6).round(1)} megapixels per frame (#{@source.width}px x #{@source.height}px)"
 
     #initialize_original_images
     @videoset_compilers = settings["videosets"].map {|json| VideosetCompiler.new(self, json)}
@@ -673,23 +659,17 @@ class Compiler
   end
 
   def initialize_source(source_info)
-    sourcetypes = {
-      "gigapan.org"=>GigapanOrgSource,
-      "images"=>ImagesSource,
-      "prestitched"=>PrestitchedSource,
-      "stitch"=>StitchSource
-    };
-    
-    sourcetypes[source_info["type"]] or raise "Source type must be one of #{sourcetypes.keys.join(" ")}"
-    @source = sourcetypes[source_info["type"]].new(self, source_info)
+    $sourcetypes[source_info["type"]] or raise "Source type must be one of #{$sourcetypes.keys.join(" ")}"
+    @source = $sourcetypes[source_info["type"]].new(self, source_info)
     open("autogenerated_framenames.txt", "w") { |fh| fh.write @source.framenames.join("\n") }
   end
 
-  def initialize_transpose
-    FileUtils.mkdir_p @transpose_dir
+  def initialize_tilestack
+    FileUtils.mkdir_p @raw_tilestack_dir
+    FileUtils.mkdir_p @tilestack_dir
     r = {'width' => @source.width, 'height' => @source.height,
          'tile_width' => @source.tilesize, 'tile_height' => @source.tilesize}
-    open("#{@transpose_dir}/r.json", 'w') {|fh| fh.puts(JSON.pretty_generate(r))}
+    open("#{@tilestack_dir}/r.json", 'w') {|fh| fh.puts(JSON.pretty_generate(r))}
   end
 
   def initialize_destination(destination_info)
@@ -719,95 +699,117 @@ class Compiler
   end
 
   def initialize_tiles
-    @all_tiles = Tile.enumerate(@source.width, @source.height, @source.tilesize)
-    @max_level = @all_tiles.map{|tile| tile.level}.max
-    @base_tiles = @all_tiles.find_all{|tile| tile.level == @max_level}
-    @subsampled_tiles = @all_tiles.find_all{|tile| tile.level < @max_level}
+    tileset = Tileset.new(@source.width, @source.height, @source.tilesize)
+    @all_tiles = tileset.enumerate
+    @max_level = tileset.max_level
+    @base_tiles = tileset.enumerate_max_level
+    @subsampled_tiles = tileset.enumerate_subsampled_levels
   end
 
   def all_tiles_rule
-    tileset_targets = @source.tiles_rules.map{|rule| rule.targets}.flatten(1)
-    
-    target = "#{@tiles_dir}/COMPLETE"
-    Rule.new([target], tileset_targets, ["touch #{target}"])
+    Rule.touch("#{@tiles_dir}/COMPLETE", @source.tiles_rules)
   end
 
-  def transpose_path(tile)
-    "#{@transpose_dir}/#{tile.path}.ts2"
+  def raw_tilestack_path(tile)
+    "#{@raw_tilestack_dir}/#{tile.path}.ts2"
   end
 
-  def transpose_rule(tile, dependencies)
+  def tilestack_path(tile)
+    "#{@tilestack_dir}/#{tile.path}.ts2"
+  end
+
+  def tilestack_rule(tile, dependencies)
+    if Rule.has_target?(tile)
+      return dependencies
+    end
     children = tile.children & @all_tiles
     if children.size > 0
-      subsampled_transpose_rule(tile, children, dependencies)
+      subsampled_tilestack_rule(tile, children, dependencies)
     else
-      base_transpose_rule(tile, dependencies)
+      base_tilestack_rule(tile, dependencies)
     end
   end
 
-  def subsampled_transpose_rule(target_idx, children, dependencies)
-    target = transpose_path(target_idx)
-    children = children.map{|child| transpose_rule(child, dependencies).targets}.flatten(1)
+  def subsampled_tilestack_rule(target_idx, children, dependencies)
+    target = tilestack_path(target_idx)
+    children = children.flat_map {|child| tilestack_rule(child, dependencies)}
 
     cmd = [$tilestacktool]
     frames = {'frames' => {'start' => 0, 'end' => @source.framenames.size - 1}, 
               'bounds' => target_idx.bounds(@source.tilesize, @max_level)}
-    cmd += ['--path2stack', @source.tilesize, @source.tilesize, "'#{JSON.generate(frames)}'", @transpose_dir]
+    cmd += ['--path2stack', @source.tilesize, @source.tilesize, "'#{JSON.generate(frames)}'", @tilestack_dir]
     cmd += ['--save', target]
-    Rule.new([target], children, [cmd.join(' ')])
+    Rule.add(target, children, [cmd])
   end
 
-  def base_transpose_rule(target, dependencies)
+  def base_tilestack_rule(target_idx, dependencies)
+    targets = raw_base_tilestack_rule(target_idx, dependencies)
+    if @stack_filter
+      src = raw_tilestack_path(target_idx)
+      dest = tilestack_path(target_idx)
+      cmd = [$tilestacktool]
+      cmd += ['--load', src]
+      cmd += @stack_filter
+      cmd += ['--save', dest]
+      targets = Rule.add(dest, targets, [cmd])
+    end
+    targets
+  end
+
+  def raw_base_tilestack_rule(target, dependencies)
     inputs = @source.framenames.map {|frame| "#{@tiles_dir}/#{frame}.data/tiles/#{target.path}.#{@source.tileformat}"}
-    target = transpose_path(target)
+    target = raw_tilestack_path(target)
     cmd = [$tilestacktool] # , "--delete-source-tiles"]
     cmd += ["--loadtiles"] + inputs
     cmd += ["--create-parent-directories", "--save", target]
-    Rule.new([target], dependencies, [cmd.join(" ")])
+    Rule.add(target, dependencies, [cmd])
   end
 
-  def all_transposes_rule
-    atr = all_tiles_rule
+  def all_tilestacks_rule
     STDERR.puts "   #{@base_tiles.size} base tiles per input frame (#{@source.tilesize}x#{@source.tilesize} px)"
-    target = "#{@transpose_dir}/COMPLETE"
-    Rule.new([target], transpose_rule(Tile.new(0,0,0), atr.targets).targets, ["touch #{target}"])
+    if @source.respond_to?(:tilestack_rules)
+      targets = @source.tilestack_rules
+      targets = Rule.touch("#{@raw_tilestack_dir}/SOURCE_COMPLETE", targets)
+    else
+      targets = all_tiles_rule
+    end
+    targets = tilestack_rule(Tile.new(0,0,0), targets)
+    Rule.touch("#{@tilestack_dir}/COMPLETE", targets)
   end
     
-  # def transpose_cleanup_rule
+  # def tilestack_cleanup_rule
   #   #remove remaining .jpgs leftover and all sub directories
   #   #leave the top-most directory (*.data/tiles/r.info)
   #   #do not do anything if subsmaple is not 1 for the tiling
   #   cmd = @@global_parent.source.subsample == 1 ? ["find #{@tiles_dir} -name *.jpg | xargs rm -f", 
   #                                                  "find #{@tiles_dir} -type d | xargs rmdir --ignore-fail-on-non-empty"] : ["echo"]
-  #   dependencies = all_transposes_rule.targets
-  #   Rule.new(["transpose-cleanup"], dependencies, 
+  #   dependencies = all_tilestacks_rule.targets
+  #   Rule.new(["tilestack-cleanup"], dependencies, 
   #            cmd, 
   #            {:local=>true})
   # end
   
   def videoset_rules
-    # dependencies=transpose_cleanup_rule.targets
-    dependencies = all_transposes_rule.targets
-    @videoset_compilers.map{|vc| vc.rules(dependencies)}.flatten(1)
+    # dependencies=tilestack_cleanup_rule.targets
+    dependencies = all_tilestacks_rule
+    @videoset_compilers.flat_map {|vc| vc.rules(dependencies)}
   end
 
   def capture_times_rule()
-    dependencies = videoset_rules.map{|rule| rule.targets}.flatten(1)
     cmd = ["ruby #{@@global_parent.source.capture_time_parser}",
            "#{@@global_parent.source.capture_time_parser_inputs}",
            "#{@videosets_dir}/tm.json"]
-    Rule.new(["capture_times"], dependencies, [cmd.join(" ")])
+    Rule.add("capture_times", videoset_rules, [cmd])
   end
 
   def howto_rule
     # dependencies = capture_times_rule.targets
-    dependencies = videoset_rules.map{|rule| rule.targets}.flatten(1)
     directions = []
     directions << "echo 'Add this to #{@urls['view'] || "your page"}: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{@versioned_id}|timelapse_dataset=1}}'"
     if @urls['track']
       directions << "echo 'and update tracking page #{@urls['track']}'"
     end
-    Rule.new(["howto"], dependencies, 
+    Rule.add("howto", videoset_rules,
              directions,
              {:local=>true})
   end
@@ -871,7 +873,7 @@ def write_makefile
 
   #STDERR.puts "Combined #{Rule.all.size-grouped_rules.size} rules to #{grouped_rules.size}"
   
-  all_targets = grouped_rules.map{|rule| rule.targets}.flatten(1)
+  all_targets = grouped_rules.flat_map &:targets
   
   open("rules.txt","w") do |makefile|
     makefile.puts "# generated by ct.rb"
@@ -977,9 +979,9 @@ class Maker
   def execute_rules(job_no, rules, response)
     counter = 1;
     result = 1;
-    commands = rules.map{|rule| rule.commands}.flatten(1)
+    commands = rules.flat_map &:commands
     command = commands.join(" && ")
-    if !@local && !rules.map{|rule| rule.local}.reduce{|a,b| a and b}
+    if !@local && !rules.all?(&:local)
       command = "submit_synchronous '#{command}'"
     end
     
@@ -1088,7 +1090,7 @@ class Maker
 
   def print_status(rules, jobs)
     status = []
-    status << "#{(@@ndone*100.0/@rules.size*10).round/10}% rules finished (#{@@ndone}/#{@rules.size})"
+    status << "#{(@@ndone*100.0/@rules.size).round(1)}% rules finished (#{@@ndone}/#{@rules.size})"
     rules && jobs && status << "#{rules} rules executing (in #{jobs} jobs)"
     status << "#{@ready.size} rules ready to execute"
     status << "#{@rules.size-@@ndone-@ready.size-rules} rules awaiting dependencies"
@@ -1103,7 +1105,10 @@ local = false
 retry_attempts = 0
 destination = nil
 
-$tilestacktool = "tilestacktool"
+$tilestacktool = File.expand_path "#{File.dirname(__FILE__)}/tilestacktool/tilestacktool"
+if !File.exists? $tilestacktool
+  $tilestacktool = "tilestacktool"
+end
 $explorer_source_dir = File.expand_path "#{File.dirname(__FILE__)}/time-machine-explorer"
 jsonfile = ""
 

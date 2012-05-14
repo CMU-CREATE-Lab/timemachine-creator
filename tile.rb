@@ -48,22 +48,5 @@ class Tile
     scale = tilesize << (maxlevel - @level)
     return {'xmin' => @x * scale, 'ymin' => @y * scale, 'width' => scale, 'height' => scale}
   end
-
-  def self.enumerate(width, height, tile_size)
-    tiles = []
-    max_level = 0
-    while (tile_size << max_level) < [width, height].max
-      max_level += 1
-    end
-    (max_level+1).times do |level|
-      tile_size_at_level = tile_size << (max_level - level)
-      (height / tile_size_at_level.to_f).ceil.times do |y|
-        (width / tile_size_at_level.to_f).ceil.times do |x|
-          tiles << Tile.new(x, y, level)
-        end
-      end
-    end
-    tiles
-  end
 end
 
