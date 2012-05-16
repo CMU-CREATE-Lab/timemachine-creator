@@ -43,7 +43,7 @@ public:
     Json::Reader reader;
     Json::Value ret;
     if (!reader.parse(arg, ret)) {
-      usage("Can't parse '%s' as json: %s", arg.c_str());
+      usage("Can't parse '%s' as json", arg.c_str());
     }
     return ret;
   }

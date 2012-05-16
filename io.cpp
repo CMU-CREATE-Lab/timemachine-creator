@@ -14,8 +14,13 @@ void IfstreamReader::read(unsigned char *dest, size_t pos, size_t length) {
   f.seekg(pos, std::ios_base::beg);
   f.read((char*)dest, length);
   if (f.fail()) {
-    throw_error("Error reading %zd bytes from file %s at position %zd\n",
-                length, filename.c_str(), pos);
+    #ifdef _WIN32
+      throw_error("Error reading %Id bytes from file %s at position %Id\n",
+                  length, filename.c_str(), pos);
+    #else
+      throw_error("Error reading %zd bytes from file %s at position %zd\n",
+                  length, filename.c_str(), pos);
+    #endif
   }
 }
 
@@ -35,6 +40,10 @@ OfstreamWriter::OfstreamWriter(std::string filename) : f(filename.c_str(), std::
 void OfstreamWriter::write(const unsigned char *src, size_t length) {
   f.write((char*)src, length);
   if (f.fail()) {
-    throw_error("Error writing %zd bytes to file %s\n", length, filename.c_str());
+    #ifdef _WIN32
+      throw_error("Error writing %Id bytes to file %s\n", length, filename.c_str());
+    #else
+      throw_error("Error writing %zd bytes to file %s\n", length, filename.c_str());
+    #endif
   }
 }

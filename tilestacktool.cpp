@@ -127,11 +127,11 @@ void write_html(std::string dest)
   std::auto_ptr<Tilestack> src(tilestackstack.pop());
   std::string dir = filename_sans_suffix(dest);
 
-#ifdef _WIN32
-  _wmkdir(Unicode(dir).path());
-#else
-  mkdir(Unicode(dir).path(), 0777);
-#endif
+  #ifdef _WIN32
+    _wmkdir(Unicode(dir).path());
+  #else
+    mkdir(Unicode(dir).path(), 0777);
+  #endif
 
   std::string html_filename = filename_sans_suffix(dest) + ".html";
   FILE *html = fopen(html_filename.c_str(), "w");
@@ -213,11 +213,11 @@ public:
 		#endif
 
     unlink(dest_filename.c_str());
-#ifdef _WIN32
-    out = _popen(cmdline.c_str(), "w");
-#else
-    out = popen(cmdline.c_str(), "w");
-#endif
+    #ifdef _WIN32
+      out = _popen(cmdline.c_str(), "wb");
+    #else
+      out = popen(cmdline.c_str(), "w");
+    #endif
     if (!out) {
       throw_error("Error trying to run ffmpeg.  Make sure it's installed and in your path\n"
 		  "Tried with this commandline:\n"
@@ -234,13 +234,14 @@ public:
   }
 
   void close() {
-#ifdef _WIN32    
-    if (out) _pclose(out);
-#else
-    if (out) pclose(out);
-#endif
+    #ifdef _WIN32
+      if (out) _pclose(out);
+      fprintf(stderr, "Wrote %Id frames (%Id bytes) to ffmpeg\n", total_written / (width * height * 3), total_written);
+    #else
+      if (out) pclose(out);
+      fprintf(stderr, "Wrote %zd frames (%zd bytes) to ffmpeg\n", total_written / (width * height * 3), total_written);
+    #endif
     out = NULL;
-    fprintf(stderr, "Wrote %zd frames (%zd bytes) to ffmpeg\n", total_written / (width * height * 3), total_written);
   }
 
   static std::string path_to_ffmpeg() {
@@ -706,7 +707,12 @@ int main(int argc, char **argv)
       }
     }
     if (source_tiles_to_delete.size()) {
-      fprintf(stderr, "Deleting %zd source tiles\n", source_tiles_to_delete.size());
+      #ifdef _WIN32
+        fprintf(stderr, "Deleting %Id source tiles\n", source_tiles_to_delete.size());
+      #else
+        fprintf(stderr, "Deleting %zd source tiles\n", source_tiles_to_delete.size());
+      #endif
+
       for (unsigned i = 0; i < source_tiles_to_delete.size(); i++) {
 	unlink(source_tiles_to_delete[i].c_str());
       }
