@@ -29,15 +29,15 @@
 using namespace std;
 
 #ifdef _WIN32
-// Windows
-#define ALLOWABLE_DIRECTORY_DELIMITERS "/\\"
-#define DIRECTORY_DELIMITER '\\'
-#define DIRECTORY_DELIMITER_STRING "\\"
+  // Windows
+  #define ALLOWABLE_DIRECTORY_DELIMITERS "/\\"
+  #define DIRECTORY_DELIMITER '\\'
+  #define DIRECTORY_DELIMITER_STRING "\\"
 #else
-// UNIX
-#define ALLOWABLE_DIRECTORY_DELIMITERS "/"
-#define DIRECTORY_DELIMITER '/'
-#define DIRECTORY_DELIMITER_STRING "/"
+  // UNIX
+  #define ALLOWABLE_DIRECTORY_DELIMITERS "/"
+  #define DIRECTORY_DELIMITER '/'
+  #define DIRECTORY_DELIMITER_STRING "/"
 #endif
 
 string filename_sans_directory(const string &filename)
