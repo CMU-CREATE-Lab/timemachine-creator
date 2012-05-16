@@ -37,7 +37,7 @@ void get_cpu_usage(double &user, double &system);
 class Unicode {
   std::string m_utf8;
 #ifdef _WIN32
-  std::vector<unsigned short> m_utf16;
+  std::vector<wchar_t> m_utf16;
 #endif
 public:
   Unicode(const std::string &utf8);
