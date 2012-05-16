@@ -8,20 +8,18 @@
 
 #include "ImageReader.h"
 
-using namespace std;
-
 ////// ImageReader
 
-auto_ptr<ImageReader> ImageReader::open(const string &filename) {
-  string format = filename_suffix(filename);
-  if (iequals(format, "jpg")) return auto_ptr<ImageReader>(new JpegReader(filename));
-  if (iequals(format, "kro")) return auto_ptr<ImageReader>(new KroReader(filename));
+std::auto_ptr<ImageReader> ImageReader::open(const std::string &filename) {
+  std::string format = filename_suffix(filename);
+  if (iequals(format, "jpg")) return std::auto_ptr<ImageReader>(new JpegReader(filename));
+  if (iequals(format, "kro")) return std::auto_ptr<ImageReader>(new KroReader(filename));
   throw_error("Unrecognized image format from filename %s", filename.c_str());
 }
 
 ////// JpegReader
 
-JpegReader::JpegReader(const string &filename) : filename(filename) {
+JpegReader::JpegReader(const std::string &filename) : filename(filename) {
   in = fopen(filename.c_str(), "rb");
   if (!in) throw_error("Can't open %s for reading", filename.c_str());
 
@@ -37,7 +35,7 @@ JpegReader::JpegReader(const string &filename) : filename(filename) {
 }
 
 void JpegReader::read_rows(unsigned char *pixels, unsigned int nrows) const {
-  vector<unsigned char*> rowptrs(nrows);
+  std::vector<unsigned char*> rowptrs(nrows);
   for (unsigned i = 0; i < nrows; i++) {
     rowptrs[i] = pixels + i * bytes_per_row();
   }
@@ -62,7 +60,7 @@ JpegReader::~JpegReader() {
 
 ////// KroReader
 
-KroReader::KroReader(const string &filename) : filename(filename) {
+KroReader::KroReader(const std::string &filename) : filename(filename) {
   in = fopen(filename.c_str(), "rb");
   if (!in) throw_error("Can't open %s for reading", filename.c_str());
 

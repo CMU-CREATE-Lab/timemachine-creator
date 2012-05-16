@@ -8,25 +8,23 @@
 
 #include "ImageWriter.h"
 
-using namespace std;
-
 ImageWriter::ImageWriter(int width, int height, int bands_per_pixel, int bits_per_band) :
   m_width(width), m_height(height), m_bands_per_pixel(bands_per_pixel), m_bits_per_band(bits_per_band) {}
 
-auto_ptr<ImageWriter> ImageWriter::open(const string &filename, int width, int height, int bands_per_pixel, int bits_per_band) {
-  string format = filename_suffix(filename);
-  if (iequals(format, "kro")) return auto_ptr<ImageWriter>(new KroWriter(filename, width, height, bands_per_pixel, bits_per_band));
+std::auto_ptr<ImageWriter> ImageWriter::open(const std::string &filename, int width, int height, int bands_per_pixel, int bits_per_band) {
+  std::string format = filename_suffix(filename);
+  if (iequals(format, "kro")) return std::auto_ptr<ImageWriter>(new KroWriter(filename, width, height, bands_per_pixel, bits_per_band));
   //if (iequals(format, "jpg")) return auto_ptr<ImageWriter>(new JpegWriter(filename));
   throw_error("Unrecognized image format from %s", filename.c_str());
 }
 
-void ImageWriter::write(const string &filename, int width, int height, int bands_per_pixel, int bits_per_band, unsigned char *pixels) {
-  auto_ptr<ImageWriter> writer(open(filename, width, height, bands_per_pixel, bits_per_band));
+void ImageWriter::write(const std::string &filename, int width, int height, int bands_per_pixel, int bits_per_band, unsigned char *pixels) {
+  std::auto_ptr<ImageWriter> writer(open(filename, width, height, bands_per_pixel, bits_per_band));
   writer->write_rows(pixels, height);
   writer->close();
 }
 
-KroWriter::KroWriter(const string &filename, int width, int height, int bands_per_pixel, int bits_per_band) :
+KroWriter::KroWriter(const std::string &filename, int width, int height, int bands_per_pixel, int bits_per_band) :
   ImageWriter(width, height, bands_per_pixel, bits_per_band), filename(filename) {
   out = fopen(filename.c_str(), "wb");
   if (!out) throw_error("Can't open %s for writing", filename.c_str());

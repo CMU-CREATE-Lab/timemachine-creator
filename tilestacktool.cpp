@@ -7,7 +7,6 @@
 #include <sys/stat.h>
 
 #include <cmath>
-#include <list>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -24,22 +23,20 @@
 #include "Tilestack.h"
 #include "tilestacktool.h"
 
-using namespace std;
-
 #define TODO(x) do { fprintf(stderr, "%s:%d: error: TODO %s\n", __FILE__, __LINE__, x); abort(); } while (0)
 
 unsigned int tilesize = 512;
 bool create_parent_directories = false;
 bool delete_source_tiles = false;
-vector<string> source_tiles_to_delete;
+std::vector<std::string> source_tiles_to_delete;
 bool duplicate_video_start_and_end_frames = false;
 
 void usage(const char *fmt, ...);
 
 class TilestackReader : public Tilestack {
 public:
-  auto_ptr<Reader> reader;
-  TilestackReader(auto_ptr<Reader> reader) : reader(reader) {
+  std::auto_ptr<Reader> reader;
+  TilestackReader(std::auto_ptr<Reader> reader) : reader(reader) {
     read();
     pixels.resize(nframes);
   }
@@ -63,7 +60,7 @@ public:
   void read() {
     size_t footer_size = 48;
     size_t filelen = reader->length();
-    vector<unsigned char> footer = reader->read(filelen - footer_size, footer_size);
+    std::vector<unsigned char> footer = reader->read(filelen - footer_size, footer_size);
     nframes =      (unsigned int) read_u64(&footer[ 0]);
     tile_width =   (unsigned int) read_u64(&footer[ 8]);
     tile_height =  (unsigned int) read_u64(&footer[16]);
@@ -76,7 +73,7 @@ public:
 
     size_t tocentry_size = 24;
     size_t toclen = tocentry_size * nframes;
-    vector<unsigned char> tocdata = reader->read(filelen - footer_size - toclen, toclen);
+    std::vector<unsigned char> tocdata = reader->read(filelen - footer_size - toclen, toclen);
     toc.resize(nframes);
     for (unsigned i = 0; i < nframes; i++) {
       toc[i].timestamp = read_double_64(&tocdata[i*tocentry_size +  0]);
@@ -89,9 +86,9 @@ public:
 
 AutoPtrStack<Tilestack> tilestackstack;
 
-void load(string filename)
+void load(std::string filename)
 {
-  tilestackstack.push(auto_ptr<Tilestack>(new TilestackReader(auto_ptr<Reader>(new IfstreamReader(filename)))));
+  tilestackstack.push(std::auto_ptr<Tilestack>(new TilestackReader(std::auto_ptr<Reader>(new IfstreamReader(filename)))));
 }
 
 u8 viz_channel(u16 in, double min, double max, double gamma) {
@@ -103,8 +100,8 @@ u8 viz_channel(u16 in, double min, double max, double gamma) {
 }
 
 void viz(double min, double max, double gamma) {
-  auto_ptr<Tilestack> src(tilestackstack.pop());
-  auto_ptr<Tilestack> dest(
+  std::auto_ptr<Tilestack> src(tilestackstack.pop());
+  std::auto_ptr<Tilestack> dest(
     new ResidentTilestack(src->nframes, src->tile_width, src->tile_height,
                           src->bands_per_pixel, 8, 0, 0));
   assert(src->bands_per_pixel == 4);
@@ -125,18 +122,18 @@ void viz(double min, double max, double gamma) {
   tilestackstack.push(dest);
 }
 
-void write_html(string dest)
+void write_html(std::string dest)
 {
-  auto_ptr<Tilestack> src(tilestackstack.pop());
-  string dir = filename_sans_suffix(dest);
+  std::auto_ptr<Tilestack> src(tilestackstack.pop());
+  std::string dir = filename_sans_suffix(dest);
 
-  #ifdef _WIN32
-    _wmkdir(Unicode(dir).path());
-  #else
-    mkdir(Unicode(dir).path(), 0777);
-  #endif
+#ifdef _WIN32
+  _wmkdir(Unicode(dir).path());
+#else
+  mkdir(Unicode(dir).path(), 0777);
+#endif
 
-  string html_filename = filename_sans_suffix(dest) + ".html";
+  std::string html_filename = filename_sans_suffix(dest) + ".html";
   FILE *html = fopen(html_filename.c_str(), "w");
 
   fprintf(html,
@@ -149,9 +146,9 @@ void write_html(string dest)
           "<body>\n");
 
   for (unsigned i = 0; i < src->nframes; i++) {
-    string image_filename = string_printf("%04d.png", i);
-    string image_path = dir + "/" + image_filename;
-    string html_image_path = filename_sans_directory(dir) + "/" + image_filename;
+    std::string image_filename = string_printf("%04d.png", i);
+    std::string image_path = dir + "/" + image_filename;
+    std::string html_image_path = filename_sans_directory(dir) + "/" + image_filename;
     fprintf(stderr, "Writing %s\n", image_filename.c_str());
     write_png(image_path.c_str(), src->tile_width, src->tile_height,
               src->bands_per_pixel, src->bits_per_band, src->frame_pixels(i));
@@ -164,15 +161,15 @@ void write_html(string dest)
   fprintf(stderr, "Created %s\n", html_filename.c_str());
 }
 
-void save(string dest)
+void save(std::string dest)
 {
-  auto_ptr<Tilestack> tmp(tilestackstack.pop());
+  std::auto_ptr<Tilestack> tmp(tilestackstack.pop());
   ResidentTilestack *src = dynamic_cast<ResidentTilestack*>(tmp.get());
   if (!src) throw_error("Can only save type ResidentTilestack (do an operation after reading before writing)");
 
   if (create_parent_directories) make_directory_and_parents(filename_directory(dest));
 
-  string temp_dest = temporary_path(dest);
+  std::string temp_dest = temporary_path(dest);
 
   {
     OfstreamWriter out(temp_dest);
@@ -191,11 +188,11 @@ class FfmpegEncoder {
   FILE *out;
   size_t total_written;
 public:
-  FfmpegEncoder(string dest_filename, int width, int height,
+  FfmpegEncoder(std::string dest_filename, int width, int height,
                 double fps, double compression) :
     width(width), height(height), total_written(0) {
     int nthreads = 8;
-    string cmdline = string_printf("%s -threads %d -loglevel error -benchmark", path_to_ffmpeg().c_str(), nthreads);
+    std::string cmdline = string_printf("%s -threads %d -loglevel error -benchmark", path_to_ffmpeg().c_str(), nthreads);
     // Input
     cmdline += string_printf(" -s %dx%d -vcodec rawvideo -f rawvideo -pix_fmt rgb24 -r %g -i pipe:0",
                              width, height, fps);
@@ -246,8 +243,8 @@ public:
     fprintf(stderr, "Wrote %zd frames (%zd bytes) to ffmpeg\n", total_written / (width * height * 3), total_written);
   }
 
-  static string path_to_ffmpeg() {
-    string colocated = string_printf("%s/ffmpeg/%s/ffmpeg",
+  static std::string path_to_ffmpeg() {
+    std::string colocated = string_printf("%s/ffmpeg/%s/ffmpeg",
 				     filename_directory(executable_path()).c_str(),
 				     os().c_str());
     if (filename_exists(colocated)) return colocated;
@@ -255,10 +252,10 @@ public:
   }
 };
 
-void write_video(string dest, double fps, double compression)
+void write_video(std::string dest, double fps, double compression)
 {
-  auto_ptr<Tilestack> src(tilestackstack.pop());
-  string temp_dest = temporary_path(dest);
+  std::auto_ptr<Tilestack> src(tilestackstack.pop());
+  std::string temp_dest = temporary_path(dest);
   if (!src->nframes) {
     throw_error("Tilestack has no frames in write_video");
   }
@@ -268,9 +265,9 @@ void write_video(string dest, double fps, double compression)
   fprintf(stderr, "Encoding video to %s\n", temp_dest.c_str());
   FfmpegEncoder encoder(temp_dest, src->tile_width, src->tile_height, fps, compression);
   assert(src->bands_per_pixel >= 3 && src->bits_per_band == 8);
-  vector<unsigned char> destframe(src->tile_width * src->tile_height * 3);
+  std::vector<unsigned char> destframe(src->tile_width * src->tile_height * 3);
 
-  vector<int> frames;
+  std::vector<int> frames;
   if (duplicate_video_start_and_end_frames) frames.push_back(0);
   for (unsigned i = 0;i < src->nframes; i++) frames.push_back(i);
   if (duplicate_video_start_and_end_frames) frames.push_back(src->nframes-1);
@@ -303,20 +300,20 @@ int compute_tile_nlevels(int width, int height, int tile_width, int tile_height)
   return max_level + 1;
 }
 
-void image2tiles(string dest, string format, string src)
+void image2tiles(std::string dest, std::string format, std::string src)
 {
   if (filename_exists(dest)) {
     fprintf(stderr, "%s already exists, skipping\n", dest.c_str());
     return;
   }
-  auto_ptr<ImageReader> reader(ImageReader::open(src));
+  std::auto_ptr<ImageReader> reader(ImageReader::open(src));
   fprintf(stderr, "Opened %s: %d x %d pixels\n", src.c_str(), reader->width(), reader->height());
 
-  vector<unsigned char> stripe(reader->bytes_per_row() * tilesize);
-  vector<unsigned char> tile(reader->bytes_per_pixel() * tilesize * tilesize);
+  std::vector<unsigned char> stripe(reader->bytes_per_row() * tilesize);
+  std::vector<unsigned char> tile(reader->bytes_per_pixel() * tilesize * tilesize);
 
   int max_level = compute_tile_nlevels(reader->width(), reader->height(), tilesize, tilesize);
-  string temp_dest = temporary_path(dest);
+  std::string temp_dest = temporary_path(dest);
 
   make_directory_and_parents(temp_dest);
 
@@ -325,26 +322,26 @@ void image2tiles(string dest, string format, string src)
     r["width"] = reader->width();
     r["height"] = reader->height();
     r["tile_width"] = r["tile_height"] = tilesize;
-    string jsonfile = temp_dest + "/r.json";
-    ofstream jsonout(jsonfile.c_str());
+    std::string jsonfile = temp_dest + "/r.json";
+    std::ofstream jsonout(jsonfile.c_str());
     if (!jsonout.good()) throw_error("Error opening %s for writing", jsonfile.c_str());
     jsonout << r;
   }
 
   for (unsigned top = 0; top < reader->height(); top += tilesize) {
-    unsigned nrows = min(reader->height() - top, tilesize);
+    unsigned nrows = std::min(reader->height() - top, tilesize);
     fill(stripe.begin(), stripe.end(), 0);
     reader->read_rows(&stripe[0], nrows);
     for (unsigned left = 0; left < reader->width(); left += tilesize) {
-      unsigned ncols = min(reader->width() - left, tilesize);
+      unsigned ncols = std::min(reader->width() - left, tilesize);
       for (unsigned y = 0; y < tilesize; y++) {
       	memcpy(&tile[y * reader->bytes_per_pixel() * tilesize],
       	       &stripe[y * reader->bytes_per_row() + left * reader->bytes_per_pixel()],
       	       ncols * reader->bytes_per_pixel());
       }
 
-      string path = temp_dest + "/" + GPTileIdx(max_level - 1, left/tilesize, top/tilesize).path() + "." + format;
-      string directory = filename_directory(path);
+      std::string path = temp_dest + "/" + GPTileIdx(max_level - 1, left/tilesize, top/tilesize).path() + "." + format;
+      std::string directory = filename_directory(path);
       make_directory_and_parents(directory);
 
       ImageWriter::write(path, tilesize, tilesize, reader->bands_per_pixel(), reader->bits_per_band(),
@@ -358,17 +355,17 @@ void image2tiles(string dest, string format, string src)
   }
 }
 
-void load_tiles(const vector<string> &srcs)
+void load_tiles(const std::vector<std::string> &srcs)
 {
   assert(srcs.size() > 0);
-  auto_ptr<ImageReader> tile0(ImageReader::open(srcs[0]));
+  std::auto_ptr<ImageReader> tile0(ImageReader::open(srcs[0]));
 
-  auto_ptr<Tilestack> dest(new ResidentTilestack(srcs.size(), tile0->width(), tile0->height(),
+  std::auto_ptr<Tilestack> dest(new ResidentTilestack(srcs.size(), tile0->width(), tile0->height(),
 						 tile0->bands_per_pixel(), tile0->bits_per_band(), 0, 0));
 
   for (unsigned frame = 0; frame < dest->nframes; frame++) {
     dest->toc[frame].timestamp = 0;
-    auto_ptr<ImageReader> tile(ImageReader::open(srcs[frame]));
+    std::auto_ptr<ImageReader> tile(ImageReader::open(srcs[frame]));
     assert(tile->width() == dest->tile_width);
     assert(tile->height() == dest->tile_height);
     assert(tile->bands_per_pixel() == dest->bands_per_pixel);
@@ -412,17 +409,17 @@ struct Image {
 
 class Stackset : public TilestackInfo {
 protected:
-  string stackset_path;
+  std::string stackset_path;
   Json::Value info;
   int width, height;
   int nlevels;
-  map<unsigned long long, TilestackReader* > readers;
+  std::map<unsigned long long, TilestackReader* > readers;
 
 public:
-  Stackset(const string &stackset_path) : stackset_path(stackset_path) {
-    string json_path = stackset_path + "/r.json";
+  Stackset(const std::string &stackset_path) : stackset_path(stackset_path) {
+    std::string json_path = stackset_path + "/r.json";
     Json::Reader reader;
-    ifstream json_in(json_path.c_str());
+    std::ifstream json_in(json_path.c_str());
     if (!json_in.good()) {
       throw_error("Can't open %s for reading", json_path.c_str());
     }
@@ -446,10 +443,10 @@ public:
     if (readers.find(idx) == readers.end()) {
       // TODO(RS): If this starts running out of RAM, consider LRU on the readers
       try {
-	string path = stackset_path + "/" + GPTileIdx(level, x, y).path() + ".ts2";
+	std::string path = stackset_path + "/" + GPTileIdx(level, x, y).path() + ".ts2";
 	
-	readers[idx] = new TilestackReader(auto_ptr<Reader>(new IfstreamReader(path)));
-      } catch (runtime_error) {
+	readers[idx] = new TilestackReader(std::auto_ptr<Reader>(new IfstreamReader(path)));
+      } catch (std::runtime_error) {
 	readers[idx] = NULL;
       }
     }
@@ -545,14 +542,14 @@ public:
   }
 
   ~Stackset() {
-    for (map<unsigned long long, TilestackReader*>::iterator i = readers.begin(); i != readers.end(); ++i) {
+    for (std::map<unsigned long long, TilestackReader*>::iterator i = readers.begin(); i != readers.end(); ++i) {
       if (i->second) delete i->second;
       i->second = NULL;
     }
   }
 };
 
-void parse_path(vector<Frame> &frames, Json::Value path) {
+void parse_path(std::vector<Frame> &frames, Json::Value path) {
   // Iterate through an array of frames.  If we don't receive an array, assume we have a single frame path
   int len = path.isArray() ? path.size() : 1;
   for (int i = 0; i < len; i++) {
@@ -576,11 +573,11 @@ void parse_path(vector<Frame> &frames, Json::Value path) {
   }
 }
 
-void path2stack(int stack_width, int stack_height, Json::Value path, const string &stackset_path) {
+void path2stack(int stack_width, int stack_height, Json::Value path, const std::string &stackset_path) {
   Stackset stackset(stackset_path);
-  vector<Frame> frames;
+  std::vector<Frame> frames;
   parse_path(frames, path);
-  auto_ptr<Tilestack> out(new ResidentTilestack(frames.size(), stack_width, stack_height,
+  std::auto_ptr<Tilestack> out(new ResidentTilestack(frames.size(), stack_width, stack_height,
 						stackset.bands_per_pixel, stackset.bits_per_band,
 						stackset.pixel_format, 0));
   for (unsigned i = 0; i < frames.size(); i++) {
@@ -633,14 +630,14 @@ int main(int argc, char **argv)
     while (!args.empty()) {
       std::string arg = args.shift();
       if (arg == "--load") {
-	string src = args.shift();
+	std::string src = args.shift();
 	if (filename_suffix(src) != "ts2") {
 	  usage("Filename to load should end in '.ts2'");
 	}
 	load(src);
       }
       else if (arg == "--save") {
-	string dest = args.shift();
+	std::string dest = args.shift();
 	if (filename_suffix(dest) != "ts2") {
 	  usage("Filename to save should end in '.ts2'");
 	}
@@ -653,11 +650,11 @@ int main(int argc, char **argv)
 	viz(min, max, gamma);
       }
       else if (arg == "--writehtml") {
-	string dest = args.shift();
+	std::string dest = args.shift();
 	write_html(dest);
       }
       else if (arg == "--writevideo") {
-	string dest = args.shift();
+	std::string dest = args.shift();
 	double fps = args.shift_double();
 	double compression = args.shift_double();
 	write_video(dest, fps, compression);
@@ -666,13 +663,13 @@ int main(int argc, char **argv)
 	tilesize = args.shift_int();
       }
       else if (arg == "--image2tiles") {
-	string dest = args.shift();
-	string format = args.shift();
-	string src = args.shift();
+	std::string dest = args.shift();
+	std::string format = args.shift();
+	std::string src = args.shift();
 	image2tiles(dest, format, src);
       }
       else if (arg == "--loadtiles") {
-	vector<string> srcs;
+	std::vector<std::string> srcs;
 	while (!args.empty() && args.front().substr(0,1) != "-") {
 	  srcs.push_back(args.shift());
 	}
@@ -694,7 +691,7 @@ int main(int argc, char **argv)
 	int stack_width = args.shift_int();
 	int stack_height = args.shift_int();
 	Json::Value path = args.shift_json();
-	string stackset = args.shift();
+	std::string stackset = args.shift();
 	if (stack_width <= 0 || stack_height <= 0) {
 	  usage("--path2stack: width and height must be positive numbers");
 	}
