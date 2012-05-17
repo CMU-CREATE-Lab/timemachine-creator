@@ -172,6 +172,18 @@ bool filename_exists(const string &filename) {
 #endif
 }
 
+void rename_file(const std::string &src, const std::string &dest) {
+#ifdef _WIN32
+  if (!MoveFileExW(Unicode(src).path(), Unicode(dest).path(), MOVEFILE_REPLACE_EXISTING)) {
+    throw_error("Can't rename %s to %s", src.c_str(), dest.c_str());
+  }
+#else
+  if (rename(src.c_str(), dest.c_str())) {
+    throw_error("Can't rename %s to %s", src.c_str(), dest.c_str());
+  }
+#endif
+}
+
 FILE *fopen_utf8(const std::string &filename, const char *mode) {
 #ifdef _WIN32
   return _wfopen(Unicode(filename).path(), Unicode(mode).path());
@@ -198,26 +210,26 @@ string temporary_path(const std::string &path)
   static string cached_hostname;
   if (!counter) cached_hostname = hostname();
 #ifdef _WIN32
-	int pid = _getpid();
+        int pid = _getpid();
 #else
-	int pid = getpid();
+        int pid = getpid();
 #endif
   return string_printf("%s_%s_%d_%d_%d%s",
-		       filename_sans_suffix(path).c_str(),
-		       cached_hostname.c_str(),
-		       (int) time(0),
-		       pid,
-		       counter++,
-		       filename_suffix_with_dot(path).c_str());
+                       filename_sans_suffix(path).c_str(),
+                       cached_hostname.c_str(),
+                       (int) time(0),
+                       pid,
+                       counter++,
+                       filename_suffix_with_dot(path).c_str());
 }
 
 #ifdef _WIN32
 string hostname()
 {
-	char buf[1000];
-	DWORD bufsize = sizeof(buf);
-	GetComputerNameExA(ComputerNameDnsHostname, buf, &bufsize);
-	return string(buf, bufsize);
+        char buf[1000];
+        DWORD bufsize = sizeof(buf);
+        GetComputerNameExA(ComputerNameDnsHostname, buf, &bufsize);
+        return string(buf, bufsize);
 }
 #else
 string hostname()
@@ -239,6 +251,15 @@ void throw_error(const char *fmt, ...) {
   throw runtime_error(msg);
 }
 
+std::string executable_suffix() {
+#ifdef _WIN32
+  return ".exe";
+#else
+  return "";
+#endif
+}
+
+
 ///// executable_path
 
 // From http://stackoverflow.com/questions/1023306/finding-current-executables-path-without-proc-self-exe
@@ -251,10 +272,10 @@ void throw_error(const char *fmt, ...) {
 
 #if defined(_WIN32)
 string executable_path() {
-	wchar_t buf[10000];
-	DWORD bufsize = sizeof(buf);
-	GetModuleFileNameW(NULL, buf, bufsize);
-	return Unicode(buf).utf8();
+        wchar_t buf[10000];
+        DWORD bufsize = sizeof(buf);
+        GetModuleFileNameW(NULL, buf, bufsize);
+        return Unicode(buf).utf8();
 }
 
 #elif defined(__APPLE__)
@@ -284,13 +305,13 @@ string executable_path() {
 
 #ifdef _WIN32
 string home_directory() {
-	TCHAR buf[10000]={0};
-	DWORD bufsize = sizeof(buf);
-	HANDLE token = 0;
-	OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token);
-	GetUserProfileDirectory(token, buf, &bufsize);
-	CloseHandle(token);
-	return Unicode(buf).utf8();
+        TCHAR buf[10000]={0};
+        DWORD bufsize = sizeof(buf);
+        HANDLE token = 0;
+        OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token);
+        GetUserProfileDirectory(token, buf, &bufsize);
+        CloseHandle(token);
+        return Unicode(buf).utf8();
 }
 
 #else
@@ -325,17 +346,17 @@ string application_user_state_directory(const string &application_name) {
 ///// Unicode paths
 
 Unicode::Unicode(const std::string &utf8) : m_utf8(utf8) {
-	init_from_utf8();
+        init_from_utf8();
 }
 Unicode::Unicode(const char *utf8) : m_utf8(utf8) {
-	init_from_utf8();
+        init_from_utf8();
 }
 const char *Unicode::utf8() { return m_utf8.c_str(); }
 #ifdef _WIN32
 Unicode::Unicode(const wchar_t *utf16) : m_utf16(utf16, utf16+wcslen(utf16)+1) {
-	vector<char> tmp(m_utf16.size() * 4);
-	wcstombs(&tmp[0], utf16, tmp.size());
-	m_utf8 = string(&tmp[0]);
+        vector<char> tmp(m_utf16.size() * 4);
+        wcstombs(&tmp[0], utf16, tmp.size());
+        m_utf8 = string(&tmp[0]);
 }
 const wchar_t *Unicode::utf16() { return &m_utf16[0]; }
 void Unicode::init_from_utf8() {
