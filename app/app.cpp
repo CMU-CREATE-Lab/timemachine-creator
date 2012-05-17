@@ -43,6 +43,7 @@ int main(int argc, char *argv[])
   //QWebView view;
   API api;
   WebViewExt view(&api);
+  view.setMinimumSize(640, 480); //set a minimum window size so things do not get too distorted
   //view.setGeometry(QRect(0,0,1875,210));
 
   //const QRect rect = QApplication::desktop()->rect();
@@ -55,7 +56,7 @@ int main(int argc, char *argv[])
   QObject::connect(view.page()->mainFrame(), SIGNAL(javaScriptWindowObjectCleared()),
 		   &api, SLOT(addJSObject()));
 
-  QString path = QFileInfo("test.html").absoluteFilePath();
+  QString path = QFileInfo("index.html").absoluteFilePath();
 
 	#ifdef _WIN32
 		view.load(QUrl("file:///" + path));
