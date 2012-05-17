@@ -5,3 +5,7 @@ test-patp-out
 \#*
 .\#*
 testresults
+*.obj
+*.exe
+*.ilk
+*.pdb

@@ -177,7 +177,6 @@ void save(std::string dest)
   }
 
   if (rename(temp_dest.c_str(), dest.c_str())) {
-    throw_error("Can't rename %s to %s", temp_dest.c_str(), dest.c_str());
   }
   fprintf(stderr, "Created %s\n", dest.c_str());
 }
@@ -206,11 +205,11 @@ public:
                              compression, frames_per_keyframe, dest_filename.c_str());
     fprintf(stderr, "Cmdline: %s\n", cmdline.c_str());
 
-		#ifdef _WIN32
-			putenv("AV_LOG_FORCE_NOCOLOR=1");
-		#else
-			setenv("AV_LOG_FORCE_NOCOLOR", "1", 1);
-		#endif
+                #ifdef _WIN32
+                        putenv("AV_LOG_FORCE_NOCOLOR=1");
+                #else
+                        setenv("AV_LOG_FORCE_NOCOLOR", "1", 1);
+                #endif
 
     unlink(dest_filename.c_str());
     #ifdef _WIN32
@@ -220,8 +219,8 @@ public:
     #endif
     if (!out) {
       throw_error("Error trying to run ffmpeg.  Make sure it's installed and in your path\n"
-		  "Tried with this commandline:\n"
-		  "%s\n", cmdline.c_str());
+                  "Tried with this commandline:\n"
+                  "%s\n", cmdline.c_str());
     }
   }
 
@@ -245,9 +244,11 @@ public:
   }
 
   static std::string path_to_ffmpeg() {
-    std::string colocated = string_printf("%s/ffmpeg/%s/ffmpeg",
-				     filename_directory(executable_path()).c_str(),
-				     os().c_str());
+    std::string colocated = string_printf("%s/ffmpeg/%s/ffmpeg%s",
+                                     filename_directory(executable_path()).c_str(),
+                                     os().c_str(),
+                                     executable_suffix().c_str());
+
     if (filename_exists(colocated)) return colocated;
     return "ffmpeg";
   }
@@ -336,9 +337,9 @@ void image2tiles(std::string dest, std::string format, std::string src)
     for (unsigned left = 0; left < reader->width(); left += tilesize) {
       unsigned ncols = std::min(reader->width() - left, tilesize);
       for (unsigned y = 0; y < tilesize; y++) {
-      	memcpy(&tile[y * reader->bytes_per_pixel() * tilesize],
-      	       &stripe[y * reader->bytes_per_row() + left * reader->bytes_per_pixel()],
-      	       ncols * reader->bytes_per_pixel());
+        memcpy(&tile[y * reader->bytes_per_pixel() * tilesize],
+               &stripe[y * reader->bytes_per_row() + left * reader->bytes_per_pixel()],
+               ncols * reader->bytes_per_pixel());
       }
 
       std::string path = temp_dest + "/" + GPTileIdx(max_level - 1, left/tilesize, top/tilesize).path() + "." + format;
@@ -346,7 +347,7 @@ void image2tiles(std::string dest, std::string format, std::string src)
       make_directory_and_parents(directory);
 
       ImageWriter::write(path, tilesize, tilesize, reader->bands_per_pixel(), reader->bits_per_band(),
-			 &tile[0]);
+                         &tile[0]);
     }
   }
 
@@ -362,7 +363,7 @@ void load_tiles(const std::vector<std::string> &srcs)
   std::auto_ptr<ImageReader> tile0(ImageReader::open(srcs[0]));
 
   std::auto_ptr<Tilestack> dest(new ResidentTilestack(srcs.size(), tile0->width(), tile0->height(),
-						 tile0->bands_per_pixel(), tile0->bits_per_band(), 0, 0));
+                                                 tile0->bands_per_pixel(), tile0->bits_per_band(), 0, 0));
 
   for (unsigned frame = 0; frame < dest->nframes; frame++) {
     dest->toc[frame].timestamp = 0;
@@ -444,11 +445,11 @@ public:
     if (readers.find(idx) == readers.end()) {
       // TODO(RS): If this starts running out of RAM, consider LRU on the readers
       try {
-	std::string path = stackset_path + "/" + GPTileIdx(level, x, y).path() + ".ts2";
-	
-	readers[idx] = new TilestackReader(std::auto_ptr<Reader>(new IfstreamReader(path)));
+        std::string path = stackset_path + "/" + GPTileIdx(level, x, y).path() + ".ts2";
+        
+        readers[idx] = new TilestackReader(std::auto_ptr<Reader>(new IfstreamReader(path)));
       } catch (std::runtime_error) {
-	readers[idx] = NULL;
+        readers[idx] = NULL;
       }
     }
     cached_idx = idx;
@@ -472,8 +473,8 @@ public:
       int tile_y = y / tile_height;
       TilestackReader *reader = get_reader(level, tile_x, tile_y);
       if (reader) {
-	memcpy(dest, reader->frame_pixel(frame, x % tile_width, y % tile_height), bytes_per_pixel());
-	return;
+        memcpy(dest, reader->frame_pixel(frame, x % tile_width, y % tile_height), bytes_per_pixel());
+        return;
       }
     }
     memset(dest, 0, bytes_per_pixel());
@@ -511,10 +512,10 @@ public:
 
     for (unsigned ch = 0; ch < bands_per_pixel; ch++) {
       set_pixel_ch(dest, ch, bilinearly_interpolate(get_pixel_ch(p00, ch),
-						    get_pixel_ch(p01, ch),
-						    get_pixel_ch(p10, ch),
-						    get_pixel_ch(p11, ch),
-						    x - x0, y - y0));
+                                                    get_pixel_ch(p01, ch),
+                                                    get_pixel_ch(p10, ch),
+                                                    get_pixel_ch(p11, ch),
+                                                    x - x0, y - y0));
     }
   }
 
@@ -536,8 +537,8 @@ public:
     for (int y = 0; y < dest.height; y++) {
       double source_y = interpolate(y + 0.5, 0, dest.height, bounds.y, bounds.y + bounds.height);
       for (int x = 0; x < dest.width; x++) {
-	double source_x = interpolate(x + 0.5, 0, dest.width, bounds.x, bounds.x + bounds.width);
-	interpolate_pixel(dest.pixel(x,y), frame.frameno, source_level, source_x, source_y);
+        double source_x = interpolate(x + 0.5, 0, dest.width, bounds.x, bounds.x + bounds.width);
+        interpolate_pixel(dest.pixel(x,y), frame.frameno, source_level, source_x, source_y);
       }
     }
   }
@@ -559,14 +560,14 @@ void parse_path(std::vector<Frame> &frames, Json::Value path) {
       throw_error("Syntax error translating frame %d (not a JSON object)", i);
     }
     Bbox bounds(frame_desc["bounds"]["xmin"].asDouble(),
-		frame_desc["bounds"]["ymin"].asDouble(),
-		frame_desc["bounds"]["width"].asDouble(),
-		frame_desc["bounds"]["height"].asDouble());
+                frame_desc["bounds"]["ymin"].asDouble(),
+                frame_desc["bounds"]["width"].asDouble(),
+                frame_desc["bounds"]["height"].asDouble());
     if (!frame_desc["frames"].isNull()) {
       int step = frame_desc["frames"]["step"].isNull() ? 1 : frame_desc["frames"]["step"].asInt();
       for (int j = frame_desc["frames"]["start"].asInt(); true; j += step) {
-	frames.push_back(Frame(j, bounds));
-	if (j == frame_desc["frames"]["end"].asInt()) break;
+        frames.push_back(Frame(j, bounds));
+        if (j == frame_desc["frames"]["end"].asInt()) break;
       }
     } else {
       throw_error("Don't yet know how to parse a path segment without a 'frames' field, sorry");
@@ -579,8 +580,8 @@ void path2stack(int stack_width, int stack_height, Json::Value path, const std::
   std::vector<Frame> frames;
   parse_path(frames, path);
   std::auto_ptr<Tilestack> out(new ResidentTilestack(frames.size(), stack_width, stack_height,
-						stackset.bands_per_pixel, stackset.bits_per_band,
-						stackset.pixel_format, 0));
+                                                stackset.bands_per_pixel, stackset.bits_per_band,
+                                                stackset.pixel_format, 0));
   for (unsigned i = 0; i < frames.size(); i++) {
     Image image(stackset, stack_width, stack_height, out->frame_pixels(i));
     stackset.render_image(image, frames[i]);
@@ -593,25 +594,25 @@ void usage(const char *fmt, ...) {
   va_start(args, fmt);
   vfprintf(stderr, fmt, args);
   fprintf(stderr,
-	  "\nUsage:\n"
-	  "tilestacktool [args]\n"
-	  "--load src.ts2\n"
-	  "--save dest.ts2\n"
-	  "--viz min max gamma\n"
-	  "--writehtml dest.html\n"
-	  "--writevideo dest.mp4 fps compression\n"
-	  "              28=typical, 24=high quality, 32=low quality\n"
-	  "--image2tiles dest_dir format src_image\n"
-	  "              Be sure to set tilesize earlier in the commandline\n"
-	  "--tilesize N\n"
-	  "--loadtiles src_image0 src_image1 ... src_imageN\n"
-	  "--delete-source-tiles\n"
-	  "--create-parent-directories\n"
-	  "--path2stack width height [frame1, ... frameN] stackset\n"
-	  "        Frame format {\"frameno\":N, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
-	  "        Multiframe with single bounds. from and to are both inclusive.  step defaults to 1:\n"
+          "\nUsage:\n"
+          "tilestacktool [args]\n"
+          "--load src.ts2\n"
+          "--save dest.ts2\n"
+          "--viz min max gamma\n"
+          "--writehtml dest.html\n"
+          "--writevideo dest.mp4 fps compression\n"
+          "              28=typical, 24=high quality, 32=low quality\n"
+          "--image2tiles dest_dir format src_image\n"
+          "              Be sure to set tilesize earlier in the commandline\n"
+          "--tilesize N\n"
+          "--loadtiles src_image0 src_image1 ... src_imageN\n"
+          "--delete-source-tiles\n"
+          "--create-parent-directories\n"
+          "--path2stack width height [frame1, ... frameN] stackset\n"
+          "        Frame format {\"frameno\":N, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
+          "        Multiframe with single bounds. from and to are both inclusive.  step defaults to 1:\n"
           "          {\"frames\":{\"from\":N, \"to\":N, \"step\":N], \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
-	  );
+          );
   exit(1);
 }
 
@@ -631,72 +632,72 @@ int main(int argc, char **argv)
     while (!args.empty()) {
       std::string arg = args.shift();
       if (arg == "--load") {
-	std::string src = args.shift();
-	if (filename_suffix(src) != "ts2") {
-	  usage("Filename to load should end in '.ts2'");
-	}
-	load(src);
+        std::string src = args.shift();
+        if (filename_suffix(src) != "ts2") {
+          usage("Filename to load should end in '.ts2'");
+        }
+        load(src);
       }
       else if (arg == "--save") {
-	std::string dest = args.shift();
-	if (filename_suffix(dest) != "ts2") {
-	  usage("Filename to save should end in '.ts2'");
-	}
-	save(dest);
+        std::string dest = args.shift();
+        if (filename_suffix(dest) != "ts2") {
+          usage("Filename to save should end in '.ts2'");
+        }
+        save(dest);
       }
       else if (arg == "--viz") {
-	double min = args.shift_double();
-	double max = args.shift_double();
-	double gamma = args.shift_double();
-	viz(min, max, gamma);
+        double min = args.shift_double();
+        double max = args.shift_double();
+        double gamma = args.shift_double();
+        viz(min, max, gamma);
       }
       else if (arg == "--writehtml") {
-	std::string dest = args.shift();
-	write_html(dest);
+        std::string dest = args.shift();
+        write_html(dest);
       }
       else if (arg == "--writevideo") {
-	std::string dest = args.shift();
-	double fps = args.shift_double();
-	double compression = args.shift_double();
-	write_video(dest, fps, compression);
+        std::string dest = args.shift();
+        double fps = args.shift_double();
+        double compression = args.shift_double();
+        write_video(dest, fps, compression);
       }
       else if (arg == "--tilesize") {
-	tilesize = args.shift_int();
+        tilesize = args.shift_int();
       }
       else if (arg == "--image2tiles") {
-	std::string dest = args.shift();
-	std::string format = args.shift();
-	std::string src = args.shift();
-	image2tiles(dest, format, src);
+        std::string dest = args.shift();
+        std::string format = args.shift();
+        std::string src = args.shift();
+        image2tiles(dest, format, src);
       }
       else if (arg == "--loadtiles") {
-	std::vector<std::string> srcs;
-	while (!args.empty() && args.front().substr(0,1) != "-") {
-	  srcs.push_back(args.shift());
-	}
-	if (srcs.empty()) {
-	  usage("--loadtiles must have at least one tile");
-	}
-	load_tiles(srcs);
+        std::vector<std::string> srcs;
+        while (!args.empty() && args.front().substr(0,1) != "-") {
+          srcs.push_back(args.shift());
+        }
+        if (srcs.empty()) {
+          usage("--loadtiles must have at least one tile");
+        }
+        load_tiles(srcs);
       }
       else if (arg == "--delete-source-tiles") {
-	delete_source_tiles = true;
+        delete_source_tiles = true;
       }
       else if (arg == "--create-parent-directories") {
-	create_parent_directories = true;
+        create_parent_directories = true;
       }
       else if (arg == "--duplicate-video-start-and-end-frames") {
         duplicate_video_start_and_end_frames = true;
       }
       else if (arg == "--path2stack") {
-	int stack_width = args.shift_int();
-	int stack_height = args.shift_int();
-	Json::Value path = args.shift_json();
-	std::string stackset = args.shift();
-	if (stack_width <= 0 || stack_height <= 0) {
-	  usage("--path2stack: width and height must be positive numbers");
-	}
-	path2stack(stack_width, stack_height, path, stackset);
+        int stack_width = args.shift_int();
+        int stack_height = args.shift_int();
+        Json::Value path = args.shift_json();
+        std::string stackset = args.shift();
+        if (stack_width <= 0 || stack_height <= 0) {
+          usage("--path2stack: width and height must be positive numbers");
+        }
+        path2stack(stack_width, stack_height, path, stackset);
       }
       else {
         for (int i = 0; i < n_commands; i++) {
@@ -714,7 +715,7 @@ int main(int argc, char **argv)
       #endif
 
       for (unsigned i = 0; i < source_tiles_to_delete.size(); i++) {
-	unlink(source_tiles_to_delete[i].c_str());
+        unlink(source_tiles_to_delete[i].c_str());
       }
     }
     double user, system;
