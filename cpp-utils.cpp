@@ -282,7 +282,7 @@ std::string executable_path() {
   uint32_t len = 0;
   int ret = _NSGetExecutablePath(NULL, &len);
   assert(ret == -1);
-  vector<char> buf(len);
+  std::vector<char> buf(len);
   ret = _NSGetExecutablePath(&buf[0], &len);
   return std::string(&buf[0]);
 }
