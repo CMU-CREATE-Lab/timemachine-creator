@@ -16,6 +16,7 @@ std::auto_ptr<ImageWriter> ImageWriter::open(const std::string &filename, int wi
   if (iequals(format, "kro")) return std::auto_ptr<ImageWriter>(new KroWriter(filename, width, height, bands_per_pixel, bits_per_band));
   //if (iequals(format, "jpg")) return auto_ptr<ImageWriter>(new JpegWriter(filename));
   throw_error("Unrecognized image format from %s", filename.c_str());
+  assert(0);
 }
 
 void ImageWriter::write(const std::string &filename, int width, int height, int bands_per_pixel, int bits_per_band, unsigned char *pixels) {

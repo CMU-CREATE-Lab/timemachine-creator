@@ -10,7 +10,6 @@ void Writer::write(const std::vector<unsigned char> &src) {
   write(&src[0], src.size());
 }
 
-
 FileReader* (*FileReader::opener)(std::string filename);
 
 FileReader *FileReader::open(std::string filename) {
