@@ -9,15 +9,16 @@ require 'open-uri'
 require File.dirname(__FILE__) + '/json'
 require File.dirname(__FILE__) + '/image_size'
 require File.dirname(__FILE__) + '/tile'
+require File.dirname(__FILE__) + '/tileset'
 require File.dirname(__FILE__) + '/xmlsimple'
 require 'fileutils'
-require 'backports'
+require File.dirname(__FILE__) + '/backports'
 
 $sourcetypes = {}
 
 class Filesystem
   def self.mkdir_p(path)
-    nFileUtils.mkdir_p path
+    FileUtils.mkdir_p path
   end
 
   def self.read_file(path)
@@ -324,7 +325,9 @@ class ImagesSource
   end
 
   def initialize_images
-    if not @images
+    if @images
+      @images.map! {|image| File.expand_path(image, @parent.store)}
+    else
       @images = (Dir.glob("#{@image_dir}/*.*")+Dir.glob("#{@image_dir}/*/*.*")).sort.select do |image|
         @@valid_image_extensions.include? File.extname(image).downcase
       end
@@ -1154,10 +1157,6 @@ end
 
 if !destination
   raise "Must specify --destination"
-end
-
-if `uname`.chomp == 'Darwin'
-  local = true
 end
 
 store = nil
