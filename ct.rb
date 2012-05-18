@@ -14,6 +14,12 @@ require File.dirname(__FILE__) + '/xmlsimple'
 require 'fileutils'
 require File.dirname(__FILE__) + '/backports'
 
+if `echo %PATH%`.chomp == '%PATH%'
+  $os = 'unix'
+else
+  $os = 'windows'
+end
+
 $sourcetypes = {}
 
 class Filesystem
@@ -115,10 +121,9 @@ class Rule
     if targets.class == String
       targets = [targets]
     end
-    commands.map! {|x| x.join(' ')}
+    commands = commands.map {|cmd| cmd.map &:to_s}
     array_of_strings?(targets) or raise "targets must be an array of pathnames"
     array_of_strings?(dependencies) or raise "dependencies must be an array of pathnames"
-    array_of_strings?(commands) or raise "commands must be an array of strings"
     @targets = targets
     @dependencies = dependencies
     @commands = commands
@@ -132,7 +137,7 @@ class Rule
   end
 
   def self.touch(target, dependencies)
-    Rule.add(target, dependencies, [['touch', target]], {:local => true})
+    Rule.add(target, dependencies, [[$tilestacktool, '--createfile', target]], {:local => true})
   end
   
   def to_make
@@ -257,7 +262,7 @@ class VideosetCompiler
       cmd += [@vid_width, @vid_height]
       frames = {'frames' => {'start' => 0, 'end' => @parent.source.framenames.size - 1}, 
                 'bounds' => vt.source_bounds(@vid_width, @vid_height)};
-      cmd << "'#{JSON.generate(frames)}'"
+      cmd << JSON.generate(frames)
       cmd << @parent.tilestack_dir
 
       cmd += ['--writevideo', target, @fps, @quality]
@@ -753,7 +758,7 @@ class Compiler
     cmd << "--create-parent-directories"
     frames = {'frames' => {'start' => 0, 'end' => @source.framenames.size - 1}, 
               'bounds' => target_idx.bounds(@source.tilesize, @max_level)}
-    cmd += ['--path2stack', @source.tilesize, @source.tilesize, "'#{JSON.generate(frames)}'", @tilestack_dir]
+    cmd += ['--path2stack', @source.tilesize, @source.tilesize, JSON.generate(frames), @tilestack_dir]
     cmd += ['--save', target]
     Rule.add(target, children, [cmd])
   end
@@ -994,19 +999,24 @@ class Maker
 
   def execute_rules(job_no, rules, response)
     counter = 1;
-    result = 1;
-    commands = rules.flat_map &:commands
-    command = commands.join(" && ")
-    if !@local && !rules.all?(&:local)
+
+    if @local || rules.all?(&:local)
+      result = rules.flat_map(&:commands).all? do |command|
+        STDERR.write "#{date} Job #{job_no} executing #{command.join(' ')}\n"
+        Kernel.system(*command)
+      end
+    else
+      commands = rules.flat_map &:commands
+      command = commands.join(" && ")
       command = "submit_synchronous '#{command}'"
-    end
     
-    STDERR.write "#{date} Job #{job_no} executing #{command}\n"
+      STDERR.write "#{date} Job #{job_no} executing #{command}\n"
     
-    # Retry up to 3 times if we fail
-    while (!(result = system(command)) && counter < 4) do
-      STDERR.write "#{date} Job #{job_no} failed, retrying, attempt #{counter}\n"
-      counter += 1
+      # Retry up to 3 times if we fail
+      while (!(result = system(command)) && counter < 4) do
+        STDERR.write "#{date} Job #{job_no} failed, retrying, attempt #{counter}\n"
+        counter += 1
+      end
     end
     
     if !result
@@ -1121,12 +1131,18 @@ local = false
 retry_attempts = 0
 destination = nil
 
-$tilestacktool = File.expand_path "#{File.dirname(__FILE__)}/tilestacktool/tilestacktool"
-if !File.exists? $tilestacktool
-  $tilestacktool = "tilestacktool"
+tstpath = File.expand_path "#{File.dirname(__FILE__)}/tilestacktool/tilestacktool"
+
+if $os == "windows"
+  tstpath += ".exe"
 end
+
+
+$tilestacktool = File.exists?(tstpath) ? tstpath : "tilestacktool"
+
 $explorer_source_dir = File.expand_path "#{File.dirname(__FILE__)}/time-machine-explorer"
 jsonfile = ""
+
 
 while !ARGV.empty?
   arg = ARGV.shift
