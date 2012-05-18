@@ -695,6 +695,9 @@ int main(int argc, char **argv)
         }
         path2stack(stack_width, stack_height, path, stackset);
       }
+      else if (arg == "--createfile") {
+        std::auto_ptr<FileWriter> out(FileWriter::open(args.shift()));
+      }
       else {
         for (int i = 0; i < n_commands; i++) {
           if (commands[i](arg, args)) goto success;

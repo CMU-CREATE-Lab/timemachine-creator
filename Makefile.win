@@ -1,3 +1,5 @@
+!INCLUDE Makefile.common
+
 build: tilestacktool.exe
 
 test: test-patp4s
@@ -30,12 +32,14 @@ test-modis: tilestacktool
 	tilestacktool --load modis/r12.8.ts2 --writehtml modis/r12.8.html
 	tilestacktool --load modis/r12.8.ts2 --writevideo modis/r12.8.mp4 1 26
 
-tilestacktool.exe: tilestacktool.cpp cpp-utils/cpp-utils.cpp png_util.cpp io.cpp io_streamfile.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp Tilestack.cpp io.cpp
-	cl /EHsc /Ox /Zi /Ijsoncpp /Iinclude/jpeg-8d /Iinclude/lpng1510 /Icpp-utils /Fetilestacktool.exe tilestacktool.cpp cpp-utils/cpp-utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp Tilestack.cpp io.cpp /MD include/lpng1510/libpng.lib include/jpeg-8d/libjpeg.lib include/zlib-1.2.7/zlib.lib
+tilestacktool.exe: $(SOURCES)
+	cl /EHsc /Ox /Zi /Ijsoncpp /Iinclude/jpeg-8d /Iinclude/lpng1510 /Icpp-utils /Fetilestacktool.exe $(SOURCES) /MD include/lpng1510/libpng.lib include/jpeg-8d/libjpeg.lib include/zlib-1.2.7/zlib.lib
 	
 	
 	
 #g++ -O3 -g -Ijsoncpp -I/opt/local/include -Icpp-utils -Wall $^ -o $@ -L/opt/local/lib -lpng -ljpeg
 
 clean:
-	del /s /q tilestacktool.exe *.obj  testresults
+	del /q tilestacktool.exe *.obj
+        rmdir /s /q testresults
+

@@ -36,7 +36,7 @@ namespace {
 
 // StreamFileWriter
 
-StreamFileWriter::StreamFileWriter(std::string filename) : f(filename.c_str(), std::ios::out | std::ios::binary), filename(filename) {
+StreamFileWriter::StreamFileWriter(std::string filename) : f(filename.c_str(), std::ios::out | std::ios::binary | std::ios::trunc), filename(filename) {
   if (!f.good()) throw_error("StreamFileWriter: error opening %s for writing\n", filename.c_str());
 }
 
