@@ -1,5 +1,5 @@
 #ifdef _WIN32
-#define _CRT_SECURE_NO_WARNINGS 1
+  #define _CRT_SECURE_NO_WARNINGS 1
 #endif
 
 #include <stdio.h>
@@ -8,37 +8,34 @@
 #include <stdexcept>
 #include <vector>
 #include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-
 
 #ifdef _WIN32
-#include <process.h>
-#include <Windows.h>
-#include <Userenv.h>
-#pragma comment(lib, "userenv.lib")
-#pragma comment(lib, "Advapi32.lib")
+  #include <process.h>
+  #include <Windows.h>
+  #include <Userenv.h>
+  #pragma comment(lib, "userenv.lib")
+  #pragma comment(lib, "Advapi32.lib")
 #else
-#include <strings.h>
-#include <sys/utsname.h>
+  #include <strings.h>
+  #include <sys/utsname.h>
+  #include <sys/time.h>
+  #include <sys/resource.h>
 #endif
-
-
 
 #include "cpp-utils.h"
 
 // From Randy Sargent's public domain library, 2001-2012
 
 #ifdef _WIN32
-// Windows
-#define ALLOWABLE_DIRECTORY_DELIMITERS "/\\"
-#define DIRECTORY_DELIMITER '\\'
-#define DIRECTORY_DELIMITER_STRING "\\"
+  // Windows
+  #define ALLOWABLE_DIRECTORY_DELIMITERS "/\\"
+  #define DIRECTORY_DELIMITER '\\'
+  #define DIRECTORY_DELIMITER_STRING "\\"
 #else
-// UNIX
-#define ALLOWABLE_DIRECTORY_DELIMITERS "/"
-#define DIRECTORY_DELIMITER '/'
-#define DIRECTORY_DELIMITER_STRING "/"
+  // UNIX
+  #define ALLOWABLE_DIRECTORY_DELIMITERS "/"
+  #define DIRECTORY_DELIMITER '/'
+  #define DIRECTORY_DELIMITER_STRING "/"
 #endif
 
 std::string filename_sans_directory(const std::string &filename)
@@ -173,6 +170,18 @@ bool filename_exists(const std::string &filename) {
 #endif
 }
 
+void rename_file(const std::string &src, const std::string &dest) {
+#ifdef _WIN32
+  if (!MoveFileExW(Unicode(src).path(), Unicode(dest).path(), MOVEFILE_REPLACE_EXISTING)) {
+    throw_error("Can't rename %s to %s", src.c_str(), dest.c_str());
+  }
+#else
+  if (rename(src.c_str(), dest.c_str())) {
+    throw_error("Can't rename %s to %s", src.c_str(), dest.c_str());
+  }
+#endif
+}
+
 FILE *fopen_utf8(const std::string &filename, const char *mode) {
 #ifdef _WIN32
   return _wfopen(Unicode(filename).path(), Unicode(mode).path());
@@ -199,17 +208,17 @@ std::string temporary_path(const std::string &path)
   static std::string cached_hostname;
   if (!counter) cached_hostname = hostname();
 #ifdef _WIN32
-	int pid = _getpid();
+        int pid = _getpid();
 #else
-	int pid = getpid();
+        int pid = getpid();
 #endif
   return string_printf("%s_%s_%d_%d_%d%s",
-		       filename_sans_suffix(path).c_str(),
-		       cached_hostname.c_str(),
-		       (int) time(0),
-		       pid,
-		       counter++,
-		       filename_suffix_with_dot(path).c_str());
+                       filename_sans_suffix(path).c_str(),
+                       cached_hostname.c_str(),
+                       (int) time(0),
+                       pid,
+                       counter++,
+                       filename_suffix_with_dot(path).c_str());
 }
 
 #ifdef _WIN32
@@ -240,6 +249,15 @@ void throw_error(const char *fmt, ...) {
   throw std::runtime_error(msg);
 }
 
+std::string executable_suffix() {
+#ifdef _WIN32
+  return ".exe";
+#else
+  return "";
+#endif
+}
+
+
 ///// executable_path
 
 // From http://stackoverflow.com/questions/1023306/finding-current-executables-path-without-proc-self-exe
@@ -254,8 +272,7 @@ void throw_error(const char *fmt, ...) {
 std::string executable_path() {
   wchar_t buf[10000];
   DWORD bufsize = sizeof(buf);
-  GetModuleFileName(NULL, buf, bufsize);
-  return Unicode(buf).utf8();
+  GetModuleFileNameW(NULL, buf, bufsize);
 }
 
 #elif defined(__APPLE__)
@@ -285,13 +302,13 @@ std::string executable_path() {
 
 #ifdef _WIN32
 std::string home_directory() {
-	TCHAR buf[10000]={0};
-	DWORD bufsize = sizeof(buf);
-	HANDLE token = 0;
-	OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token);
-	GetUserProfileDirectory(token, buf, &bufsize);
-	CloseHandle(token);
-	return Unicode(buf).utf8();
+  TCHAR buf[10000]={0};
+  DWORD bufsize = sizeof(buf);
+  HANDLE token = 0;
+  OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token);
+  GetUserProfileDirectory(token, buf, &bufsize);
+  CloseHandle(token);
+  return Unicode(buf).utf8();
 }
 
 #else
@@ -326,23 +343,28 @@ std::string application_user_state_directory(const std::string &application_name
 ///// Unicode paths
 
 Unicode::Unicode(const std::string &utf8) : m_utf8(utf8) {
-	init_from_utf8();
+        init_from_utf8();
 }
 Unicode::Unicode(const char *utf8) : m_utf8(utf8) {
-	init_from_utf8();
+        init_from_utf8();
 }
 const char *Unicode::utf8() { return m_utf8.c_str(); }
 #ifdef _WIN32
 Unicode::Unicode(const wchar_t *utf16) : m_utf16(utf16, utf16+wcslen(utf16)+1) {
-	vector<char> tmp(m_utf16.size() * 4);
-	wcstombs(&tmp[0], utf16, tmp.size());
-	m_utf8 = std::string(&tmp[0]);
+  vector<char> tmp(m_utf16.size() * 4);
+  wcstombs(&tmp[0], utf16, tmp.size());
+  m_utf8 = std::string(&tmp[0]);
 }
 const wchar_t *Unicode::utf16() { return &m_utf16[0]; }
 void Unicode::init_from_utf8() {
-	// convert from utf8 to utf16
-	m_utf16.resize(m_utf8.length()+1); // overkill for utf16, which may have fewer chars
-	m_utf16.resize(1+mbstowcs(&m_utf16[0], m_utf8.c_str(), m_utf16.size()));
+  // calculate size of output buffer (this includes terminating NULL)
+  int nchars = MultiByteToWideChar(CP_UTF8, 0, m_utf8.c_str(), -1, NULL, 0);
+  assert(nchars>0);
+  m_utf16.resize(nchars);
+  // see http://msdn.microsoft.com/en-us/library/windows/desktop/dd319072%28v=vs.85%29.aspx
+  // this time, do the conversion and write to m_utf16
+  int nchars_written = MultiByteToWideChar(CP_UTF8, 0, m_utf8.c_str(), -1, &m_utf16[0], nchars);
+  assert(nchars_written == nchars);
 }
 const wchar_t *Unicode::path() { return utf16(); }
 #else
@@ -361,7 +383,7 @@ std::string os() { return "linux"; }
 #if defined(_WIN32)
 
 double filetime_to_double(struct _FILETIME &ft) {
-  unsigned long long t = ft.dwLowDateTime + (fw.dwHighDateTime << 32);
+  unsigned long long t = ft.dwLowDateTime + ((unsigned long long)ft.dwHighDateTime << 32);
   return t / 1e7;
 }
 
