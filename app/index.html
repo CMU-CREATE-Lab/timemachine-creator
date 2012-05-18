@@ -1,5 +1,6 @@
-<html style="overflow:hidden">
+<!DOCTYPE html>
   <head>
+    <title>GigaPan Time Machine Creator</title>
     <script src="assets/javascripts/jquery.min.js"></script>
     <script src="assets/javascripts/jquery-ui.min.js"></script>
     <link rel="stylesheet" type="text/css" href="assets/stylesheets/smoothness/jquery-ui.css"/>
@@ -14,6 +15,12 @@
         -moz-user-select: none;
         -ms-user-select: none;
         user-select: none;
+        overflow:hidden;
+        height:100%;
+      }
+
+      body {
+        height: 100%;
       }
 
       a:hover{ text-decoration:none; }
@@ -269,17 +276,6 @@
           }
         }
 
-        // Only useful when the program is first started and there is no time data
-        if (max < min) {
-          tmp = min;
-          min = max;
-          max = tmp;
-        }
-
-        $("#zoomSlider").slider("option", "max", max);
-        $("#zoomSlider").slider("option", "min", min);
-        $("#zoomSlider").slider("option", "step", (max-min)/16);
-
         $("#world").height((max - min) * scale + 200); // Height of a thumnail (160) + height of filename text (8) + extra padding (32)
         $("#scroll").css({
           "height": ($("#controls").height() - $("#top_area").height() - 68) + "px"
@@ -308,6 +304,10 @@
           msg += (Math.round(time_per_pixel / 3600 * 100) / 100) + " hours";
         }
         $("#scale").html(msg);
+
+        if (scale < 64) view = "lines"
+        else view = "thumbnails"
+
       }
 
       function zoom(factor) {
@@ -319,9 +319,6 @@
         if (scale * factor >= 2048 || scale * factor <= (1 / 128)) return;
 
         scale *= factor;
-
-        if (scale < 64) view = "lines"
-        else view = "thumbnails"
 
         rescale();
         setTime(time);
@@ -406,16 +403,28 @@
         $("#zoomSlider").slider({
           orientation: "vertical",
           range: "min",
-          min: min,
-          max: max,
-          step: 1, // Will be overwritten once rescale() is called
-          value: 4.999999999999999e+99, // Will be overwritten once rescale() is called
+          min: 0,
+          max: 16,
+          value: 12,
           slide: function(event, ui) {
             //console.log(ui.value);
-            if ($(this).slider("option", "value") > ui.value) zoom(.5);
-            else zoom(2);
+            if ($(this).slider("option", "value") > ui.value) {
+              zoom(.5);
+              //console.log($("#zoomSlider").slider("option", "value"));
+              $("#zoomSlider").slider("option", "value",($("#zoomSlider").slider("option", "value")*0.5));
+            } else {
+              zoom(2);
+              $("#zoomSlider").slider("option", "value",($("#zoomSlider").slider("option", "value")*2));
+            }
+          },
+          stop: function(event, ui) {
+             var values = [0.015625,0.03125,0.0625,0.125,0.25,0.5,1,2,4,8,16,32,64,128,256,512,1024];
+             scale = values[$("#zoomSlider").slider("option", "value")];
+             rescale(1);
+             refresh();
           }
         });
+
         $("#zoomSlider .ui-slider-handle").attr("title", "Drag to zoom");
 
         setupSliderHandlers();
@@ -562,18 +571,18 @@
     <script>
       function setupSliderHandlers() {
         $(".ui-slider-handle").bind("mouseover mouseup", function() {
-          this.style.cursor = 'url("assets/stylesheets/cursors/openhand.cur") 10 10, move';
+          this.style.cursor = 'url("assets/stylesheets/cursors/openhand.png") 10 10, move';
         });
 
         $(".ui-slider").bind({
           slide: function() {
-            this.style.cursor = 'url("assets/stylesheets/cursors/closedhand.cur") 10 10, move';
+            this.style.cursor = 'url("assets/stylesheets/cursors/closehand.png") 10 10, move';
             $(".ui-slider-handle").bind("mousemove", function() {
-              this.style.cursor = 'url("assets/stylesheets/cursors/closedhand.cur") 10 10, move';
+              this.style.cursor = 'url("assets/stylesheets/cursors/closehand.png") 10 10, move';
             });
           }, slidestop: function() {
             $(".ui-slider-handle").bind("mousemove", function() {
-              this.style.cursor = 'url("assets/stylesheets/cursors/openhand.cur") 10 10, move';
+              this.style.cursor = 'url("assets/stylesheets/cursors/openhand.png") 10 10, move';
             });
           }, mouseover: function() {
             this.style.cursor = "pointer";
@@ -687,9 +696,6 @@
               if (data[0].length > 0) {
                 rescale();
                 refresh();
-
-                scale = 64
-                $("#zoomSlider").slider("option", "value", $("#zoomSlider").slider("option", "max") - $("#zoomSlider").slider("option", "step")*4);
               }
             }
             var dropbox = document.getElementById("dropbox");
