@@ -273,6 +273,7 @@ std::string executable_path() {
   wchar_t buf[10000];
   DWORD bufsize = sizeof(buf);
   GetModuleFileNameW(NULL, buf, bufsize);
+  return Unicode(buf).utf8();
 }
 
 #elif defined(__APPLE__)
@@ -351,7 +352,8 @@ Unicode::Unicode(const char *utf8) : m_utf8(utf8) {
 const char *Unicode::utf8() { return m_utf8.c_str(); }
 #ifdef _WIN32
 Unicode::Unicode(const wchar_t *utf16) : m_utf16(utf16, utf16+wcslen(utf16)+1) {
-  vector<char> tmp(m_utf16.size() * 4);
+  std::vector<char> tmp(m_utf16.size() * 4);
+  // TODO(PD) or TODO(RS): patch from Paul Heckbert's code
   wcstombs(&tmp[0], utf16, tmp.size());
   m_utf8 = std::string(&tmp[0]);
 }
