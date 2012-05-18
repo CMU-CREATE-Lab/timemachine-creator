@@ -9,3 +9,4 @@ testresults
 *.exe
 *.ilk
 *.pdb
+.DS_Store
