@@ -20,6 +20,7 @@
 #include "ImageWriter.h"
 
 #include "io.h"
+
 #include "Tilestack.h"
 #include "tilestacktool.h"
 
@@ -88,7 +89,7 @@ AutoPtrStack<Tilestack> tilestackstack;
 
 void load(std::string filename)
 {
-  tilestackstack.push(std::auto_ptr<Tilestack>(new TilestackReader(std::auto_ptr<Reader>(new IfstreamReader(filename)))));
+  tilestackstack.push(std::auto_ptr<Tilestack>(new TilestackReader(std::auto_ptr<Reader>(FileReader::open(filename)))));
 }
 
 u8 viz_channel(u16 in, double min, double max, double gamma) {
@@ -172,8 +173,8 @@ void save(std::string dest)
   std::string temp_dest = temporary_path(dest);
 
   {
-    OfstreamWriter out(temp_dest);
-    src->write(out);
+    std::auto_ptr<FileWriter> out(FileWriter::open(temp_dest));
+    src->write(out.get());
   }
 
   if (rename(temp_dest.c_str(), dest.c_str())) {
@@ -445,7 +446,7 @@ public:
       try {
 	std::string path = stackset_path + "/" + GPTileIdx(level, x, y).path() + ".ts2";
 	
-	readers[idx] = new TilestackReader(std::auto_ptr<Reader>(new IfstreamReader(path)));
+	readers[idx] = new TilestackReader(std::auto_ptr<Reader>(FileReader::open(path)));
       } catch (std::runtime_error) {
 	readers[idx] = NULL;
       }
@@ -615,7 +616,7 @@ void usage(const char *fmt, ...) {
 }
 
 int n_commands = 0;
-const int MAX_COMMANDS=1000;
+const int MAX_COMMANDS = 1000;
 Command commands[MAX_COMMANDS];
 
 bool register_command(Command cmd) {

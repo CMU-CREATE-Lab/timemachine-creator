@@ -14,16 +14,6 @@ public:
   virtual ~Reader() {}
 };
 
-class IfstreamReader : public Reader {
-  std::ifstream f;
-  std::string filename;
-public:
-  IfstreamReader(std::string filename);
-  virtual void read(unsigned char *dest, size_t pos, size_t length);
-  size_t length();
-  virtual ~IfstreamReader() {}
-};
-
 class Writer {
 public:
   virtual void write(const unsigned char *src, size_t length) = 0;
@@ -31,13 +21,26 @@ public:
   virtual ~Writer() {}
 };
 
-class OfstreamWriter : public Writer {
-  std::ofstream f;
-  std::string filename;
+class FileReader : public Reader {
+  static FileReader* (*opener)(std::string filename);
 public:
-  OfstreamWriter(std::string filename);
-  virtual void write(const unsigned char *src, size_t length);
-  virtual ~OfstreamWriter() {}
+  virtual void read(unsigned char *dest, size_t pos, size_t length) = 0;
+  virtual size_t length() = 0;
+  virtual ~FileReader() {}
+
+  static FileReader *open(std::string filename);
+  static bool register_opener(FileReader* (*o)(std::string filename));
 };
+
+class FileWriter : public Writer {
+  static FileWriter* (*opener)(std::string filename);
+public:
+  virtual void write(const unsigned char *src, size_t length) = 0;
+  virtual ~FileWriter() {}
+
+  static FileWriter *open(std::string filename);
+  static bool register_opener(FileWriter* (*o)(std::string filename));
+};
+
 
 #endif

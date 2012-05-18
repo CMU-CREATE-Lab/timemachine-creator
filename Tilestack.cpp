@@ -21,11 +21,11 @@ ResidentTilestack::ResidentTilestack(unsigned int nframes, unsigned int tile_wid
   }
 }
 
-void ResidentTilestack::write(Writer &w) {
+void ResidentTilestack::write(Writer *w) {
   std::vector<unsigned char> header(8);
   write_u64(&header[0], 0x326b7473656c6974); // ASCII 'tilestk2'
-  w.write(header);
-  w.write(all_pixels);
+  w->write(header);
+  w->write(all_pixels);
   size_t tocentry_size = 24;
   std::vector<unsigned char> tocdata(tocentry_size * nframes);
   size_t address = header.size();
@@ -35,7 +35,7 @@ void ResidentTilestack::write(Writer &w) {
     write_u64(&tocdata[i*tocentry_size + 16], tile_size);
     address += tile_size;
   }
-  w.write(tocdata);
+  w->write(tocdata);
   size_t footer_size = 48;
   std::vector<unsigned char> footer(footer_size);
 
@@ -47,7 +47,7 @@ void ResidentTilestack::write(Writer &w) {
   write_u32(&footer[32], pixel_format);
   write_u32(&footer[36], compression_format);
   write_u64(&footer[40], 0x646e65326b747374); // ASCII: 'tstk2end'
-  w.write(footer);
+  w->write(footer);
 }
 
 void ResidentTilestack::instantiate_pixels(unsigned frame) {

@@ -128,7 +128,7 @@ public:
                     unsigned int tile_height, unsigned int bands_per_pixel,
                     unsigned int bits_per_band, unsigned int pixel_format,
                     unsigned int compression_format);
-  void write(Writer &w);
+  void write(Writer *w);
   virtual void instantiate_pixels(unsigned frame);
 };
 
