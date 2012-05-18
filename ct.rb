@@ -823,9 +823,9 @@ class Compiler
   def howto_rule
     # dependencies = capture_times_rule.targets
     directions = []
-    directions << "echo 'Add this to #{@urls['view'] || "your page"}: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{@versioned_id}|timelapse_dataset=1}}'"
+    directions << ['echo', "'Add this to #{@urls['view'] || "your page"}: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{@versioned_id}|timelapse_dataset=1}}'"]
     if @urls['track']
-      directions << "echo 'and update tracking page #{@urls['track']}'"
+      directions << ['echo', "'and update tracking page #{@urls['track']}'"]
     end
     Rule.add("howto", videoset_rules,
              directions,
