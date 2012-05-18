@@ -176,8 +176,8 @@ void save(std::string dest)
     src->write(out);
   }
 
-  if (rename(temp_dest.c_str(), dest.c_str())) {
-  }
+  rename_file(temp_dest, dest);
+
   fprintf(stderr, "Created %s\n", dest.c_str());
 }
 
@@ -289,9 +289,7 @@ void write_video(std::string dest, double fps, double compression)
   }
   encoder.close();
   fprintf(stderr, "Renaming %s to %s\n", temp_dest.c_str(), dest.c_str());
-  if (rename(temp_dest.c_str(), dest.c_str())) {
-    throw_error("Can't rename %s to %s", temp_dest.c_str(), dest.c_str());
-  }
+  rename_file(temp_dest, dest);
 }
 
 int compute_tile_nlevels(int width, int height, int tile_width, int tile_height) {
@@ -351,10 +349,7 @@ void image2tiles(std::string dest, std::string format, std::string src)
     }
   }
 
-  if (rename(temp_dest.c_str(), dest.c_str())) {
-    fprintf(stderr, "Error renaming %s to %s\n", temp_dest.c_str(), dest.c_str());
-    // TODO(RS): Delete temporary directory
-  }
+  rename_file(temp_dest, dest);
 }
 
 void load_tiles(const std::vector<std::string> &srcs)
