@@ -1,6 +1,7 @@
 <html>
 <head>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+<script src="js/api.js"></script>
 </head>
 <body>
 
@@ -9,7 +10,7 @@
 <img id="thumbnail" style="width:160px; height:120px">
 
 <script>
-window.api.readThumbnail("ct/patp10/00IMG_9946.JPG").assignToHTMLImageElement(document.getElementById('thumbnail'));
+api.readThumbnail("ct/patp10/00IMG_9946.JPG").assignToHTMLImageElement(document.getElementById('thumbnail'));
 </script>
 
 <hr>
@@ -20,8 +21,8 @@ window.api.readThumbnail("ct/patp10/00IMG_9946.JPG").assignToHTMLImageElement(do
 <div>PITT10x1 Time: <span id="time2"></span></div>
 
 <script>
-$('#time').text(window.api.exifTime("ct/patp10/00IMG_9946.JPG"));
-$('#time2').text(window.api.exifTime("pitt10x1/IMG_5000.JPG"));
+$('#time').text(api.exifTime("ct/patp10/00IMG_9946.JPG"));
+$('#time2').text(api.exifTime("pitt10x1/IMG_5000.JPG"));
 </script>
 
 <hr>
@@ -33,7 +34,7 @@ $('#time2').text(window.api.exifTime("pitt10x1/IMG_5000.JPG"));
 <script>
 function saveAs() {
   var startDirectory = '';
-  var saveDir = window.api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.timemachinedefinition');
+  var saveDir = api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.timemachinedefinition');
   if (saveDir == '') {
     alert('saveAs canceled');
   } else {
@@ -59,8 +60,8 @@ function noopHandler(evt) {
 function dropHandler(evt) {
   evt.stopPropagation();
   evt.preventDefault();
-  var droppedFiles = window.api.droppedFilesRecursive();
-  window.api.readThumbnail(droppedFiles[0]).assignToHTMLImageElement(document.getElementById('thumbnail'));
+  var droppedFiles = api.droppedFilesRecursive();
+  api.readThumbnail(droppedFiles[0]).assignToHTMLImageElement(document.getElementById('thumbnail'));
   $('#dropped').text(droppedFiles.join('\n'));
 }
 var dropbox = document.getElementById("dropbox");
@@ -80,21 +81,21 @@ dropbox.addEventListener("drop", dropHandler, false);
 function saveWriteRead() {
   $('#swr_out').text('');
   var startDirectory = '';
-  var saveDir = window.api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.timemachinedefinition');
+  var saveDir = api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.timemachinedefinition');
   if (saveDir == '') {
     alert('saveAs canceled');
   } else {
-    if (!window.api.makeDirectory(saveDir)) {
+    if (!api.makeDirectory(saveDir)) {
       alert('Error creating directory ' + saveDir);
       return;
     }
     var definitionPath = saveDir + '/definition.timemachinedefinition';
     var writeData = {foo:3};
-    if (!window.api.writeFile(definitionPath, JSON.stringify(writeData))) {
+    if (!api.writeFile(definitionPath, JSON.stringify(writeData))) {
        alert('Error creating ' + definitionPath);
        return;
     }
-    var readData = JSON.parse(window.api.readFile(definitionPath));
+    var readData = JSON.parse(api.readFile(definitionPath));
     $('#swr_out').text('Wrote ' + JSON.stringify(writeData) + ' to ' + definitionPath + ' and read back ' + JSON.stringify(readData));
   }
 }
@@ -112,7 +113,7 @@ $('#swr').click(saveWriteRead);
 <script>
 
 function r10() {
-  if (!window.api.invokeRubySubprocess(['count_to_10.rb'], register_callback(r10_out))) {
+  if (!api.invokeRubySubprocess(['count_to_10.rb'], r10_out)) {
     alert('Could not start ruby subprocess');
   }
   $('#r10_out').html('Starting count_to_10.rb\n');
@@ -128,25 +129,6 @@ function r10_out(out) {
 }
 
 $('#r10').click(r10);
-
-callbacks = [];
-
-function callback(id, arr) {
-  console.log("callback " + id + " | " + arr);
-  console.log("calling " + callbacks[id] + " with args " + arr);
-  callbacks[id].apply(null, arr);
-}
-
-function register_callback(callback) {
-  callbacks.push(callback);
-  return callbacks.length - 1;
-}
-
-function initcallback() {
-  window.api.callback.connect(callback);
-}
-
-$(initcallback);
 
 </script>
 

@@ -17,6 +17,9 @@
 
 using namespace std;
 
+API::API(const std::string &rootdir) : rootdir(rootdir) {
+}
+
 void API::setFrame(QWebFrame *frame) {
   this->frame = frame;
 }
@@ -31,7 +34,7 @@ int API::log() {
 }
 
 void API::addJSObject() {
-  frame->addToJavaScriptWindowObject(QString("api"), this);
+  frame->addToJavaScriptWindowObject(QString("_api"), this);
 }
 
 // readThumbnail:
@@ -54,7 +57,7 @@ QPixmap API::readThumbnail(QString path) {
     EXIF_ASSERT(length > 0, ExifErr() << "Illegal thumbnail length");
     vector<unsigned char> buf(length);
     EXIF_ASSERT(fseek(in, offset, SEEK_SET) == 0, ExifErr() << "Error reading thumbnail");
-	  //EXIF_ASSERT(1 == (int32)fread(&buf[0], length, 1, in), ExifErr() << "Error reading thumbnail");
+    //EXIF_ASSERT(1 == (int32)fread(&buf[0], length, 1, in), ExifErr() << "Error reading thumbnail");
     fread(&buf[0], length, 1, in);
     fclose(in);
 
@@ -123,7 +126,7 @@ QStringList API::droppedFilesRecursive() {
 
   QStringList ret;
   for (int i = 0; i < droppedPaths.length(); i++) {
-		//fprintf(stderr, "dfr: >%s<\n", droppedPaths[i].toUtf8().constData());
+    //fprintf(stderr, "dfr: >%s<\n", droppedPaths[i].toUtf8().constData());
     QFileInfo info(droppedPaths[i]);
     if (info.isDir()) {
       ret << listDirectoryRecursively(droppedPaths[i]);
@@ -171,6 +174,17 @@ bool API::invokeRubySubprocess(QStringList args, int callback_id)
   }
   fprintf(stderr, "\n");
   APIProcess *process = new APIProcess(this, callback_id);
-  process->process.start("/usr/bin/ruby", args, QIODevice::ReadOnly);
+
+  // Ruby path
+  std::string ruby_path;
+  
+  if (os() == "windows") {
+    ruby_path = rootdir + "/ruby/windows/bin/ruby.exe";
+  } else {
+    ruby_path = "/usr/bin/ruby";
+  }
+
+  fprintf(stderr, "Invoking ruby with path '%s'\n", ruby_path.c_str());
+  process->process.start(ruby_path.c_str(), args, QIODevice::ReadOnly);
   return true;
 }

@@ -32,11 +32,16 @@ int main(int argc, char *argv[])
 
   QApplication a(argc, argv);
 
-  QString path = QFileInfo("index.html").absoluteFilePath();
+  // Get root directory
+  std::string rootdir = filename_directory(executable_path());
+  if (os() == "windows") rootdir = filename_directory(rootdir);
+  if (os() == "macintosh") rootdir = filename_directory(filename_directory(rootdir));
+
+  std::string path = rootdir + "/index.html";
 
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--test")) {
-      path = QFileInfo("test.html").absoluteFilePath();
+      path = rootdir + "/test.html";
     }
   }
 
@@ -49,7 +54,7 @@ int main(int argc, char *argv[])
 
   QWebSettings::globalSettings()->setLocalStoragePath(local_storage_path.c_str());
   //QWebView view;
-  API api;
+  API api(rootdir);
   WebViewExt view(&api);
   view.setMinimumSize(640, 480); //set a minimum window size so things do not get too distorted
   //view.setGeometry(QRect(0,0,1875,210));
@@ -64,11 +69,14 @@ int main(int argc, char *argv[])
   QObject::connect(view.page()->mainFrame(), SIGNAL(javaScriptWindowObjectCleared()),
 		   &api, SLOT(addJSObject()));
 
+  std::string url;
 #ifdef _WIN32
-  view.load(QUrl("file:///" + path));
+  url = "file:///" + path;
 #else
-  view.load(QUrl("file://" + path));
+  url = "file://" + path;
 #endif
+  fprintf(stderr, "Loading '%s'\n", url.c_str());
+  view.load(QUrl(url.c_str()));
 
   view.show();
 

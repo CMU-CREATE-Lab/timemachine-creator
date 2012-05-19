@@ -11,6 +11,7 @@ class API : public QObject
   Q_OBJECT
   QWebFrame *frame;
 public:
+  API(const std::string &rootdir);
   void setFrame(QWebFrame *frame);
   void dropPaths(QStringList files);
   void requestCallback(int id, QVariantList args);
@@ -28,6 +29,7 @@ signals:
   void callback(int id, QVariantList args);
 protected:
   QStringList droppedPaths;
+  std::string rootdir;
 };
 
 #endif
