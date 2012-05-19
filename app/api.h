@@ -13,18 +13,19 @@ class API : public QObject
 public:
   void setFrame(QWebFrame *frame);
   void dropPaths(QStringList files);
-public slots:
-  int log();
-  void addJSObject();
-  QPixmap readThumbnail(QString path);
-  double exifTime(QString path);
-  QStringList droppedFilesRecursive();
-  QString saveAsDialog(QString caption, QString startingDirectory, QString filter);
-  bool writeFile(QString path, QString data);
-  QString readFile(QString path);
-  bool makeDirectory(QString path);
+  void requestCallback(int id, QVariantList args);
+  Q_INVOKABLE int log();
+  Q_INVOKABLE void addJSObject();
+  Q_INVOKABLE QPixmap readThumbnail(QString path);
+  Q_INVOKABLE double exifTime(QString path);
+  Q_INVOKABLE QStringList droppedFilesRecursive();
+  Q_INVOKABLE QString saveAsDialog(QString caption, QString startingDirectory, QString filter);
+  Q_INVOKABLE bool writeFile(QString path, QString data);
+  Q_INVOKABLE QString readFile(QString path);
+  Q_INVOKABLE bool makeDirectory(QString path);
+  Q_INVOKABLE bool invokeRubySubprocess(QStringList args, int callback_id);
 signals:
-  int logged();
+  void callback(int id, QVariantList args);
 protected:
   QStringList droppedPaths;
 };

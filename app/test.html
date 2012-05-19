@@ -48,7 +48,7 @@ $('#save_as').click(saveAs);
 
 <!-- Drag and drop files and folders -->
 
-<div id="dropbox" style="background: #4f4; padding: 20px; display: table">Drop here</div>
+<div id="dropbox" style="background: #4f4; padding: 20px; display: table">Drop files and folders here</div>
 <pre id="dropped"></pre>
 
 <script>
@@ -60,7 +60,7 @@ function dropHandler(evt) {
   evt.stopPropagation();
   evt.preventDefault();
   var droppedFiles = window.api.droppedFilesRecursive();
-	window.api.readThumbnail(droppedFiles[0]).assignToHTMLImageElement(document.getElementById('thumbnail'));
+  window.api.readThumbnail(droppedFiles[0]).assignToHTMLImageElement(document.getElementById('thumbnail'));
   $('#dropped').text(droppedFiles.join('\n'));
 }
 var dropbox = document.getElementById("dropbox");
@@ -102,8 +102,53 @@ function saveWriteRead() {
 $('#swr').click(saveWriteRead);
 </script>
 
+<hr>
 
+<!-- Test ruby subprocess -->
 
+<button id="r10">Ruby count to 10</button>
+<pre id="r10_out"></pre>
+
+<script>
+
+function r10() {
+  if (!window.api.invokeRubySubprocess(['count_to_10.rb'], register_callback(r10_out))) {
+    alert('Could not start ruby subprocess');
+  }
+  $('#r10_out').html('Starting count_to_10.rb\n');
+}
+
+function r10_out(out) {
+  console.log("In r10_out, out=" + out);
+  if (typeof out === 'number') {
+    $('#r10_out').append("Process finished, exit code " + out + "\n");
+  } else {
+    $('#r10_out').append(out)
+  }
+}
+
+$('#r10').click(r10);
+
+callbacks = [];
+
+function callback(id, arr) {
+  console.log("callback " + id + " | " + arr);
+  console.log("calling " + callbacks[id] + " with args " + arr);
+  callbacks[id].apply(null, arr);
+}
+
+function register_callback(callback) {
+  callbacks.push(callback);
+  return callbacks.length - 1;
+}
+
+function initcallback() {
+  window.api.callback.connect(callback);
+}
+
+$(initcallback);
+
+</script>
 
 </body>
 </html>

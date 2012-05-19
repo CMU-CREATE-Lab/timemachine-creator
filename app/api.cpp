@@ -4,10 +4,14 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfoList>
-#include <QTextStream>
+#include <QList>
 #include <QMessageBox>
+#include <QProcess>
+#include <QTextStream>
+#include <QVariant>
 
 #include "api.h"
+#include "apiprocess.h"
 #include "cpp-utils.h"
 #include "Exif.h"
 
@@ -19,6 +23,10 @@ void API::setFrame(QWebFrame *frame) {
 
 int API::log() {
   fprintf(stderr, "log!\n");
+  QVariantList args;
+  args << "hello";
+  args << 33;
+  requestCallback(44, args);
   return 33;
 }
 
@@ -107,6 +115,10 @@ void API::dropPaths(QStringList paths) {
   droppedPaths = paths;
 }
 
+void API::requestCallback(int id, QVariantList args) {
+  emit callback(id, args);
+}
+
 QStringList API::droppedFilesRecursive() {
 
   QStringList ret;
@@ -149,4 +161,16 @@ QString API::readFile(QString path)
 bool API::makeDirectory(QString path)
 {
   return QDir().mkdir(path);
+}
+
+bool API::invokeRubySubprocess(QStringList args, int callback_id)
+{
+  fprintf(stderr, "invokeRubySubprocess:");
+  for (int i = 0; i < args.length(); i++) {
+    fprintf(stderr, " %s", args[i].toUtf8().constData());
+  }
+  fprintf(stderr, "\n");
+  APIProcess *process = new APIProcess(this, callback_id);
+  process->process.start("/usr/bin/ruby", args, QIODevice::ReadOnly);
+  return true;
 }

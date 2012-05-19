@@ -24,13 +24,21 @@
 
 int main(int argc, char *argv[])
 {
-	#ifdef _WIN32
-		AllocConsole();
-		freopen("CONOUT$", "w", stderr);
-		freopen("CONOUT$", "w", stdout);
-	#endif
+#ifdef _WIN32
+  AllocConsole();
+  freopen("CONOUT$", "w", stderr);
+  freopen("CONOUT$", "w", stdout);
+#endif
 
   QApplication a(argc, argv);
+
+  QString path = QFileInfo("index.html").absoluteFilePath();
+
+  for (int i = 1; i < argc; i++) {
+    if (!strcmp(argv[i], "--test")) {
+      path = QFileInfo("test.html").absoluteFilePath();
+    }
+  }
 
   QWebSettings::globalSettings()->setAttribute(QWebSettings::DeveloperExtrasEnabled, true);
   QWebSettings::globalSettings()->setAttribute(QWebSettings::LocalStorageEnabled, true);
@@ -56,13 +64,11 @@ int main(int argc, char *argv[])
   QObject::connect(view.page()->mainFrame(), SIGNAL(javaScriptWindowObjectCleared()),
 		   &api, SLOT(addJSObject()));
 
-  QString path = QFileInfo("index.html").absoluteFilePath();
-
-	#ifdef _WIN32
-		view.load(QUrl("file:///" + path));
-	#else
-		view.load(QUrl("file://" + path));
-	#endif
+#ifdef _WIN32
+  view.load(QUrl("file:///" + path));
+#else
+  view.load(QUrl("file://" + path));
+#endif
 
   view.show();
 
