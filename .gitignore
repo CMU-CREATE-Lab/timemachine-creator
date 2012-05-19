@@ -9,3 +9,4 @@ junkyard
 Makefile.*
 debug/
 *.pdb
+Makefile
