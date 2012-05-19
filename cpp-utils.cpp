@@ -26,8 +26,6 @@
 
 // From Randy Sargent's public domain library, 2001-2012
 
-using namespace std;
-
 #ifdef _WIN32
   // Windows
   #define ALLOWABLE_DIRECTORY_DELIMITERS "/\\"
@@ -40,34 +38,34 @@ using namespace std;
   #define DIRECTORY_DELIMITER_STRING "/"
 #endif
 
-string filename_sans_directory(const string &filename)
+std::string filename_sans_directory(const std::string &filename)
 {
   size_t lastDirDelim = filename.find_last_of(ALLOWABLE_DIRECTORY_DELIMITERS);
   // No directory delimiter, so return filename
-  if (lastDirDelim == string::npos) return filename;
+  if (lastDirDelim == std::string::npos) return filename;
   // Return everything after the delimiter
   return filename.substr(lastDirDelim+1);
 }
 
-string filename_directory(const string &filename)
+std::string filename_directory(const std::string &filename)
 {
   size_t lastDirDelim = filename.find_last_of(ALLOWABLE_DIRECTORY_DELIMITERS);
   // No directory delimiter, so return nothing
-  if (lastDirDelim == string::npos) return "";
+  if (lastDirDelim == std::string::npos) return "";
   // Return everything up to just before the last delimiter
   return filename.substr(0, lastDirDelim);
 }
 
-string filename_sans_suffix(const string &filename)
+std::string filename_sans_suffix(const std::string &filename)
 {
   // Find the last '.'
   size_t lastDot = filename.find_last_of(".");
-  if (lastDot == string::npos) return filename;
+  if (lastDot == std::string::npos) return filename;
 
   // Find the last directory delimiter
   size_t lastDirDelim = filename.find_last_of(ALLOWABLE_DIRECTORY_DELIMITERS);
 
-  if (lastDirDelim != string::npos &&
+  if (lastDirDelim != std::string::npos &&
       lastDot < lastDirDelim) {
     // The last dot was inside the directory name, so return as is
     return filename;
@@ -77,16 +75,16 @@ string filename_sans_suffix(const string &filename)
   return filename.substr(0, lastDot);
 }
 
-string filename_suffix(const string &filename)
+std::string filename_suffix(const std::string &filename)
 {
   // Find the last '.'
   size_t lastDot = filename.find_last_of(".");
-  if (lastDot == string::npos) return "";
+  if (lastDot == std::string::npos) return "";
 
   // Find the last directory delimiter
   size_t lastDirDelim = filename.find_last_of(ALLOWABLE_DIRECTORY_DELIMITERS);
 
-  if (lastDirDelim != string::npos &&
+  if (lastDirDelim != std::string::npos &&
       lastDot < lastDirDelim) {
     // The last dot was inside the directory name, so no suffix
     return "";
@@ -96,16 +94,16 @@ string filename_suffix(const string &filename)
   return filename.substr(lastDot+1);
 }
 
-string filename_suffix_with_dot(const string &filename)
+std::string filename_suffix_with_dot(const std::string &filename)
 {
   // Find the last '.'
   size_t lastDot = filename.find_last_of(".");
-  if (lastDot == string::npos) return "";
+  if (lastDot == std::string::npos) return "";
 
   // Find the last directory delimiter
   size_t lastDirDelim = filename.find_last_of(ALLOWABLE_DIRECTORY_DELIMITERS);
 
-  if (lastDirDelim != string::npos &&
+  if (lastDirDelim != std::string::npos &&
       lastDot < lastDirDelim) {
     // The last dot was inside the directory name, so no suffix
     return "";
@@ -115,7 +113,7 @@ string filename_suffix_with_dot(const string &filename)
   return filename.substr(lastDot);
 }
 
-string string_vprintf(const char *fmt, va_list args) {
+std::string string_vprintf(const char *fmt, va_list args) {
   size_t size = 500;
   char *buf = (char *)malloc(size);
   // grow the buffer size until the output is no longer truncated
@@ -131,7 +129,7 @@ string string_vprintf(const char *fmt, va_list args) {
     // Some c libraries return -1 for overflow, some return a number larger than size-1
     if (nwritten < size-2) {
       buf[nwritten+1] = 0;
-      string ret(buf);
+      std::string ret(buf);
       free(buf);
       return ret;
     }
@@ -140,15 +138,15 @@ string string_vprintf(const char *fmt, va_list args) {
   }
 }
 
-string string_printf(const char *fmt, ...) {
+std::string string_printf(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  string ret = string_vprintf(fmt, args);
+  std::string ret = string_vprintf(fmt, args);
   va_end(args);
   return ret;
 }
 
-void make_directory(const string &dirname) {
+void make_directory(const std::string &dirname) {
 #ifdef _WIN32
   _wmkdir(Unicode(dirname).path());
 #else
@@ -156,19 +154,31 @@ void make_directory(const string &dirname) {
 #endif
 }
 
-void make_directory_and_parents(const string &dirname) {
+void make_directory_and_parents(const std::string &dirname) {
   if (dirname == "") return;
   make_directory_and_parents(filename_directory(dirname));
   make_directory(dirname);
 }
 
-bool filename_exists(const string &filename) {
+bool filename_exists(const std::string &filename) {
 #ifdef _WIN32
   struct _stat64i32 s;
   return (0 == _wstat(Unicode(filename).path(), &s));
 #else
   struct stat s;
   return (0 == stat(Unicode(filename).path(), &s));
+#endif
+}
+
+void rename_file(const std::string &src, const std::string &dest) {
+#ifdef _WIN32
+  if (!MoveFileExW(Unicode(src).path(), Unicode(dest).path(), MOVEFILE_REPLACE_EXISTING)) {
+    throw_error("Can't rename %s to %s", src.c_str(), dest.c_str());
+  }
+#else
+  if (rename(src.c_str(), dest.c_str())) {
+    throw_error("Can't rename %s to %s", src.c_str(), dest.c_str());
+  }
 #endif
 }
 
@@ -182,7 +192,7 @@ FILE *fopen_utf8(const std::string &filename, const char *mode) {
 }
 
 
-bool iequals(const string &a, const string &b)
+bool iequals(const std::string &a, const std::string &b)
 {
 #ifdef _WIN32
   return !_stricmp(a.c_str(), b.c_str());
@@ -191,36 +201,36 @@ bool iequals(const string &a, const string &b)
 #endif
 }
 
-string temporary_path(const std::string &path)
+std::string temporary_path(const std::string &path)
 {
   // TODO(RS): make this thread-safe if we someday use threads
   static unsigned int counter = 0;
-  static string cached_hostname;
+  static std::string cached_hostname;
   if (!counter) cached_hostname = hostname();
 #ifdef _WIN32
-	int pid = _getpid();
+        int pid = _getpid();
 #else
-	int pid = getpid();
+        int pid = getpid();
 #endif
   return string_printf("%s_%s_%d_%d_%d%s",
-		       filename_sans_suffix(path).c_str(),
-		       cached_hostname.c_str(),
-		       (int) time(0),
-		       pid,
-		       counter++,
-		       filename_suffix_with_dot(path).c_str());
+                       filename_sans_suffix(path).c_str(),
+                       cached_hostname.c_str(),
+                       (int) time(0),
+                       pid,
+                       counter++,
+                       filename_suffix_with_dot(path).c_str());
 }
 
 #ifdef _WIN32
-string hostname()
+std::string hostname()
 {
-	char buf[1000];
-	DWORD bufsize = sizeof(buf);
-	GetComputerNameExA(ComputerNameDnsHostname, buf, &bufsize);
-	return string(buf, bufsize);
+  char buf[1000];
+  DWORD bufsize = sizeof(buf);
+  GetComputerNameExA(ComputerNameDnsHostname, buf, &bufsize);
+  return std::string(buf, bufsize);
 }
 #else
-string hostname()
+std::string hostname()
 {
   struct utsname u;
   if (uname(&u)) {
@@ -234,10 +244,19 @@ string hostname()
 void throw_error(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  string msg = string_vprintf(fmt, args);
+  std::string msg = string_vprintf(fmt, args);
   va_end(args);
-  throw runtime_error(msg);
+  throw std::runtime_error(msg);
 }
+
+std::string executable_suffix() {
+#ifdef _WIN32
+  return ".exe";
+#else
+  return "";
+#endif
+}
+
 
 ///// executable_path
 
@@ -250,31 +269,31 @@ void throw_error(const char *fmt, ...) {
 // Windows: GetModuleFileName() with hModule = NULL
 
 #if defined(_WIN32)
-string executable_path() {
-	wchar_t buf[10000];
-	DWORD bufsize = sizeof(buf);
-	GetModuleFileNameW(NULL, buf, bufsize);
-	return Unicode(buf).utf8();
+std::string executable_path() {
+  wchar_t buf[10000];
+  DWORD bufsize = sizeof(buf);
+  GetModuleFileNameW(NULL, buf, bufsize);
+  return Unicode(buf).utf8();
 }
 
 #elif defined(__APPLE__)
 #include <mach-o/dyld.h>
-string executable_path() {
+std::string executable_path() {
   uint32_t len = 0;
   int ret = _NSGetExecutablePath(NULL, &len);
   assert(ret == -1);
-  vector<char> buf(len);
+  std::vector<char> buf(len);
   ret = _NSGetExecutablePath(&buf[0], &len);
-  return string(&buf[0]);
+  return std::string(&buf[0]);
 }
 #else
 // Linux
-string executable_path() {
-  vector<char> buf(1000);
+std::string executable_path() {
+  std::vector<char> buf(1000);
   while (1) {
     int ret = readlink("/proc/self/exe", &buf[0], buf.size());
     assert(ret > 0);
-    if (ret < (int)buf.size()) return string(&buf[0], ret);
+    if (ret < (int)buf.size()) return std::string(&buf[0], ret);
     buf.resize(buf.size()*2);
   }
 }
@@ -283,7 +302,7 @@ string executable_path() {
 ///// home_directory
 
 #ifdef _WIN32
-string home_directory() {
+std::string home_directory() {
   TCHAR buf[10000]={0};
   DWORD bufsize = sizeof(buf);
   HANDLE token = 0;
@@ -300,7 +319,7 @@ string home_directory() {
 #include <sys/types.h>
 #include <pwd.h>
 
-string home_directory() {
+std::string home_directory() {
   struct passwd pwd, *pwdptr;
   char buf[10000];
   int ret = getpwuid_r(getuid(), &pwd, buf, sizeof(buf), &pwdptr);
@@ -312,12 +331,12 @@ string home_directory() {
 ///// application_user_state_directory
 
 #if defined(_WIN32)
-string application_user_state_directory(const string &application_name) {
+std::string application_user_state_directory(const std::string &application_name) {
   return home_directory() + "/Application Data/" + application_name;
 }
 
 #elif defined(__APPLE__)
-string application_user_state_directory(const string &application_name) {
+std::string application_user_state_directory(const std::string &application_name) {
   return home_directory() + "/Library/Application Support/" + application_name;
 }
 #endif
@@ -325,17 +344,18 @@ string application_user_state_directory(const string &application_name) {
 ///// Unicode paths
 
 Unicode::Unicode(const std::string &utf8) : m_utf8(utf8) {
-	init_from_utf8();
+        init_from_utf8();
 }
 Unicode::Unicode(const char *utf8) : m_utf8(utf8) {
-	init_from_utf8();
+        init_from_utf8();
 }
 const char *Unicode::utf8() { return m_utf8.c_str(); }
 #ifdef _WIN32
 Unicode::Unicode(const wchar_t *utf16) : m_utf16(utf16, utf16+wcslen(utf16)+1) {
-	vector<char> tmp(m_utf16.size() * 4);
-	wcstombs(&tmp[0], utf16, tmp.size());
-	m_utf8 = string(&tmp[0]);
+  std::vector<char> tmp(m_utf16.size() * 4);
+  // TODO(PD) or TODO(RS): patch from Paul Heckbert's code
+  wcstombs(&tmp[0], utf16, tmp.size());
+  m_utf8 = std::string(&tmp[0]);
 }
 const wchar_t *Unicode::utf16() { return &m_utf16[0]; }
 void Unicode::init_from_utf8() {
@@ -355,11 +375,11 @@ const char *Unicode::path() { return utf8(); }
 #endif
 
 #if defined(__APPLE__)
-string os() { return "osx"; }
+std::string os() { return "osx"; }
 #elif defined(_WIN32)
-string os() { return "windows"; }
+std::string os() { return "windows"; }
 #else
-string os() { return "linux"; }
+std::string os() { return "linux"; }
 #endif
 
 #if defined(_WIN32)
