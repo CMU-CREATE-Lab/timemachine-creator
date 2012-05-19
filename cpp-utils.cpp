@@ -285,13 +285,13 @@ string executable_path() {
 
 #ifdef _WIN32
 string home_directory() {
-	TCHAR buf[10000]={0};
-	DWORD bufsize = sizeof(buf);
-	HANDLE token = 0;
-	OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token);
-	GetUserProfileDirectory(token, buf, &bufsize);
-	CloseHandle(token);
-	return Unicode(buf).utf8();
+  TCHAR buf[10000]={0};
+  DWORD bufsize = sizeof(buf);
+  HANDLE token = 0;
+  OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token);
+  GetUserProfileDirectory(token, buf, &bufsize);
+  CloseHandle(token);
+  return Unicode(buf).utf8();
 }
 
 #else
