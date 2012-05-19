@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
   // Get root directory
   std::string rootdir = filename_directory(executable_path());
   if (os() == "windows") rootdir = filename_directory(rootdir);
-  if (os() == "macintosh") rootdir = filename_directory(filename_directory(rootdir));
+  if (os() == "osx") rootdir = filename_directory(filename_directory(filename_directory(rootdir)));
 
   std::string path = rootdir + "/index.html";
 
