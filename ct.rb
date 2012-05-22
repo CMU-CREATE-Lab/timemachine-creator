@@ -13,6 +13,18 @@ require File.dirname(__FILE__) + '/xmlsimple'
 require 'fileutils'
 require 'backports'
 
+$tilestacktool_args = []
+
+def tilestacktool_cmd 
+  [$tilestacktool] + $tilestacktool_args
+end  
+
+if `echo %PATH%`.chomp == '%PATH%'
+  $os = 'unix'
+else
+  $os = 'windows'
+end
+
 $sourcetypes = {}
 
 class Filesystem
@@ -131,7 +143,11 @@ class Rule
   end
 
   def self.touch(target, dependencies)
+<<<<<<< HEAD
     Rule.add(target, dependencies, [['touch', target]], {:local => true})
+=======
+    Rule.add(target, dependencies, [tilestack_cmd + ['--createfile', target]], {:local => true})
+>>>>>>> 69dbc51... Add ability to insert args for tilestacktool
   end
   
   def to_make
@@ -249,7 +265,7 @@ class VideosetCompiler
     STDERR.puts "#{id}: #{@videotiles.size} videos"
     @videotiles.flat_map do |vt|
       target = "#{@parent.videosets_dir}/#{id}/#{vt.path}.mp4"
-      cmd = [$tilestacktool]
+      cmd = tilestacktool_cmd
       cmd << "--create-parent-directories"
    
       cmd << '--path2stack'
@@ -368,7 +384,7 @@ class ImagesSource
   def image_to_tiles_rule(image)
     fn = @image_framenames[image]
     target = "#{@parent.tiles_dir}/#{fn}.data/tiles"
-    cmd = [$tilestacktool, '--tilesize', @tilesize, '--image2tiles', target, @tileformat, image]
+    cmd = tilestacktool_cmd + ['--tilesize', @tilesize, '--image2tiles', target, @tileformat, image]
     Rule.add(target, [image], [cmd])
   end
  
@@ -746,7 +762,7 @@ class Compiler
     target = tilestack_path(target_idx)
     children = children.flat_map {|child| tilestack_rule(child, dependencies)}
 
-    cmd = [$tilestacktool]
+    cmd = tilestacktool_cmd
     cmd << "--create-parent-directories"
     frames = {'frames' => {'start' => 0, 'end' => @source.framenames.size - 1}, 
               'bounds' => target_idx.bounds(@source.tilesize, @max_level)}
@@ -760,7 +776,7 @@ class Compiler
     if @stack_filter
       src = raw_tilestack_path(target_idx)
       dest = tilestack_path(target_idx)
-      cmd = [$tilestacktool]
+      cmd = tilestacktool_cmd
       cmd << "--create-parent-directories"
       cmd += ['--load', src]
       cmd += @stack_filter
@@ -773,7 +789,7 @@ class Compiler
   def raw_base_tilestack_rule(target, dependencies)
     inputs = @source.framenames.map {|frame| "#{@tiles_dir}/#{frame}.data/tiles/#{target.path}.#{@source.tileformat}"}
     target = raw_tilestack_path(target)
-    cmd = [$tilestacktool] # , "--delete-source-tiles"]
+    cmd = tilestacktool_cmd # , "--delete-source-tiles"]
       cmd << "--create-parent-directories"
     cmd += ["--loadtiles"] + inputs
     cmd += ["--save", target]
