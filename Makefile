@@ -27,6 +27,11 @@ test-patp10: tilestacktool/tilestacktool
 	ln -sf ../../patp10.timemachinedefinition testresults/patp10.timemachinedefinition/definition.timemachinedefinition
 	./ct.rb -l -j 8 testresults/patp10.timemachinedefinition --create testresults/patp10.timemachine
 
+test-pitt2x2: tilestacktool/tilestacktool
+	mkdir -p testresults/pitt2x2.timemachinedefinition
+	ln -sf ../../pitt2x2.timemachinedefinition testresults/pitt2x2.timemachinedefinition/definition.timemachinedefinition
+	./ct.rb -l testresults/pitt2x2.timemachinedefinition --create testresults/pitt2x2.timemachine
+
 show: show-patp4s show-patp10
 
 show-patp4s: test-patp4s

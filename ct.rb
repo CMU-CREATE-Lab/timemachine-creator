@@ -3,15 +3,22 @@
 # You need the xml-simple gem to run this script
 # [sudo] gem install xml-simple
 
+require 'fileutils'
+require 'open-uri'
 require 'set'
 require 'thread'
-require 'open-uri'
-require File.dirname(__FILE__) + '/json'
+require File.dirname(__FILE__) + '/backports'
 require File.dirname(__FILE__) + '/image_size'
+require File.dirname(__FILE__) + '/json'
 require File.dirname(__FILE__) + '/tile'
+require File.dirname(__FILE__) + '/tileset'
 require File.dirname(__FILE__) + '/xmlsimple'
-require 'fileutils'
-require 'backports'
+
+if `echo %PATH%`.chomp == '%PATH%'
+  $os = 'unix'
+else
+  $os = 'windows'
+end
 
 $tilestacktool_args = []
 
@@ -29,7 +36,7 @@ $sourcetypes = {}
 
 class Filesystem
   def self.mkdir_p(path)
-    nFileUtils.mkdir_p path
+    FileUtils.mkdir_p path
   end
 
   def self.read_file(path)
@@ -38,6 +45,23 @@ class Filesystem
 
   def self.write_file(path, data)
     open(path, 'w') { |fh| fh.write data }
+  end
+end
+
+def write_json_and_js(path, prefix, obj)
+  Filesystem.mkdir_p File.dirname(path)
+
+  js_path = path + '.js'
+  Filesystem.write_file(js_path, prefix + '(' + JSON.pretty_generate(obj) + ')')
+  STDERR.puts("Wrote #{js_path}")
+
+  # Deprecated.  TODO(RS): Remove this soon
+  write_json_path = true
+
+  if write_json_path
+    json_path = path + '.json'
+    Filesystem.write_file(json_path, JSON.pretty_generate(obj))
+    STDERR.puts("Wrote #{json_path}")
   end
 end
 
@@ -126,10 +150,9 @@ class Rule
     if targets.class == String
       targets = [targets]
     end
-    commands.map! {|x| x.join(' ')}
+    commands = commands.map {|cmd| cmd.map &:to_s}
     array_of_strings?(targets) or raise "targets must be an array of pathnames"
     array_of_strings?(dependencies) or raise "dependencies must be an array of pathnames"
-    array_of_strings?(commands) or raise "commands must be an array of strings"
     @targets = targets
     @dependencies = dependencies
     @commands = commands
@@ -143,11 +166,7 @@ class Rule
   end
 
   def self.touch(target, dependencies)
-<<<<<<< HEAD
-    Rule.add(target, dependencies, [['touch', target]], {:local => true})
-=======
     Rule.add(target, dependencies, [tilestack_cmd + ['--createfile', target]], {:local => true})
->>>>>>> 69dbc51... Add ability to insert args for tilestacktool
   end
   
   def to_make
@@ -272,7 +291,7 @@ class VideosetCompiler
       cmd += [@vid_width, @vid_height]
       frames = {'frames' => {'start' => 0, 'end' => @parent.source.framenames.size - 1}, 
                 'bounds' => vt.source_bounds(@vid_width, @vid_height)};
-      cmd << "'#{JSON.generate(frames)}'"
+      cmd << JSON.generate(frames)
       cmd << @parent.tilestack_dir
 
       cmd += ['--writevideo', target, @fps, @quality]
@@ -300,10 +319,7 @@ class VideosetCompiler
   end
 
   def write_json
-    Filesystem.mkdir_p "#{@parent.videosets_dir}/#{id}"
-    dest = "#{@parent.videosets_dir}/#{id}/r.json"
-    Filesystem.write_file(dest, JSON.pretty_generate(info))
-    STDERR.puts("Wrote #{dest}")
+    write_json_and_js("#{@parent.videosets_dir}/#{id}/r", 'org.cmucreatelab.loadVideoset', info)
   end
 end
 
@@ -340,7 +356,9 @@ class ImagesSource
   end
 
   def initialize_images
-    if not @images
+    if @images
+      @images.map! {|image| File.expand_path(image, @parent.store)}
+    else
       @images = (Dir.glob("#{@image_dir}/*.*")+Dir.glob("#{@image_dir}/*/*.*")).sort.select do |image|
         @@valid_image_extensions.include? File.extname(image).downcase
       end
@@ -766,7 +784,7 @@ class Compiler
     cmd << "--create-parent-directories"
     frames = {'frames' => {'start' => 0, 'end' => @source.framenames.size - 1}, 
               'bounds' => target_idx.bounds(@source.tilesize, @max_level)}
-    cmd += ['--path2stack', @source.tilesize, @source.tilesize, "'#{JSON.generate(frames)}'", @tilestack_dir]
+    cmd += ['--path2stack', @source.tilesize, @source.tilesize, JSON.generate(frames), @tilestack_dir]
     cmd += ['--save', target]
     Rule.add(target, children, [cmd])
   end
@@ -836,9 +854,9 @@ class Compiler
   def howto_rule
     # dependencies = capture_times_rule.targets
     directions = []
-    directions << "echo 'Add this to #{@urls['view'] || "your page"}: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{@versioned_id}|timelapse_dataset=1}}'"
+    directions << ['echo', "'Add this to #{@urls['view'] || "your page"}: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{@versioned_id}|timelapse_dataset=1}}'"]
     if @urls['track']
-      directions << "echo 'and update tracking page #{@urls['track']}'"
+      directions << ['echo', "'and update tracking page #{@urls['track']}'"]
     end
     Rule.add("howto", videoset_rules,
              directions,
@@ -850,61 +868,35 @@ class Compiler
   end
 
   def info
-    {
-      "base-id"  => @versioned_id,
-      "name"     => @label,
-      "datasets" => @videoset_compilers.map do |vc| 
+    ret = {
+      'datasets' => @videoset_compilers.map do |vc| 
         {
-          "id" => vc.id,
-          "name" => vc.label
+          'id' => vc.id,
+          'name' => vc.label
         }
       end,
-      "sizes" => @videoset_compilers.map(&:label)
+      'sizes' => @videoset_compilers.map(&:label)
 
     }
+    @versioned_id and ret['base-id'] = @versioned_id
+    @label and ret['name'] = @label
+    ret
   end
 
   def write_json
-    dest = "#{@videosets_dir}/tm.json"
-    Filesystem.mkdir_p @videosets_dir
-    Filesystem.write_file(dest, JSON.pretty_generate(info))
+    write_json_and_js("#{@videosets_dir}/tm", 'org.cmucreatelab.loadTimeMachine', info)
     @videoset_compilers.each { |vc| vc.write_json }
-    STDERR.puts("Wrote #{dest}")
   end
 end
 
 def write_makefile
-  # # Group rules
-  # rules_by_dependencies={}
-  # 
-  # Rule.all.each do |rule| 
-  #   rules_by_dependencies[rule.dependencies] ||= []
-  #   rules_by_dependencies[rule.dependencies] << rule 
-  # end
-  # 
-  #grouped_rules=[]
-  #rules_by_dependencies.keys.each do |dependencies|
-  #  rules = rules_by_dependencies[dependencies]
-  #  groupsize = [rules.size / 100, 50].min
-  #  groupsize = [groupsize, 1].max
-  #  puts "#{rules.size} rules for dependencies #{dependencies.to_s[0...50]}...; grouping by #{groupsize}"
-  #  rules.each_slice(groupsize) do |slice|
-  #    targets = []
-  #    commands = []
-  #    slice.each do |rule|
-  #      targets += rule.targets
-  #      commands += rule.commands
-  #    end
-  #    grouped_rules << Rule.new(targets, dependencies, commands)
-  #  end
-  #end
   grouped_rules = Rule.all
 
   #STDERR.puts "Combined #{Rule.all.size-grouped_rules.size} rules to #{grouped_rules.size}"
   
   all_targets = grouped_rules.flat_map &:targets
   
-  open("rules.txt","w") do |makefile|
+  open('rules.txt','w') do |makefile|
     makefile.puts "# generated by ct.rb"
     makefile.puts
     makefile.puts "all: #{all_targets.join(" ")}"
@@ -916,10 +908,6 @@ def write_makefile
     end
     
   end
-  
-  # open("monitorfiles.txt","w") do |fh|
-  #   fh.puts all_targets.join(" ")
-  # end
 end
 
 class Maker
@@ -1007,19 +995,24 @@ class Maker
 
   def execute_rules(job_no, rules, response)
     counter = 1;
-    result = 1;
-    commands = rules.flat_map &:commands
-    command = commands.join(" && ")
-    if !@local && !rules.all?(&:local)
+
+    if @local || rules.all?(&:local)
+      result = rules.flat_map(&:commands).all? do |command|
+        STDERR.write "#{date} Job #{job_no} executing #{command.join(' ')}\n"
+        Kernel.system(*command)
+      end
+    else
+      commands = rules.flat_map &:commands
+      command = commands.join(" && ")
       command = "submit_synchronous '#{command}'"
-    end
     
-    STDERR.write "#{date} Job #{job_no} executing #{command}\n"
+      STDERR.write "#{date} Job #{job_no} executing #{command}\n"
     
-    # Retry up to 3 times if we fail
-    while (!(result = system(command)) && counter < 4) do
-      STDERR.write "#{date} Job #{job_no} failed, retrying, attempt #{counter}\n"
-      counter += 1
+      # Retry up to 3 times if we fail
+      while (!(result = system(command)) && counter < 4) do
+        STDERR.write "#{date} Job #{job_no} failed, retrying, attempt #{counter}\n"
+        counter += 1
+      end
     end
     
     if !result
@@ -1134,12 +1127,18 @@ local = false
 retry_attempts = 0
 destination = nil
 
-$tilestacktool = File.expand_path "#{File.dirname(__FILE__)}/tilestacktool/tilestacktool"
-if !File.exists? $tilestacktool
-  $tilestacktool = "tilestacktool"
+tstpath = File.expand_path "#{File.dirname(__FILE__)}/tilestacktool/tilestacktool"
+
+if $os == "windows"
+  tstpath += ".exe"
 end
+
+
+$tilestacktool = File.exists?(tstpath) ? tstpath : "tilestacktool"
+
 $explorer_source_dir = File.expand_path "#{File.dirname(__FILE__)}/time-machine-explorer"
 jsonfile = ""
+
 
 while !ARGV.empty?
   arg = ARGV.shift
@@ -1170,10 +1169,6 @@ end
 
 if !destination
   raise "Must specify --destination"
-end
-
-if `uname`.chomp == 'Darwin'
-  local = true
 end
 
 store = nil
