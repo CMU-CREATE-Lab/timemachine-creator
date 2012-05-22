@@ -1,0 +1,28 @@
+{
+  "source":{
+    "type":"stitch",
+    "align_to":"copy(0)",
+    "align_to_comment":"Copy camera geometry from first gigapan",
+    "cols": 2,
+    "rows": 1,
+    "directory_per_position": true,
+    "stitcher_args": "--no-vignette-correction --equalize-exposure-using-exif --adjust-exposure 0.5",
+    "camera_response_curve": "g10.response"
+   },
+   "videosets":[
+	{
+	    "label": "Small",
+	    "type": "h.264",
+	    "size": "small",
+	    "quality": 26,
+	    "fps": 3
+	},
+	{
+	    "label": "Large",
+	    "type": "h.264",
+	    "size": "large",
+	    "quality": 26,
+	    "fps": 3
+	}
+    ]  
+}

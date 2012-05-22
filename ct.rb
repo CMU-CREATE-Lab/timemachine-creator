@@ -14,10 +14,12 @@ require File.dirname(__FILE__) + '/tile'
 require File.dirname(__FILE__) + '/tileset'
 require File.dirname(__FILE__) + '/xmlsimple'
 
-if `echo %PATH%`.chomp == '%PATH%'
-  $os = 'unix'
-else
+if `echo %PATH%`.chomp != '%PATH%'
   $os = 'windows'
+elsif File.exists?('/proc')
+  $os = 'linux'
+else
+  $os = 'osx'
 end
 
 $tilestacktool_args = []
@@ -26,10 +28,12 @@ def tilestacktool_cmd
   [$tilestacktool] + $tilestacktool_args
 end  
 
-if `echo %PATH%`.chomp == '%PATH%'
-  $os = 'unix'
-else
-  $os = 'windows'
+def stitch_cmd
+  cmd = [$stitch]
+  cmd << '--batch-mode'
+  cmd << '--nolog'
+  ($os == 'linux') and cmd << '--xvfb'
+  cmd
 end
 
 $sourcetypes = {}
@@ -166,7 +170,7 @@ class Rule
   end
 
   def self.touch(target, dependencies)
-    Rule.add(target, dependencies, [tilestack_cmd + ['--createfile', target]], {:local => true})
+    Rule.add(target, dependencies, [tilestacktool_cmd + ['--createfile', target]], {:local => true})
   end
   
   def to_make
@@ -259,7 +263,6 @@ class VideosetCompiler
     for level in 0...levels.size do
       levels[level][:level] = level
     end
-
 
     @videotiles = []
 
@@ -506,13 +509,13 @@ class StitchSource
   
   def initialize(parent, settings)
     @parent = parent
-		@@global_parent = parent
+    @@global_parent = parent
     @subsample = settings["subsample"] || 1
-    @width = settings["width"] || 0
-    @height = settings["height"] || 0
+    @width = settings["width"] || 1
+    @height = settings["height"] || 1
     @align_to = settings["align_to"] or raise "Must include align-to"
     settings["align_to_comment"] or raise "Must include align-to-comment"
-    @stitcher_args = settings["stitcher_args"] or raise "Must include align-to-comment"
+    @stitcher_args = settings["stitcher_args"] or raise "Must include stitcher args"
     @camera_response_curve = settings["camera_response_curve"] || false
     if @camera_response_curve && !File.exists?(@camera_response_curve)
       raise "Camera response curve set to #{@camera_response_curve} but the file doesn't exist"
@@ -524,13 +527,15 @@ class StitchSource
     @capture_time_parser = "/home/rsargent/bin/extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
     initialize_frames
+    @framenames.empty? and raise "No images found to stitch"
   end
 
   def initialize_frames
+    File.exists?("#{@parent.store}/0100-unstitched") or raise "Could not find #{@parent.store}/0100-unstitched"
     if @directory_per_position
       @directories = Dir.glob("#{@parent.store}/0100-unstitched/*").sort
       if @cols * @rows != @directories.size
-        raise "Found #{@directories.size} directories but expected #{@cols}x#{@rows}=#{@cols*@rows}"
+        raise "Found #{@directories.size} directories in #{@parent.store}/0100-unstitched, but expected #{@cols}x#{@rows}=#{@cols*@rows}"
       end
       @framenames = []
       @dpp_images = []
@@ -586,15 +591,16 @@ class StitchSource
   end
 
   def tiles_rules
-    @framenames.size.times.flat_map do |i|
-      framenae = @framenames[i]
+    targetsets = []
+    @framenames.size.times do |i|
+      framename = @framenames[i]
       align_to = []
       copy_master_geometry_exactly = false
       align_to_eval = eval(@align_to)
 
       if align_to_eval.class == Copy
         if align_to_eval.target != i
-          align_to += rules[align_to_eval.target].targets
+          align_to += targetsets[align_to_eval.target]
           copy_master_geometry_exactly = true
         end
       else
@@ -603,7 +609,7 @@ class StitchSource
             raise "align_to for index #{i} yields #{align_to_index}, which >= #{i}"
           end
           if align_to_index >= 0
-            align_to += rules[align_to_index].targets
+            align_to += targetsets[align_to_index]
           end
         end
         if align_to == [] && i > 0
@@ -612,21 +618,21 @@ class StitchSource
       end
       source_dir = "#{@parent.store}/0100-unstitched/#{framename}"
       target_prefix = "#{@parent.store}/0200-tiles/#{framename}"
-      stitch_cmd = ["stitch"]
-      stitch_cmd += @rowfirst ? ["--rowfirst", "--ncols", @cols] : ["--nrows", @rows]
+      cmd = stitch_cmd
+      cmd += @rowfirst ? ["--rowfirst", "--ncols", @cols] : ["--nrows", @rows]
       # Stitch 1.x:
       # stitch_cmd << "--license-key AATG-F89N-XPW4-TUBU"
       # Stitch 2.x:
-      stitch_cmd << "--license-key ACTG-F8P9-AJY3-6733"
+      cmd += ['--license-key', 'ACTG-F8P9-AJY3-6733']
       
-      stitch_cmd += @stitcher_args.split
+      cmd += @stitcher_args.split
       if @camera_response_curve
-        stitch_cmd += ["--load-camera-response-curve", @camera_response_curve]
+        cmd += ["--load-camera-response-curve", @camera_response_curve]
       end
 
       suffix = "tmp-#{Time.new.to_i}"
 
-      stitch_cmd += ["--save-as", "#{target_prefix}-#{suffix}.gigapan"]
+      cmd += ["--save-as", "#{target_prefix}-#{suffix}.gigapan"]
       # Only get files with extensions.  Organizer creates a subdir called "cache",
       # which this pattern will ignore
       if @directory_per_position
@@ -638,25 +644,23 @@ class StitchSource
           raise "There should be #{@rows}x#{@cols}=#{@rows*@cols} images in #{source_dir}, but in fact there are #{images.size}"
         end
       end
-      stitch_cmd += ["--images"] + images
+      cmd += ["--images"] + images
       if copy_master_geometry_exactly
-        stitch_cmd << "--copy-master-geometry-exactly"
+        cmd << "--copy-master-geometry-exactly"
       end
       align_to.each do |master|
-        stitch_cmd += ["--master", master]
+        cmd += ["--master", master]
       end
-      stitch_cmd << "--stitch-quit"
-      stitch_cmd << "--batch-mode"
-      stitch_cmd << "--xvfb"
-      stitch_cmd << "--nolog"
+      cmd << "--stitch-quit"
 
-      Rule.add("#{target_prefix}.gigapan", 
-               align_to, 
-               [stitch_cmd,
-                ['mv', "#{target_prefix}-#{suffix}.gigapan", "#{target_prefix}.gigapan"],
-                ['mv', "#{target_prefix}-#{suffix}.data", "#{target_prefix}.data"]
-               ])
+      targetsets << Rule.add("#{target_prefix}.gigapan", 
+                             align_to, 
+                             [cmd,
+                              ['mv', "#{target_prefix}-#{suffix}.gigapan", "#{target_prefix}.gigapan"],
+                              ['mv', "#{target_prefix}-#{suffix}.data", "#{target_prefix}.data"]
+                             ])
     end
+    targetsets.flatten(1)
   end    
 end
 
@@ -1129,12 +1133,19 @@ destination = nil
 
 tstpath = File.expand_path "#{File.dirname(__FILE__)}/tilestacktool/tilestacktool"
 
-if $os == "windows"
-  tstpath += ".exe"
+if $os == 'windows'
+  tstpath += '.exe'
 end
 
 
-$tilestacktool = File.exists?(tstpath) ? tstpath : "tilestacktool"
+$tilestacktool = File.exists?(tstpath) ? tstpath : 'tilestacktool'
+
+$stitch = 'stitch'
+
+mac_stitch = Dir.glob("/Applications/GigaPan */GigaPan Stitch */Contents/MacOS/GigaPan Stitch *").sort.reverse[0]
+if mac_stitch
+  $stitch = mac_stitch
+end
 
 $explorer_source_dir = File.expand_path "#{File.dirname(__FILE__)}/time-machine-explorer"
 jsonfile = ""
@@ -1201,6 +1212,9 @@ while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
   Maker.new(Rule.all).make(njobs, rules_per_job, local)
   retry_attempts += 1
 end
+
+STDERR.puts "View at file://#{destination}/view.html"
+
 
 # result = RubyProf.stop
 # printer = RubyProf::GraphPrinter.new(result)

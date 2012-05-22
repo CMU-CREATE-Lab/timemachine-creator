@@ -1,3 +1,7 @@
+tmp: carnival4_2x2_small
+
+tests: pitt4_2x1_dpp_small
+
 build: tilestacktool/tilestacktool
 
 tilestacktool/tilestacktool:
@@ -24,13 +28,16 @@ test-patp4s: tilestacktool/tilestacktool
 
 test-patp10: tilestacktool/tilestacktool
 	mkdir -p testresults/patp10.timemachinedefinition
-	ln -sf ../../patp10.timemachinedefinition testresults/patp10.timemachinedefinition/definition.timemachinedefinition
+	ln -sFv ../../patp10.timemachinedefinition testresults/patp10.timemachinedefinition/definition.timemachinedefinition
 	./ct.rb -l -j 8 testresults/patp10.timemachinedefinition --create testresults/patp10.timemachine
 
-test-pitt2x2: tilestacktool/tilestacktool
-	mkdir -p testresults/pitt2x2.timemachinedefinition
-	ln -sf ../../pitt2x2.timemachinedefinition testresults/pitt2x2.timemachinedefinition/definition.timemachinedefinition
-	./ct.rb -l testresults/pitt2x2.timemachinedefinition --create testresults/pitt2x2.timemachine
+pitt4_2x1_dpp_small carnival4_2x2_small: tilestacktool/tilestacktool
+	mkdir -p testresults/$@.timemachinedefinition
+	ln -sf ../../$@.timemachinedefinition testresults/$@.timemachinedefinition/definition.timemachinedefinition
+	ln -sf ../../g10.response  testresults/$@.timemachinedefinition
+	rm -f testresults/$@.timemachinedefinition/0100-unstitched
+	ln -s ../../../datasets/$@ testresults/$@.timemachinedefinition/0100-unstitched
+	./ct.rb -l testresults/$@.timemachinedefinition --create testresults/$@.timemachine
 
 show: show-patp4s show-patp10
 
