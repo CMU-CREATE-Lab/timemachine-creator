@@ -4,8 +4,11 @@
 #include <cstdlib>
 #include <list>
 #include <string>
+#include <memory>
 
 #include "json/json.h"
+
+#include "Tilestack.h"
 
 void usage(const char *fmt, ...);
 
