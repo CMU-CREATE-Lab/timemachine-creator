@@ -36,5 +36,5 @@ tilestacktool.exe: $(SOURCES)
 	cl /EHsc /Ox /Zi /Ijsoncpp /Iinclude/jpeg-8d /Iinclude/lpng1510 /Icpp-utils /Fetilestacktool.exe $(SOURCES) /MD include/lpng1510/libpng.lib include/jpeg-8d/libjpeg.lib include/zlib-1.2.7/zlib.lib
 	
 clean:
-	del /q tilestacktool.exe *.obj
+        del /q tilestacktool.exe *.obj *pdb *.ilk
         rmdir /s /q testresults
