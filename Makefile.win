@@ -35,11 +35,6 @@ test-modis: tilestacktool
 tilestacktool.exe: $(SOURCES)
 	cl /EHsc /Ox /Zi /Ijsoncpp /Iinclude/jpeg-8d /Iinclude/lpng1510 /Icpp-utils /Fetilestacktool.exe $(SOURCES) /MD include/lpng1510/libpng.lib include/jpeg-8d/libjpeg.lib include/zlib-1.2.7/zlib.lib
 	
-	
-	
-#g++ -O3 -g -Ijsoncpp -I/opt/local/include -Icpp-utils -Wall $^ -o $@ -L/opt/local/lib -lpng -ljpeg
-
 clean:
 	del /q tilestacktool.exe *.obj
         rmdir /s /q testresults
-

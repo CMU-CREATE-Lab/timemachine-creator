@@ -192,7 +192,7 @@ public:
                 double fps, double compression) :
     width(width), height(height), total_written(0) {
     int nthreads = 8;
-    std::string cmdline = string_printf("%s -threads %d -loglevel error -benchmark", path_to_ffmpeg().c_str(), nthreads);
+    std::string cmdline = string_printf("\"%s\" -threads %d -loglevel error -benchmark", path_to_ffmpeg().c_str(), nthreads);
     // Input
     cmdline += string_printf(" -s %dx%d -vcodec rawvideo -f rawvideo -pix_fmt rgb24 -r %g -i pipe:0",
                              width, height, fps);
