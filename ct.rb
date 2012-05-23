@@ -166,7 +166,7 @@ class Rule
   end
 
   def self.touch(target, dependencies)
-    Rule.add(target, dependencies, [tilestack_cmd + ['--createfile', target]], {:local => true})
+    Rule.add(target, dependencies, [tilestacktool_cmd + ['--createfile', target]], {:local => true})
   end
   
   def to_make
