@@ -1,10 +1,10 @@
 {
   "source":{
     "type":"images",
-    "images":["../../tilestacktool/patp4s/patp0.jpg", 
-              "../../tilestacktool/patp4s/patp1.jpg", 
-              "../../tilestacktool/patp4s/patp2.jpg", 
-              "../../tilestacktool/patp4s/patp3.jpg"],
+    "images":["../../../datasets/patp4_1x1_small/patp0.jpg", 
+              "../../../datasets/patp4_1x1_small/patp1.jpg", 
+              "../../../datasets/patp4_1x1_small/patp2.jpg", 
+              "../../../datasets/patp4_1x1_small/patp3.jpg"],
     "tilesize":256
   },
   "videosets":[

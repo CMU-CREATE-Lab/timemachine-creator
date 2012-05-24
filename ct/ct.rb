@@ -1131,7 +1131,7 @@ local = false
 retry_attempts = 0
 destination = nil
 
-tstpath = File.expand_path "#{File.dirname(__FILE__)}/tilestacktool/tilestacktool"
+tstpath = File.expand_path "#{File.dirname(__FILE__)}/../tilestacktool/tilestacktool"
 
 if $os == 'windows'
   tstpath += '.exe'
@@ -1147,7 +1147,7 @@ if mac_stitch
   $stitch = mac_stitch
 end
 
-$explorer_source_dir = File.expand_path "#{File.dirname(__FILE__)}/time-machine-explorer"
+$explorer_source_dir = File.expand_path "#{File.dirname(__FILE__)}/../time-machine-explorer"
 jsonfile = ""
 
 

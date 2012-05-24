@@ -1,30 +1,17 @@
-tmp: carnival4_2x2_small
+TILESTACKTOOL_DIR=../tilestacktool
+TILESTACKTOOL=$(TILESTACKTOOL_DIR)/tilestacktool
 
-tests: pitt4_2x1_dpp_small
+build: $(TILESTACKTOOL_DIR)/tilestacktool
 
-build: tilestacktool/tilestacktool
+$(TILESTACKTOOL):
+	make -C $(TILESTACKTOOL_DIR) build
 
-tilestacktool/tilestacktool:
-	make -C tilestacktool build
+test: patp4_1x1_small
 
-clean:
-	make -C tilestacktool clean
-	rm -rf testresults
-
-build-and-test-tilestacktool:
-	make -C tilestacktool
-
-test: test-tilestacktool test-local
-
-test-tilestacktool:
-	make -C tilestacktool test
-
-test-local: test-patp4s test-patp10
-
-test-patp4s: tilestacktool/tilestacktool
-	mkdir -p testresults/patp4s.timemachinedefinition
-	ln -sf ../../patp4s.timemachinedefinition testresults/patp4s.timemachinedefinition/definition.timemachinedefinition
-	./ct.rb -l testresults/patp4s.timemachinedefinition --create testresults/patp4s.timemachine
+patp4_1x1_small: ../tilestacktool/tilestacktool
+	mkdir -p testresults/$@.timemachinedefinition
+	ln -sf ../../$@.timemachinedefinition testresults/$@.timemachinedefinition/definition.timemachinedefinition
+	./ct.rb -l testresults/$@.timemachinedefinition --create testresults/$@.timemachine
 
 test-patp10: tilestacktool/tilestacktool
 	mkdir -p testresults/patp10.timemachinedefinition
