@@ -2,25 +2,12 @@ COMMANDS=
 
 CPP_UTILS_DIR=../cpp-utils
 
-UNAME := $(shell uname)
-
-OS := unix
-
-ifeq ($(UNAME),)
-OS := windows
-endif
-
-ifneq (,$(findstring CYGWIN,$(UNAME)))
-OS := windows
-endif
+include ../Makefile.common
 
 ifeq ($(OS),windows)
 TILESTACKTOOL = tilestacktool.exe
-COPY = cmd /c copy /y $(subst /,\\,$(1)) $(subst /,\\,$(2))
 else
 TILESTACKTOOL = tilestacktool
-COPY = cp $(1) $(2)
-end
 endif
 
 build: $(TILESTACKTOOL)
@@ -63,4 +50,6 @@ tilestacktool.exe: $(SOURCES)
 	cl /EHsc /Ox /Zi /Ijsoncpp /Iinclude/jpeg-8d /Iinclude/lpng1510 /I../cpp-utils /Fetilestacktool.exe $(SOURCES) /MD include/lpng1510/libpng.lib include/jpeg-8d/libjpeg.lib include/zlib-1.2.7/zlib.lib
 
 clean:
-	rm -rf $(TILESTACKTOOL) *.o testresults
+	$(call RM_R,testresults)
+	$(call RM,*.o $(TILESTACKTOOL))
+
