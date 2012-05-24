@@ -6,7 +6,5 @@ moc_*.h
 .DS_Store
 junkyard
 *.dSYM
-Makefile.*
 debug/
 *.pdb
-Makefile
