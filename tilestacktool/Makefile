@@ -2,14 +2,35 @@ COMMANDS=
 
 CPP_UTILS_DIR=../cpp-utils
 
-build: tilestacktool
+UNAME := $(shell uname)
+
+OS := unix
+
+ifeq ($(UNAME),)
+OS := windows
+endif
+
+ifneq (,$(findstring CYGWIN,$(UNAME)))
+OS := windows
+endif
+
+ifeq ($(OS),windows)
+TILESTACKTOOL = tilestacktool.exe
+COPY = cmd /c copy /y $(subst /,\\,$(1)) $(subst /,\\,$(2))
+else
+TILESTACKTOOL = tilestacktool
+COPY = cp $(1) $(2)
+end
+endif
+
+build: $(TILESTACKTOOL)
 
 test: patp4_1x1_small
 
 DATASETS=../datasets
 PATP4S=$(DATASETS)/patp
 
-patp4_1x1_small: tilestacktool
+patp4_1x1_small: $(TILESTACKTOOL)
 	./tilestacktool --tilesize 256 --image2tiles testresults/$@/patp0.data/tiles kro $(DATASETS)/$@/patp0.jpg
 	./tilestacktool --tilesize 256 --image2tiles testresults/$@/patp1.data/tiles kro $(DATASETS)/$@/patp1.jpg
 	./tilestacktool --tilesize 256 --image2tiles testresults/$@/patp2.data/tiles kro $(DATASETS)/$@/patp2.jpg
@@ -18,7 +39,7 @@ patp4_1x1_small: tilestacktool
 	./tilestacktool --loadtiles testresults/$@/patp{0,1,2,3}.data/tiles/r1.kro --create-parent-directories --save testresults/$@/transpose/r1.ts2
 	./tilestacktool --loadtiles testresults/$@/patp{0,1,2,3}.data/tiles/r2.kro --create-parent-directories --save testresults/$@/transpose/r2.ts2
 	./tilestacktool --loadtiles testresults/$@/patp{0,1,2,3}.data/tiles/r3.kro --create-parent-directories --save testresults/$@/transpose/r3.ts2
-	cp testresults/$@/patp0.data/tiles/r.json testresults/$@/transpose/r.json
+	$(call COPY,testresults/$@/patp0.data/tiles/r.json,testresults/$@/transpose/r.json)
 	./tilestacktool --path2stack 256 256 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":0, "ymin":0, "width":512, "height":512}}' testresults/$@/transpose --save testresults/$@/transpose/r.ts2
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --writevideo testresults/$@/testvid.mp4 1 24
 	./tilestacktool --path2stack 1088 624 '{"frames":{"start":0,"end":3},"bounds":{"xmin":0,"ymin":0,"width":1088,"height":624}}' testresults/$@/transpose
@@ -33,8 +54,13 @@ test-modis: tilestacktool
 	./tilestacktool --load modis/r12.8.ts2 --writehtml modis/r12.8.html
 	./tilestacktool --load modis/r12.8.ts2 --writevideo modis/r12.8.mp4 1 26
 
-tilestacktool: tilestacktool.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp-utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp $(COMMANDS)
+SOURCES = tilestacktool.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp-utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp $(COMMANDS)
+
+tilestacktool: $(SOURCES)
 	g++ -O3 -g -Ijsoncpp -I/opt/local/include -I$(CPP_UTILS_DIR) -Wall $^ -o $@ -L/opt/local/lib -lpng -ljpeg
 
+tilestacktool.exe: $(SOURCES)
+	cl /EHsc /Ox /Zi /Ijsoncpp /Iinclude/jpeg-8d /Iinclude/lpng1510 /I../cpp-utils /Fetilestacktool.exe $(SOURCES) /MD include/lpng1510/libpng.lib include/jpeg-8d/libjpeg.lib include/zlib-1.2.7/zlib.lib
+
 clean:
-	rm -rf tilestacktool *.o testresults
+	rm -rf $(TILESTACKTOOL) *.o testresults
