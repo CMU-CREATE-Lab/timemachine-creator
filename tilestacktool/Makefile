@@ -23,11 +23,6 @@ patp4_1x1_small: tilestacktool
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --writevideo testresults/$@/testvid.mp4 1 24
 	./tilestacktool --path2stack 1088 624 '{"frames":{"start":0,"end":3},"bounds":{"xmin":0,"ymin":0,"width":1088,"height":624}}' testresults/$@/transpose
 
-debug-patp: test-patp
-	./tilestacktool --load testresults/patp4s/transpose/r0.ts2 --writehtml testresults/patp4s/transpose/r0.html
-	./tilestacktool --load testresults/patp4s/transpose/r2.ts2 --writehtml testresults/patp4s/transpose/r2.html
-	./tilestacktool --load testresults/patp4s/transpose/r.ts2 --writehtml testresults/patp4s/transpose/r.html
-
 units:
 	g++ -g -I /opt/local/include -I . -Wall unit_tests/test_GPTileIdx.cpp GPTileIdx.cpp -o unit_tests/test_GPTileIdx
 	unit_tests/test_GPTileIdx
