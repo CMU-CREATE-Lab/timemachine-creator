@@ -1,40 +1,46 @@
 include ../Makefile.common
 
-TILESTACKTOOL_DIR=../tilestacktool
-TILESTACKTOOL=$(TILESTACKTOOL_DIR)/tilestacktool
-
 ifeq ($(OS),windows)
 RUBY = ../ruby/windows/bin/ruby
 endif
 
-test: patp4_1x1_small
+test: small medium
 
-patp4_1x1_small: ../tilestacktool/tilestacktool
+small: patp4_1x1_small pitt4_2x1_dpp_small carnival4_2x2_small
+
+medium: patp10_1x1
+
+# These rules require copying or linking the definition file, but not the source images
+
+patp4_1x1_small:
 	$(call MKDIR_P,testresults/$@.timemachinedefinition)
-	$(call COPY,$@.timemachinedefinition,testresults/$@.timemachinedefinition/definition.timemachinedefinition)
+	$(call CP,$@.timemachinedefinition,testresults/$@.timemachinedefinition/definition.timemachinedefinition)
 	$(RUBY) ./ct.rb -l testresults/$@.timemachinedefinition --create testresults/$@.timemachine
 
-test-patp10: tilestacktool/tilestacktool
-	mkdir -p testresults/patp10.timemachinedefinition
-	ln -sFv ../../patp10.timemachinedefinition testresults/patp10.timemachinedefinition/definition.timemachinedefinition
-	./ct.rb -l -j 8 testresults/patp10.timemachinedefinition --create testresults/patp10.timemachine
+# Same as above, but larger job with more concurrency
 
-pitt4_2x1_dpp_small carnival4_2x2_small: tilestacktool/tilestacktool
-	mkdir -p testresults/$@.timemachinedefinition
-	ln -sf ../../$@.timemachinedefinition testresults/$@.timemachinedefinition/definition.timemachinedefinition
-	ln -sf ../../g10.response  testresults/$@.timemachinedefinition
-	rm -f testresults/$@.timemachinedefinition/0100-unstitched
-	ln -s ../../../datasets/$@ testresults/$@.timemachinedefinition/0100-unstitched
-	./ct.rb -l testresults/$@.timemachinedefinition --create testresults/$@.timemachine
+patp10_1x1:
+	$(call MKDIR_P,testresults/$@.timemachinedefinition)
+	$(call CP,$@.timemachinedefinition,testresults/$@.timemachinedefinition/definition.timemachinedefinition)
+	$(RUBY) ./ct.rb -l -j 8 testresults/$@.timemachinedefinition --create testresults/$@.timemachine
 
-show: show-patp4s show-patp10
+# These rules require copying/linking the definition file and also the source images
 
-show-patp4s: test-patp4s
-	open testresults/patp4s.timemachine/view.html
-
-show-patp10: test-patp10
-	open testresults/patp10.timemachine/view.html
+pitt4_2x1_dpp_small carnival4_2x2_small:
+	$(call MKDIR_P,testresults/$@.timemachinedefinition)
+	$(call CP,$@.timemachinedefinition,testresults/$@.timemachinedefinition/definition.timemachinedefinition)
+	$(call CP,g10.response,testresults/$@.timemachinedefinition/g10.response)
+	$(call RM_R,testresults/$@.timemachinedefinition/0100-unstitched)
+	$(call CP_R,../datasets/$@,testresults/$@.timemachinedefinition/0100-unstitched)
+	$(RUBY) ./ct.rb -l testresults/$@.timemachinedefinition --create testresults/$@.timemachine
 
 clean:
 	$(call RM_R,testresults)
 
+ifeq ($(OS),windows)
+show:
+	cmd /c start testresults.html
+else
+show:
+	open testresults.html
+endif

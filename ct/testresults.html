@@ -1,0 +1,27 @@
+<html>
+<head>
+<script>
+testresults = []
+testresults.push("patp4_1x1_small");
+testresults.push("patp10_1x1");
+testresults.push("pitt4_2x1_dpp_small");
+testresults.push("carnival4_2x2_small");
+</script>
+</head>
+<body>
+<h1>CT test results</h1>
+Run "make test" to create these
+<ul id="results">
+</ul>
+<script>
+var html = []
+for (var i = 0; i < testresults.length; i++) {
+  html.push('<li>');
+  html.push('<a href="testresults/'+testresults[i]+'.timemachine/view.html">');
+  html.push(testresults[i]);
+  html.push('</a>');
+}
+document.getElementById('results').innerHTML = html.join('');
+</script>
+</body>
+</html>
