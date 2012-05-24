@@ -1,17 +1,18 @@
+include ../Makefile.common
+
 TILESTACKTOOL_DIR=../tilestacktool
 TILESTACKTOOL=$(TILESTACKTOOL_DIR)/tilestacktool
 
-build: $(TILESTACKTOOL_DIR)/tilestacktool
-
-$(TILESTACKTOOL):
-	make -C $(TILESTACKTOOL_DIR) build
+ifeq ($(OS),windows)
+RUBY = ../ruby/windows/bin/ruby
+endif
 
 test: patp4_1x1_small
 
 patp4_1x1_small: ../tilestacktool/tilestacktool
-	mkdir -p testresults/$@.timemachinedefinition
-	ln -sf ../../$@.timemachinedefinition testresults/$@.timemachinedefinition/definition.timemachinedefinition
-	./ct.rb -l testresults/$@.timemachinedefinition --create testresults/$@.timemachine
+	$(call MKDIR_P,testresults/$@.timemachinedefinition)
+	$(call COPY,$@.timemachinedefinition,testresults/$@.timemachinedefinition/definition.timemachinedefinition)
+	$(RUBY) ./ct.rb -l testresults/$@.timemachinedefinition --create testresults/$@.timemachine
 
 test-patp10: tilestacktool/tilestacktool
 	mkdir -p testresults/patp10.timemachinedefinition
@@ -33,3 +34,7 @@ show-patp4s: test-patp4s
 
 show-patp10: test-patp10
 	open testresults/patp10.timemachine/view.html
+
+clean:
+	$(call RM_R,testresults)
+
