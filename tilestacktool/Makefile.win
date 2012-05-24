@@ -1,0 +1,40 @@
+!INCLUDE Makefile.common
+
+build: tilestacktool.exe
+
+test: test-patp4s
+
+test-patp4s: tilestacktool.exe
+	tilestacktool --tilesize 256 --image2tiles testresults/patp4s/patp0.data/tiles kro patp4s/patp0.jpg
+	tilestacktool --tilesize 256 --image2tiles testresults/patp4s/patp1.data/tiles kro patp4s/patp1.jpg
+	tilestacktool --tilesize 256 --image2tiles testresults/patp4s/patp2.data/tiles kro patp4s/patp2.jpg
+	tilestacktool --tilesize 256 --image2tiles testresults/patp4s/patp3.data/tiles kro patp4s/patp3.jpg
+	tilestacktool --loadtiles testresults/patp4s/patp0.data/tiles/r0.kro testresults/patp4s/patp1.data/tiles/r0.kro testresults/patp4s/patp2.data/tiles/r0.kro testresults/patp4s/patp3.data/tiles/r0.kro --create-parent-directories --save testresults/patp4s/transpose/r0.ts2
+	tilestacktool --loadtiles testresults/patp4s/patp0.data/tiles/r1.kro testresults/patp4s/patp1.data/tiles/r1.kro testresults/patp4s/patp2.data/tiles/r1.kro testresults/patp4s/patp3.data/tiles/r1.kro --create-parent-directories --save testresults/patp4s/transpose/r1.ts2
+	tilestacktool --loadtiles testresults/patp4s/patp0.data/tiles/r2.kro testresults/patp4s/patp1.data/tiles/r2.kro testresults/patp4s/patp2.data/tiles/r2.kro testresults/patp4s/patp3.data/tiles/r2.kro --create-parent-directories --save testresults/patp4s/transpose/r2.ts2
+	tilestacktool --loadtiles testresults/patp4s/patp0.data/tiles/r3.kro testresults/patp4s/patp1.data/tiles/r3.kro testresults/patp4s/patp2.data/tiles/r3.kro testresults/patp4s/patp3.data/tiles/r3.kro --create-parent-directories --save testresults/patp4s/transpose/r3.ts2
+	copy testresults\patp4s\patp0.data\tiles\r.json testresults\patp4s\transpose\r.json
+	tilestacktool --path2stack 256 256 {\"frames\":{\"start\":0,\"end\":3},\"bounds\":{\"xmin\":0,\"ymin\":0,\"width\":512,\"height\":512}} testresults/patp4s/transpose --writevideo testresults/patp4s/r.mp4 1 24
+	tilestacktool --path2stack 200 150 {\"frames\":{\"start\":0,\"end\":3},\"bounds\":{\"xmin\":150,\"ymin\":200,\"width\":400,\"height\":300}} testresults/patp4s/transpose --writevideo testresults/patp4s/testvid.mp4 1 24
+
+debug-patp:
+	tilestacktool --load testresults/patp4s/transpose/r0.ts2 --writehtml testresults/patp4s/transpose/r0.html
+	tilestacktool --load testresults/patp4s/transpose/r2.ts2 --writehtml testresults/patp4s/transpose/r2.html
+	tilestacktool --load testresults/patp4s/transpose/r.ts2 --writehtml testresults/patp4s/transpose/r.html
+
+units:
+	g++ -g -I /opt/local/include -I . -Wall unit_tests/test_GPTileIdx.cpp GPTileIdx.cpp -o unit_tests/test_GPTileIdx
+	unit_tests/test_GPTileIdx
+
+test-modis: tilestacktool
+	tilestacktool --load modis/r12.ts2 --viz 0 3000 1 --writehtml r12.html
+	tilestacktool --load modis/r12.ts2 --viz 0 3000 1 --save modis/r12.8.ts2
+	tilestacktool --load modis/r12.8.ts2 --writehtml modis/r12.8.html
+	tilestacktool --load modis/r12.8.ts2 --writevideo modis/r12.8.mp4 1 26
+
+tilestacktool.exe: $(SOURCES)
+	cl /EHsc /Ox /Zi /Ijsoncpp /Iinclude/jpeg-8d /Iinclude/lpng1510 /Icpp-utils /Fetilestacktool.exe $(SOURCES) /MD include/lpng1510/libpng.lib include/jpeg-8d/libjpeg.lib include/zlib-1.2.7/zlib.lib
+	
+clean:
+        del /q tilestacktool.exe *.obj *pdb *.ilk
+        rmdir /s /q testresults

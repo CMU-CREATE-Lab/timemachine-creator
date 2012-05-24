@@ -1,0 +1,26 @@
+{
+  "source":{
+    "type":"images",
+    "images":["../../tilestacktool/patp4s/patp0.jpg", 
+              "../../tilestacktool/patp4s/patp1.jpg", 
+              "../../tilestacktool/patp4s/patp2.jpg", 
+              "../../tilestacktool/patp4s/patp3.jpg"],
+    "tilesize":256
+  },
+  "videosets":[
+	{
+	    "label": "Small",
+	    "type": "h.264",
+	    "size": "small",
+	    "quality": 26,
+	    "fps": 3
+	},
+	{
+	    "label": "Large",
+	    "type": "h.264",
+	    "size": "large",
+	    "quality": 26,
+	    "fps": 3
+	}
+    ]  
+}

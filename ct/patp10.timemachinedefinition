@@ -1,0 +1,32 @@
+{
+  "source":{
+    "type":"images",
+    "images":["../../patp10/00IMG_9946.JPG",
+              "../../patp10/00IMG_9950.JPG",    
+              "../../patp10/00IMG_9954.JPG",    
+              "../../patp10/00IMG_9958.JPG",    
+              "../../patp10/00IMG_9962.JPG",    
+              "../../patp10/00IMG_9966.JPG",    
+              "../../patp10/00IMG_9970.JPG",    
+              "../../patp10/00IMG_9974.JPG",    
+              "../../patp10/00IMG_9978.JPG",    
+              "../../patp10/00IMG_9982.JPG"],
+    "tilesize":256
+  },
+  "videosets":[
+	{
+	    "label": "Small",
+	    "type": "h.264",
+	    "size": "small",
+	    "quality": 26,
+	    "fps": 3
+	},
+	{
+	    "label": "Large",
+	    "type": "h.264",
+	    "size": "large",
+	    "quality": 26,
+	    "fps": 3
+	}
+    ]  
+}

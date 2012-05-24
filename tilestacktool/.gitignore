@@ -1,0 +1,12 @@
+tilestacktool
+test-patp-out
+*~
+*.dSYM
+\#*
+.\#*
+testresults
+*.obj
+*.exe
+*.ilk
+*.pdb
+.DS_Store
