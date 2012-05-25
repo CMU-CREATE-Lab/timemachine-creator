@@ -12,9 +12,10 @@ endif
 
 ifeq ($(OS),windows)
 CP = cmd /c copy /y $(subst /,\\,$(1)) $(subst /,\\,$(2))
+CP_R = xcopy /e /i $(subst /,\\,$(1)) $(subst /,\\,$(2))
 MKDIR_P = -cmd /c mkdir $(subst /,\\,$(1))
-RM_R = -cmd /c rmdir /s /q $(1)
-RM = -cmd /c del $(1)
+RM_R = -cmd /c rmdir /s /q $(subst /,\\,$(1))
+RM = -cmd /c del $(subst /,\\,$(1))
 else
 CP = cp $(1) $(2)
 CP_R = cp -Rp $(1) $(2)

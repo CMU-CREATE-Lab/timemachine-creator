@@ -28,6 +28,9 @@ FILE *fopen_utf8(const std::string &path, const char *mode);
 bool iequals(const std::string &a, const std::string &b);
 std::string temporary_path(const std::string &path);
 std::string hostname();
+#ifdef _WIN32
+__declspec(noreturn)
+#endif
 void throw_error(const char *fmt, ...) __attribute__((format(printf,1,2))) __attribute__((noreturn));
 std::string executable_suffix();
 std::string executable_path();
