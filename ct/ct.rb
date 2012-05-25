@@ -22,6 +22,7 @@ else
   $os = 'osx'
 end
 
+
 $tilestacktool_args = []
 
 def tilestacktool_cmd 
@@ -1003,7 +1004,11 @@ class Maker
     if @local || rules.all?(&:local)
       result = rules.flat_map(&:commands).all? do |command|
         STDERR.write "#{date} Job #{job_no} executing #{command.join(' ')}\n"
-        Kernel.system(*command)
+        if (command[0] == 'mv')
+          File.rename(command[1], command[2])
+        else
+          Kernel.system(*command)
+        end
       end
     else
       commands = rules.flat_map &:commands
@@ -1142,9 +1147,20 @@ $tilestacktool = File.exists?(tstpath) ? tstpath : 'tilestacktool'
 
 $stitch = 'stitch'
 
-mac_stitch = Dir.glob("/Applications/GigaPan */GigaPan Stitch */Contents/MacOS/GigaPan Stitch *").sort.reverse[0]
-if mac_stitch
-  $stitch = mac_stitch
+if $os == 'osx'
+  search = '/Applications/GigaPan */GigaPan Stitch */Contents/MacOS/GigaPan Stitch *'
+elsif $os == 'windows'
+  search = 'C:/Program*/GigaPan*/*/stitch.exe'
+end
+
+if search
+  found = Dir.glob(search).sort.reverse[0]
+  if found
+    $stitch = found
+    STDERR.puts "Found stitch at #{$stitch}"
+  else
+    STDERR.puts "Could not find stitch in path #{search}"
+  end
 end
 
 $explorer_source_dir = File.expand_path "#{File.dirname(__FILE__)}/../time-machine-explorer"
