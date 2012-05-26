@@ -46,6 +46,7 @@ SOURCES = tilestacktool.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_D
 tilestacktool: $(SOURCES)
 	g++ -O3 -g -Ijsoncpp -I/opt/local/include -I$(CPP_UTILS_DIR) -Wall $^ -o $@ -L/opt/local/lib -lpng -ljpeg
 
+ifeq ($(OS),windows)
 LIBPNG_DIR = dependencies/libpng
 LIBPNG = $(LIBPNG_DIR)/libpng.lib
 
@@ -54,7 +55,7 @@ libpng: $(LIBPNG)
 $(LIBPNG): $(ZLIB)
 	(cd $(LIBPNG_DIR); nmake /f scripts\\makefile.vcwin32)
 
-libpng-clean:
+clean libpng-clean:
 	(cd $(LIBPNG_DIR); nmake /f scripts\\makefile.vcwin32 clean)
 
 ZLIB_DIR = dependencies/zlib
@@ -65,7 +66,7 @@ zlib: $(ZLIB)
 $(ZLIB):
 	(cd $(ZLIB_DIR); nmake /f win32\\Makefile.msc)
 
-zlib-clean:
+clean zlib-clean:
 	(cd $(ZLIB_DIR); nmake /f win32\\Makefile.msc clean)	
 
 LIBJPEG_DIR = dependencies/jpeg-8d
@@ -80,13 +81,15 @@ $(LIBJPEG): $(LIBJPEG_DIR)/jconfig.h
 $(LIBJPEG_DIR)/jconfig.h:
 	(cd $(LIBJPEG_DIR); nmake /f Makefile.vc setup-v10)
 
-libjpeg-clean:
+clean libjpeg-clean:
 	(cd $(LIBJPEG_DIR); nmake /f Makefile.vc clean)
 
 tilestacktool.exe: $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG)
 	cl /EHsc /Ox /MT /Ijsoncpp /I$(LIBJPEG_DIR) /I$(LIBPNG_DIR) /I../cpp-utils /Fetilestacktool.exe $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG) /link /NODEFAULTLIB:LIBCMT
+endif
 
-clean: libjpeg-clean zlib-clean
+
+clean:
 	$(call RM_R,testresults)
 	$(call RM,*.o $(TILESTACKTOOL))
 

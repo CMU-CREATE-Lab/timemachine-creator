@@ -327,12 +327,18 @@ class VideosetCompiler
   end
 end
 
+# Looks for images in one or two levels below dir, and sorts them alphabetically
+def find_images_in_directory(dir)
+  valid_image_extensions = Set.new [".jpg",".jpeg",".png",".tif",".tiff", ".raw", ".kro"]
+  (Dir.glob("#{dir}/*.*")+Dir.glob("#{dir}/*/*.*")).sort.select do |image|
+    valid_image_extensions.include? File.extname(image).downcase
+  end
+end
+
 class ImagesSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :subsample, :raw_width, :raw_height
   attr_reader :capture_times, :capture_time_parser, :capture_time_parser_inputs, :framenames
 
-  @@valid_image_extensions = Set.new [".jpg",".jpeg",".png",".tif",".tiff", ".raw", ".kro"]
-  
   def initialize(parent, settings)
     @parent = parent
     @@global_parent = parent
@@ -360,14 +366,9 @@ class ImagesSource
   end
 
   def initialize_images
-    if @images
-      @images.map! {|image| File.expand_path(image, @parent.store)}
-    else
-      @images = (Dir.glob("#{@image_dir}/*.*")+Dir.glob("#{@image_dir}/*/*.*")).sort.select do |image|
-        @@valid_image_extensions.include? File.extname(image).downcase
-      end
-      @images.empty? && usage("No images specified, and none found in #{@image_dir}")
-    end
+    @images ||= find_images_in_directory(@image_dir)
+    @images.empty? and usage "No images specified, and none found in #{@image_dir}"
+    @images.map! {|image| File.expand_path(image, @parent.store)}
     @raw = (File.extname(@images[0]).downcase == ".raw")
     initialize_size
   end
@@ -385,12 +386,6 @@ class ImagesSource
     @width /= @subsample
     @height /= @subsample
   end
-  
-#  def framename(image_filename)
-#    # TODO: kill this!
-#    # image_filename is prefixed with @image_dir;  remove this, translate / to @, and remove file extension
-#    without_extension(image_filename[@image_dir.size+1..-1].gsub("/","@"))
-#  end
   
   def initialize_framenames
     frames = @images.map {|filename| File.expand_path(without_extension(filename)).split('/')}
@@ -524,34 +519,68 @@ class StitchSource
     @cols = settings["cols"] or raise "Must include cols"
     @rows = settings["rows"] or raise "Must include rows"
     @rowfirst = settings["rowfirst"] || false
+    @images = settings["images"]
     @directory_per_position = settings["directory_per_position"] || false
     @capture_time_parser = "/home/rsargent/bin/extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
     initialize_frames
-    @framenames.empty? and raise "No images found to stitch"
   end
 
-  def initialize_frames
+  def find_directories
     File.exists?("#{@parent.store}/0100-unstitched") or raise "Could not find #{@parent.store}/0100-unstitched"
-    if @directory_per_position
-      @directories = Dir.glob("#{@parent.store}/0100-unstitched/*").sort
-      if @cols * @rows != @directories.size
-        raise "Found #{@directories.size} directories in #{@parent.store}/0100-unstitched, but expected #{@cols}x#{@rows}=#{@cols*@rows}"
-      end
-      @framenames = []
-      @dpp_images = []
-
-      @directories.each do |directory|
-        @dpp_images << Dir.glob("#{directory}/*.*").sort{|a,b| File.mtime(a) <=> File.mtime(b)}
-        if @dpp_images[0].size != @dpp_images[-1].size
-          raise "Directories don't all have same number of images"
-        end
-      end
-      
-      @dpp_images[0].size.times { |i| @framenames << sprintf("%06d", i) }
-    else 
-      @framenames = Dir.glob("#{@parent.store}/0100-unstitched/*").map {|dir| File.basename(dir)}.sort
+    dirs = Dir.glob("#{@parent.store}/0100-unstitched/*").sort.select {|dir| File.directory? dir}
+    dirs.empty? and raise 'Found no directories in 0100-unstitched'
+    dirs
+  end
+    
+  def find_images_dpp
+    directories = find_directories
+    if @cols * @rows != directories.size
+      raise "Found #{directories.size} directories in #{@parent.store}/0100-unstitched, but expected #{@cols}x#{@rows}=#{@cols*@rows}"
     end
+    dpp_images = []
+    
+    directories.each do |dir|
+      dpp_images << find_images_in_directory(dir)
+      if dpp_images[0].size != dpp_images[-1].size
+        raise "Directory #{directories[0]} has #{dpp_images[0].size} images, but directory #{dir} has #{dpp_images[-1].size} images"
+      end
+    end
+    
+    dpp_images[0].size.times.map do |i|
+      dpp_images.map {|images| images[i]}
+    end
+  end
+  
+  def find_images
+    directories = find_directories
+    @framenames = directories.map {|dir| File.basename(dir)}
+    directories.map do |dir|
+      images = find_images_in_directory(dir)
+      images.size == @rows * @cols or raise "Directory #{dir} has #{images.size} images, but expected #{@cols}x#{@rows}=#{@cols*@rows}"
+      images
+    end
+  end
+    
+  def initialize_frames
+    if @images
+      @images.size > 0 or raise "'images' is an empty list"
+    elsif @directory_per_position
+      @images = find_images_dpp
+    else
+      @images = find_images
+    end
+    
+    @images.each_with_index do |frame, i|
+      if @cols * @rows != frame.size
+        raise "Found #{frame.size} images in 'images' index #{i}, but expected #{@cols}x#{@rows}=#{@cols*@rows}"
+      end
+    end
+
+    @images.map! {|frame| frame.map! {|image| File.expand_path(image, @parent.store)} }
+
+    @framenames ||= @images.size.times.map {|i| '%06d' % i}
+
     @tilesize = 256
     @tileformat = "jpg"
     
@@ -560,13 +589,13 @@ class StitchSource
     first_gigapan = "#{@parent.store}/0200-tiles/#{framenames[0]}.gigapan"
     if @width == 1 && @height == 1 && File.exist?(first_gigapan)
       data = XmlSimple.xml_in(first_gigapan)
-      unless data.nil?
+      if data
         notes = data["notes"]
-        unless notes.nil?
+        if notes
           dimensions = notes[0].scan(/\d* x \d*/)
-          unless dimensions.nil?
+          if dimensions
             dimensions_array = dimensions[0].split(" x ")
-            unless dimensions_array.size != 2
+            if dimensions_array.size == 2
               @width = dimensions_array[0].to_i
               @height = dimensions_array[1].to_i
             end
@@ -617,7 +646,6 @@ class StitchSource
           raise "align_to is empty for index #{i} but can only be empty for index 0"
         end
       end
-      source_dir = "#{@parent.store}/0100-unstitched/#{framename}"
       target_prefix = "#{@parent.store}/0200-tiles/#{framename}"
       cmd = stitch_cmd
       cmd += @rowfirst ? ["--rowfirst", "--ncols", @cols] : ["--nrows", @rows]
@@ -630,20 +658,16 @@ class StitchSource
       if @camera_response_curve
         cmd += ["--load-camera-response-curve", @camera_response_curve]
       end
-
-      suffix = "tmp-#{Time.new.to_i}"
+      
+      suffix = "tmp-#{Process.pid}-#{Thread.current.object_id}-#{Time.new.to_i}"
 
       cmd += ["--save-as", "#{target_prefix}-#{suffix}.gigapan"]
       # Only get files with extensions.  Organizer creates a subdir called "cache",
       # which this pattern will ignore
-      if @directory_per_position
-        images = @dpp_images.map{|list| list[i]}
-      else
-        images = Dir.glob("#{source_dir}/*.*")
+      images = @images[i]
         
-        if images.size != @rows * @cols
-          raise "There should be #{@rows}x#{@cols}=#{@rows*@cols} images in #{source_dir}, but in fact there are #{images.size}"
-        end
+      if images.size != @rows * @cols
+        raise "There should be #{@rows}x#{@cols}=#{@rows*@cols} images for frame #{i}, but in fact there are #{images.size}"
       end
       cmd += ["--images"] + images
       if copy_master_geometry_exactly
@@ -683,6 +707,7 @@ class Compiler
     # @label = settings["label"] || raise("Time Machine must have label")
     # STDERR.puts "Timemachine #{@id} (#{@label})"
     @store = settings['store'] || raise("No store")
+    @store = File.expand_path(@store)
     STDERR.puts "Store is #{@store}"
     @stack_filter = settings['stack_filter']
     @tiles_dir = "#{store}/0200-tiles"
@@ -712,7 +737,7 @@ class Compiler
   def initialize_source(source_info)
     $sourcetypes[source_info["type"]] or raise "Source type must be one of #{$sourcetypes.keys.join(" ")}"
     @source = $sourcetypes[source_info["type"]].new(self, source_info)
-    Filesystem.write_file('autogenerated_framenames.txt', @source.framenames.join("\n"))
+    # Filesystem.write_file('autogenerated_framenames.txt', @source.framenames.join("\n"))
   end
 
   def initialize_tilestack
@@ -892,31 +917,31 @@ class Compiler
     write_json_and_js("#{@videosets_dir}/tm", 'org.cmucreatelab.loadTimeMachine', info)
     @videoset_compilers.each { |vc| vc.write_json }
   end
-end
 
-def write_makefile
-  grouped_rules = Rule.all
-
-  #STDERR.puts "Combined #{Rule.all.size-grouped_rules.size} rules to #{grouped_rules.size}"
-  
-  all_targets = grouped_rules.flat_map &:targets
-  
-  open('rules.txt','w') do |makefile|
-    makefile.puts "# generated by ct.rb"
-    makefile.puts
-    makefile.puts "all: #{all_targets.join(" ")}"
-    makefile.puts
+  def write_rules
+    grouped_rules = Rule.all
     
-    grouped_rules.each do |rule|
-      makefile.puts rule.to_make
-      makefile.puts
+    #STDERR.puts "Combined #{Rule.all.size-grouped_rules.size} rules to #{grouped_rules.size}"
+    
+    all_targets = grouped_rules.flat_map &:targets
+    
+    open("#{store}/rules.txt", 'w') do |rulesfile|
+      rulesfile.puts "# generated by ct.rb"
+      rulesfile.puts
+      rulesfile.puts "all: #{all_targets.join(" ")}"
+      rulesfile.puts
+      
+      grouped_rules.each do |rule|
+        rulesfile.puts rule.to_make
+        rulesfile.puts
+      end
+      
     end
-    
   end
 end
 
 class Maker
-	@@ndone = 0
+  @@ndone = 0
 	
   def initialize(rules)
     @rules = rules
@@ -934,13 +959,13 @@ class Maker
     STDERR.write("\b\b\b\bdone.\n")
   end
 
-	def self.ndone
-		@@ndone
-	end
-
-	def self.reset_ndone
-		@@ndone = 0
-	end
+  def self.ndone
+    @@ndone
+  end
+  
+  def self.reset_ndone
+    @@ndone = 0
+  end
 
   def check_rule(rule)
     if @status[rule] == :done
@@ -1065,8 +1090,6 @@ class Maker
     	# Restart the process if we are stitching from source and we have not gotten dimensions from the first gigapan
       if @@global_parent.source.class.to_s == "StitchSource" && @@ndone > 0 && @@global_parent.source.width == 1 && @@global_parent.source.height == 1
         STDERR.write "Initial .gigapan file created. We now have enough info to get the dimensions.\n"
-        STDERR.write "Removing old make and monitor file...\n"
-        system("rm Makefile monitorfiles.txt")
         STDERR.write "Clearing all old rules...\n"
         Rule.clear_all
         Maker.reset_ndone
@@ -1224,13 +1247,12 @@ while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
   compiler = Compiler.new(definition)
   compiler.write_json
   compiler.compute_rules # Creates rules, which will be accessible from Rule.all
-  write_makefile
+  compiler.write_rules
   Maker.new(Rule.all).make(njobs, rules_per_job, local)
   retry_attempts += 1
 end
 
 STDERR.puts "View at file://#{destination}/view.html"
-
 
 # result = RubyProf.stop
 # printer = RubyProf::GraphPrinter.new(result)
