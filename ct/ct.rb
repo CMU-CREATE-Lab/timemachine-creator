@@ -33,7 +33,7 @@ def stitch_cmd
   cmd = [$stitch]
   cmd << '--batch-mode'
   cmd << '--nolog'
-  ($os == 'linux') and cmd << '--xvfb'
+  $os == 'linux' and !$local and cmd << '--xvfb'
   cmd
 end
 
@@ -1155,7 +1155,7 @@ end
 
 njobs = 75
 rules_per_job = 10
-local = false
+$local = false
 retry_attempts = 0
 destination = nil
 
@@ -1199,7 +1199,7 @@ while !ARGV.empty?
   elsif arg == '-v'
     $verbose = true
   elsif arg == '-l'
-    local = true
+    $local = true
     njobs = 1
     rules_per_job = 1
   elsif arg == '--tilestacktool'
@@ -1248,7 +1248,7 @@ while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
   compiler.write_json
   compiler.compute_rules # Creates rules, which will be accessible from Rule.all
   compiler.write_rules
-  Maker.new(Rule.all).make(njobs, rules_per_job, local)
+  Maker.new(Rule.all).make(njobs, rules_per_job, $local)
   retry_attempts += 1
 end
 
