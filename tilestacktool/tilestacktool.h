@@ -32,10 +32,10 @@ public:
     }
     return ret;
   }
-  double shift_int() {
+  int shift_int() {
     std::string arg = shift();
     char *end;
-    double ret = strtol(arg.c_str(), &end, 0);
+    int ret = strtol(arg.c_str(), &end, 0);
     if (end != arg.c_str() + arg.length()) {
       usage("Can't parse '%s' as integer", arg.c_str());
     }
