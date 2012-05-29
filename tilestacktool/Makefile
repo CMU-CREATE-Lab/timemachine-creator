@@ -53,10 +53,10 @@ LIBPNG = $(LIBPNG_DIR)/libpng.lib
 libpng: $(LIBPNG)
 
 $(LIBPNG): $(ZLIB)
-	(cd $(LIBPNG_DIR); nmake /f scripts\\makefile.vcwin32)
+	(cd $(LIBPNG_DIR) && nmake /f scripts\\makefile.vcwin32)
 
 clean libpng-clean:
-	(cd $(LIBPNG_DIR); nmake /f scripts\\makefile.vcwin32 clean)
+	(cd $(LIBPNG_DIR) && nmake /f scripts\\makefile.vcwin32 clean)
 
 ZLIB_DIR = dependencies/zlib
 ZLIB = $(ZLIB_DIR)/zlib.lib
@@ -64,10 +64,10 @@ ZLIB = $(ZLIB_DIR)/zlib.lib
 zlib: $(ZLIB)
 
 $(ZLIB):
-	(cd $(ZLIB_DIR); nmake /f win32\\Makefile.msc)
+	(cd $(ZLIB_DIR) && nmake /f win32\\Makefile.msc)
 
 clean zlib-clean:
-	(cd $(ZLIB_DIR); nmake /f win32\\Makefile.msc clean)	
+	(cd $(ZLIB_DIR) && nmake /f win32\\Makefile.msc clean)
 
 LIBJPEG_DIR = dependencies/jpeg-8d
 LIBJPEG = $(LIBJPEG_DIR)/libjpeg.lib
@@ -75,14 +75,14 @@ LIBJPEG = $(LIBJPEG_DIR)/libjpeg.lib
 libjpeg: $(LIBJPEG)
 
 $(LIBJPEG): $(LIBJPEG_DIR)/jconfig.h
-	(cd $(LIBJPEG_DIR); nmake /f Makefile.vc nodebug=1)
+	(cd $(LIBJPEG_DIR) && nmake /f Makefile.vc nodebug=1)
 
 # Configure for Visual Studio 10
 $(LIBJPEG_DIR)/jconfig.h:
-	(cd $(LIBJPEG_DIR); nmake /f Makefile.vc setup-v10)
+	(cd $(LIBJPEG_DIR) && nmake /f Makefile.vc setup-v10)
 
 clean libjpeg-clean:
-	(cd $(LIBJPEG_DIR); nmake /f Makefile.vc clean)
+	(cd $(LIBJPEG_DIR) && nmake /f Makefile.vc clean)
 
 tilestacktool.exe: $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG)
 	cl /EHsc /Ox /MT /Ijsoncpp /I$(LIBJPEG_DIR) /I$(LIBPNG_DIR) /I../cpp-utils /Fetilestacktool.exe $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG) /link /NODEFAULTLIB:LIBCMT
@@ -91,5 +91,6 @@ endif
 
 clean:
 	$(call RM_R,testresults)
-	$(call RM,*.o $(TILESTACKTOOL))
-
+	$(call RM,*.o)
+	$(call RM,*.obj)
+	$(call RM,$(TILESTACKTOOL))

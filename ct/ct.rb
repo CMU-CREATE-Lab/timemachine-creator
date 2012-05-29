@@ -1024,38 +1024,46 @@ class Maker
   end  
 
   def execute_rules(job_no, rules, response)
-    counter = 1;
+    begin
+      counter = 1;
 
-    if @local || rules.all?(&:local)
-      result = rules.flat_map(&:commands).all? do |command|
-        STDERR.write "#{date} Job #{job_no} executing #{command.join(' ')}\n"
-        if (command[0] == 'mv')
-          File.rename(command[1], command[2])
-        else
-          Kernel.system(*command)
+      if @local || rules.all?(&:local)
+        result = rules.flat_map(&:commands).all? do |command|
+          STDERR.write "#{date} Job #{job_no} executing #{command.join(' ')}\n"
+          if (command[0] == 'mv')
+            File.rename(command[1], command[2])
+          else
+            Kernel.system(*command)
+          end
+        end
+      else
+        commands = rules.flat_map &:commands
+        command = commands.join(" && ")
+        command = "submit_synchronous '#{command}'"
+    
+        STDERR.write "#{date} Job #{job_no} executing #{command}\n"
+    
+        # Retry up to 3 times if we fail
+        while (!(result = system(command)) && counter < 4) do
+          STDERR.write "#{date} Job #{job_no} failed, retrying, attempt #{counter}\n"
+          counter += 1
         end
       end
-    else
-      commands = rules.flat_map &:commands
-      command = commands.join(" && ")
-      command = "submit_synchronous '#{command}'"
     
-      STDERR.write "#{date} Job #{job_no} executing #{command}\n"
-    
-      # Retry up to 3 times if we fail
-      while (!(result = system(command)) && counter < 4) do
-        STDERR.write "#{date} Job #{job_no} failed, retrying, attempt #{counter}\n"
-        counter += 1
+      if !result
+        STDERR.write "#{date} Job #{job_no} failed too many times; aborting\n"
+        @aborting = true
+        response.push([job_no, [], Thread.current])
+      else
+        STDERR.write "#{date} Job #{job_no} completed successfully\n"
+        response.push([job_no, rules, Thread.current])
       end
-    end
-    
-    if !result
-      STDERR.write "#{date} Job #{job_no} failed too many times; aborting\n"
+    rescue Exception => e
+      STDERR.write "#{date} Job #{job_no} failed to execute.\n"
+      STDERR.write "#{e.message}\n"
+      STDERR.write "#{e.backtrace.inspect}\n"
       @aborting = true
       response.push([job_no, [], Thread.current])
-    else
-      STDERR.write "#{date} Job #{job_no} completed successfully\n"
-      response.push([job_no, rules, Thread.current])
     end
   end
 

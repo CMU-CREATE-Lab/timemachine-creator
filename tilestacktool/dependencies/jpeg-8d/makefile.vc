@@ -132,44 +132,44 @@ clean:
 	$(RM) testout*
 
 setup-vc6:
-	ren jconfig.vc jconfig.h
-	ren makejdsw.vc6 jpeg.dsw
-	ren makeadsw.vc6 apps.dsw
-	ren makejmak.vc6 jpeg.mak
-	ren makejdep.vc6 jpeg.dep
-	ren makejdsp.vc6 jpeg.dsp
-	ren makecmak.vc6 cjpeg.mak
-	ren makecdep.vc6 cjpeg.dep
-	ren makecdsp.vc6 cjpeg.dsp
-	ren makedmak.vc6 djpeg.mak
-	ren makeddep.vc6 djpeg.dep
-	ren makeddsp.vc6 djpeg.dsp
-	ren maketmak.vc6 jpegtran.mak
-	ren maketdep.vc6 jpegtran.dep
-	ren maketdsp.vc6 jpegtran.dsp
-	ren makermak.vc6 rdjpgcom.mak
-	ren makerdep.vc6 rdjpgcom.dep
-	ren makerdsp.vc6 rdjpgcom.dsp
-	ren makewmak.vc6 wrjpgcom.mak
-	ren makewdep.vc6 wrjpgcom.dep
-	ren makewdsp.vc6 wrjpgcom.dsp
+	cp jconfig.vc jconfig.h
+	cp makejdsw.vc6 jpeg.dsw
+	cp makeadsw.vc6 apps.dsw
+	cp makejmak.vc6 jpeg.mak
+	cp makejdep.vc6 jpeg.dep
+	cp makejdsp.vc6 jpeg.dsp
+	cp makecmak.vc6 cjpeg.mak
+	cp makecdep.vc6 cjpeg.dep
+	cp makecdsp.vc6 cjpeg.dsp
+	cp makedmak.vc6 djpeg.mak
+	cp makeddep.vc6 djpeg.dep
+	cp makeddsp.vc6 djpeg.dsp
+	cp maketmak.vc6 jpegtran.mak
+	cp maketdep.vc6 jpegtran.dep
+	cp maketdsp.vc6 jpegtran.dsp
+	cp makermak.vc6 rdjpgcom.mak
+	cp makerdep.vc6 rdjpgcom.dep
+	cp makerdsp.vc6 rdjpgcom.dsp
+	cp makewmak.vc6 wrjpgcom.mak
+	cp makewdep.vc6 wrjpgcom.dep
+	cp makewdsp.vc6 wrjpgcom.dsp
 
 setup-v10:
-	ren jconfig.vc jconfig.h
-	ren makejsln.v10 jpeg.sln
-	ren makeasln.v10 apps.sln
-	ren makejvcx.v10 jpeg.vcxproj
-	ren makejfil.v10 jpeg.vcxproj.filters
-	ren makecvcx.v10 cjpeg.vcxproj
-	ren makecfil.v10 cjpeg.vcxproj.filters
-	ren makedvcx.v10 djpeg.vcxproj
-	ren makedfil.v10 djpeg.vcxproj.filters
-	ren maketvcx.v10 jpegtran.vcxproj
-	ren maketfil.v10 jpegtran.vcxproj.filters
-	ren makervcx.v10 rdjpgcom.vcxproj
-	ren makerfil.v10 rdjpgcom.vcxproj.filters
-	ren makewvcx.v10 wrjpgcom.vcxproj
-	ren makewfil.v10 wrjpgcom.vcxproj.filters
+	cp jconfig.vc jconfig.h
+	cp makejsln.v10 jpeg.sln
+	cp makeasln.v10 apps.sln
+	cp makejvcx.v10 jpeg.vcxproj
+	cp makejfil.v10 jpeg.vcxproj.filters
+	cp makecvcx.v10 cjpeg.vcxproj
+	cp makecfil.v10 cjpeg.vcxproj.filters
+	cp makedvcx.v10 djpeg.vcxproj
+	cp makedfil.v10 djpeg.vcxproj.filters
+	cp maketvcx.v10 jpegtran.vcxproj
+	cp maketfil.v10 jpegtran.vcxproj.filters
+	cp makervcx.v10 rdjpgcom.vcxproj
+	cp makerfil.v10 rdjpgcom.vcxproj.filters
+	cp makewvcx.v10 wrjpgcom.vcxproj
+	cp makewfil.v10 wrjpgcom.vcxproj.filters
 
 test:
 	IF EXIST testout* $(RM) testout*
