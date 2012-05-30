@@ -3,6 +3,7 @@
     <title>GigaPan Time Machine Creator</title>
     <script src="assets/javascripts/jquery.min.js"></script>
     <script src="assets/javascripts/jquery-ui.min.js"></script>
+    <script src="js/api.js"></script>
     <link rel="stylesheet" type="text/css" href="assets/stylesheets/smoothness/jquery-ui.css"/>
     <style type="text/css">
       html {
@@ -191,7 +192,7 @@
               } else if (view == "thumbnails") {
                 if (!elt.image) {
                   var thumnail;
-                  if ((thumbnail = window.api.readThumbnail(elt.filename)) == null) {
+                  if ((thumbnail = api.readThumbnail(elt.filename)) == null) {
                     context.fillRect(x, y, 160, 120);
                   } else {
                     var img = new Image;
@@ -665,7 +666,7 @@
               })
               evt.stopPropagation();
               evt.preventDefault();
-              var droppedFiles = window.api.droppedFilesRecursive();
+              var droppedFiles = api.droppedFilesRecursive();
               //$('#dropped').text(droppedFiles.join('\n'));
               //console.log(droppedFiles);
               var col = new Array();
@@ -673,14 +674,14 @@
               for (i = 0; i < droppedFiles.length; i++) {
                 //var thumbnail;
                 if (droppedFiles[i].match(/\.jpg|.png$/i) == null) continue;
-                //if ((thumbnail = window.api.readThumbnail(droppedFiles[i])) == null) continue;
+                //if ((thumbnail = api.readThumbnail(droppedFiles[i])) == null) continue;
                 //var img = new Image;
                 var h = {};
                 //thumbnail.assignToHTMLImageElement(img);
 
                 h['filename'] = droppedFiles[i]; //droppedFiles[i].replace(/\\/g,'/').replace( /.*\//, '' );
                 //h['image'] = img;
-                h['time'] = window.api.exifTime(droppedFiles[i]);
+                h['time'] = api.exifTime(droppedFiles[i]);
                 h['row'] = rowNum++;
                 h['col'] = 0; // TODO: single camera support only at this time
                 h['deleted'] = false;
