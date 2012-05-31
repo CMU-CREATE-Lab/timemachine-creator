@@ -6,6 +6,10 @@ ifeq ($(UNAME),)
 OS := windows
 endif
 
+ifeq ($(UNAME),windows32)
+OS := windows
+endif
+
 ifneq (,$(findstring CYGWIN,$(UNAME)))
 OS := windows
 endif
