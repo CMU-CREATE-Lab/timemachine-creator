@@ -9,7 +9,9 @@
 #include <QFileInfo>
 #include <QUrl>
 #include <QMenu>
+#include <QMainWindow>
 #include <QSystemTrayIcon>
+#include <QSizePolicy>
 #include <iostream>
 #include "WebViewExt.h"
 
@@ -21,6 +23,8 @@
 #include <io.h>
 #include <Windows.h>
 #endif
+
+#include "mainwindow.h"
 
 int main(int argc, char *argv[])
 {
@@ -55,8 +59,19 @@ int main(int argc, char *argv[])
   QWebSettings::globalSettings()->setLocalStoragePath(local_storage_path.c_str());
   //QWebView view;
   API api(rootdir);
+  
+
+  MainWindow * windowMenu = new MainWindow;
+  windowMenu->setApi(&api);
+  QVBoxLayout *layout = new QVBoxLayout(windowMenu->centralWidget());
+  
   WebViewExt view(&api);
-  view.setMinimumSize(640, 480); //set a minimum window size so things do not get too distorted
+  view.setMinimumSize(640,480); //set a minimum window size so things do not get too distorted
+
+  layout->addWidget(&view);
+  windowMenu->centralWidget()->setLayout(layout);
+  windowMenu->centralWidget()->setSizePolicy(QSizePolicy::Minimum,QSizePolicy::Minimum);
+  
   //view.setGeometry(QRect(0,0,1875,210));
 
   //const QRect rect = QApplication::desktop()->rect();
@@ -77,8 +92,11 @@ int main(int argc, char *argv[])
 #endif
   fprintf(stderr, "Loading '%s'\n", url.c_str());
   view.load(QUrl(url.c_str()));
+  
 
-  view.show();
-
+  //view.show();
+  windowMenu->show();
+  
+  
   return a.exec();
 }

@@ -24,6 +24,10 @@ void API::setFrame(QWebFrame *frame) {
   this->frame = frame;
 }
 
+void API::evaluateJavaScript(const QString & scriptSource) {
+  frame->evaluateJavaScript(scriptSource);
+}
+
 int API::log() {
   fprintf(stderr, "log!\n");
   QVariantList args;
@@ -154,11 +158,15 @@ bool API::writeFile(QString path, QString data)
   return true;
 }
 
-QString API::readFile(QString path)
+QString API::readFile(QString caption, QString startingDirectory, QString filter)
 {
-  QFile file(path);
-  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return ""; // null would be better
-  return QTextStream(&file).readAll();
+  QString path = QFileDialog::getOpenFileName(NULL, caption, startingDirectory, filter);
+  if(path != "") {
+	  QFile file(path);
+	  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return ""; // null would be better
+	  return QTextStream(&file).readAll();
+  }
+  return NULL;
 }
 
 bool API::makeDirectory(QString path)

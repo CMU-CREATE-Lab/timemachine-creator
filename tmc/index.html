@@ -3,6 +3,7 @@
     <title>GigaPan Time Machine Creator</title>
     <script src="assets/javascripts/jquery.min.js"></script>
     <script src="assets/javascripts/jquery-ui.min.js"></script>
+	<script src="js/api.js"></script>
     <link rel="stylesheet" type="text/css" href="assets/stylesheets/smoothness/jquery-ui.css"/>
     <style type="text/css">
       html {
@@ -117,6 +118,34 @@
       #zoomSlider .ui-slider-handle:active{background-image:url(assets/images/zoom/zoom_handle_down.png);}
     </style>
     <script>
+		// put the saving code here. it is called by menubar
+		function saveData() {
+			var startDirectory = '';
+			var saveDir = api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.timemachinedefinition');
+			if (saveDir == '') {
+				alert('Save canceled');
+			} else {	
+				if (!api.makeDirectory(saveDir)) {
+				  alert('Error creating directory ' + saveDir);
+				  return;
+				}
+				var definitionPath = saveDir + '/definition.timemachinedefinition';
+				var writeData = data; // this is the actual data to be written
+				if (!api.writeFile(definitionPath, JSON.stringify(writeData))) {
+				   alert('Error creating ' + definitionPath);
+				   return;
+				}
+				alert('Data saved');
+			}
+		}
+		
+		// put the loading code here. it is called by menubar
+		function openData() {
+			var startDirectory = '';
+			data = JSON.parse(api.readFile('Open Time Machine Definition', startDirectory, '*.timemachinedefinition'));
+			alert('Data loaded');
+		}
+		
       var data = new Array();
       var scale = 64;
       var min = 0;

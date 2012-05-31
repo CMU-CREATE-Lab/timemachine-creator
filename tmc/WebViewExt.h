@@ -11,6 +11,8 @@ public:
 protected:
   API *api;
   void dropEvent(QDropEvent *de);
+private:
+  QMenu *fileMenu;
 };
 
 #endif

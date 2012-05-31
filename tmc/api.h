@@ -13,6 +13,7 @@ class API : public QObject
 public:
   API(const std::string &rootdir);
   void setFrame(QWebFrame *frame);
+  void evaluateJavaScript(const QString & scriptSource);
   void dropPaths(QStringList files);
   void requestCallback(int id, QVariantList args);
   Q_INVOKABLE int log();
@@ -22,7 +23,7 @@ public:
   Q_INVOKABLE QStringList droppedFilesRecursive();
   Q_INVOKABLE QString saveAsDialog(QString caption, QString startingDirectory, QString filter);
   Q_INVOKABLE bool writeFile(QString path, QString data);
-  Q_INVOKABLE QString readFile(QString path);
+  Q_INVOKABLE QString readFile(QString caption, QString startingDirectory, QString filter);
   Q_INVOKABLE bool makeDirectory(QString path);
   Q_INVOKABLE bool invokeRubySubprocess(QStringList args, int callback_id);
 signals:

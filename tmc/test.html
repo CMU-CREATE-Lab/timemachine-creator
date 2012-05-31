@@ -10,7 +10,7 @@
 <img id="thumbnail" style="width:160px; height:120px">
 
 <script>
-api.readThumbnail("ct/patp10/00IMG_9946.JPG").assignToHTMLImageElement(document.getElementById('thumbnail'));
+api.readThumbnail("../datasets/pitt10x1/IMG_5000.JPG").assignToHTMLImageElement(document.getElementById('thumbnail'));
 </script>
 
 <hr>
@@ -21,8 +21,8 @@ api.readThumbnail("ct/patp10/00IMG_9946.JPG").assignToHTMLImageElement(document.
 <div>PITT10x1 Time: <span id="time2"></span></div>
 
 <script>
-$('#time').text(api.exifTime("ct/patp10/00IMG_9946.JPG"));
-$('#time2').text(api.exifTime("pitt10x1/IMG_5000.JPG"));
+$('#time').text(api.exifTime("../datasets/patp10_1x1/00IMG_9946.JPG"));
+$('#time2').text(api.exifTime("../datasets/pitt10x1/IMG_5000.JPG"));
 </script>
 
 <hr>
