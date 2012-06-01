@@ -14,6 +14,10 @@ ifneq (,$(findstring CYGWIN,$(UNAME)))
 OS := windows
 endif
 
+ifeq ($(UNAME),Darwin)
+OS := osx
+endif
+
 ifeq ($(OS),windows)
 CP = cmd /c copy /y $(subst /,\\,$(1)) $(subst /,\\,$(2))
 CP_R = xcopy /e /i $(subst /,\\,$(1)) $(subst /,\\,$(2))

@@ -43,36 +43,58 @@ test-modis: tilestacktool
 
 SOURCES = tilestacktool.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp-utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp $(COMMANDS)
 
-tilestacktool: $(SOURCES)
-	g++ -O3 -g -Ijsoncpp -I/opt/local/include -I$(CPP_UTILS_DIR) -Wall $^ -o $@ -L/opt/local/lib -lpng -ljpeg
+ZLIB_DIR = dependencies/zlib
 
 ifeq ($(OS),windows)
-LIBPNG_DIR = dependencies/libpng
-LIBPNG = $(LIBPNG_DIR)/libpng.lib
-
-libpng: $(LIBPNG)
-
-$(LIBPNG): $(ZLIB)
-	(cd $(LIBPNG_DIR) && nmake /f scripts\\makefile.vcwin32)
-
-clean libpng-clean:
-	(cd $(LIBPNG_DIR) && nmake /f scripts\\makefile.vcwin32 clean)
-
-ZLIB_DIR = dependencies/zlib
 ZLIB = $(ZLIB_DIR)/zlib.lib
-
-zlib: $(ZLIB)
 
 $(ZLIB):
 	(cd $(ZLIB_DIR) && nmake /f win32\\Makefile.msc)
 
-clean zlib-clean:
+zlib-clean:
 	(cd $(ZLIB_DIR) && nmake /f win32\\Makefile.msc clean)
+endif
+
+ifeq ($(OS),osx)
+ZLIB = $(ZLIB_DIR)/libz.a
+
+$(ZLIB):
+	(cd $(ZLIB_DIR); ./configure; make)
+
+zlib-clean:
+	(make -C $(ZLIB_DIR) clean)
+endif
+
+zlib: $(ZLIB)
+
+LIBPNG_DIR = dependencies/libpng
+
+ifeq ($(OS),windows)
+LIBPNG = $(LIBPNG_DIR)libpng.lib
+
+$(LIBPNG): $(ZLIB)
+	(cd $(LIBPNG_DIR) && nmake /f scripts\\makefile.vcwin32)
+
+libpng-clean:
+	(cd $(LIBPNG_DIR) && nmake /f scripts\\makefile.vcwin32 clean)
+endif
+
+ifeq ($(OS),osx)
+LIBPNG = $(LIBPNG_DIR)/lib/libpng.a
+
+$(LIBPNG):
+	(cd $(LIBPNG_DIR); ./configure --prefix=`pwd`; make install)
+
+libpng-clean:
+	(make -C $(LIBPNG_DIR) clean; rm -rf $(LIBPNG_DIR)/{lib,include})
+endif
+
+libpng: $(LIBPNG)
 
 LIBJPEG_DIR = dependencies/jpeg-8d
-LIBJPEG = $(LIBJPEG_DIR)/libjpeg.lib
 
-libjpeg: $(LIBJPEG)
+ifeq ($(OS),windows)
+LIBJPEG = $(LIBJPEG_DIR)/libjpeg.lib
 
 $(LIBJPEG): $(LIBJPEG_DIR)/jconfig.h
 	(cd $(LIBJPEG_DIR) && nmake /f Makefile.vc nodebug=1)
@@ -81,15 +103,29 @@ $(LIBJPEG): $(LIBJPEG_DIR)/jconfig.h
 $(LIBJPEG_DIR)/jconfig.h:
 	(cd $(LIBJPEG_DIR) && nmake /f Makefile.vc setup-v10)
 
-clean libjpeg-clean:
+libjpeg-clean:
 	(cd $(LIBJPEG_DIR) && nmake /f Makefile.vc clean)
+endif
+
+ifeq ($(OS),osx)
+LIBJPEG = $(LIBJPEG_DIR)/lib/libjpeg.a
+
+$(LIBJPEG):
+	(cd $(LIBJPEG_DIR); ./configure --prefix=`pwd`; make install)
+
+libjpeg-clean:
+	(make -C $(LIBJPEG_DIR) clean; rm -rf $(LIBJPEG_DIR)/{lib,include})
+endif
+
+libjpeg: $(LIBJPEG)
 
 tilestacktool.exe: $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG)
 	cl /EHsc /Ox /MT /Ijsoncpp /I$(LIBJPEG_DIR) /I$(LIBPNG_DIR) /I../cpp-utils /Fetilestacktool.exe $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG) /link /NODEFAULTLIB:LIBCMT
-endif
 
+tilestacktool: $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG)
+	g++ -mmacosx-version-min=10.5 -O3 -g -Ijsoncpp -I/opt/local/include -I$(CPP_UTILS_DIR) -Wall $^ -o $@ -L/opt/local/lib $(ZLIB) $(LIBPNG) $(LIBJPEG)
 
-clean:
+clean: zlib-clean libpng-clean libjpeg-clean
 	$(call RM_R,testresults)
 	$(call RM,*.o)
 	$(call RM,*.obj)
