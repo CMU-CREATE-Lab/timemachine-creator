@@ -60,3 +60,4 @@ zlib/examplesh
 zlib/minigzip
 zlib/minigzipsh
 zlib/zlib.pc
+zlib/zconf.h

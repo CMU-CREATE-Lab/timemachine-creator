@@ -49,7 +49,7 @@ ifeq ($(OS),windows)
 ZLIB = $(ZLIB_DIR)/zlib.lib
 
 $(ZLIB):
-	(cd $(ZLIB_DIR) && nmake /f win32\\Makefile.msc)
+	(cd $(ZLIB_DIR) && $(call CP,zconf.h.original,zconf.h) && nmake /f win32\\Makefile.msc)
 
 zlib-clean:
 	(cd $(ZLIB_DIR) && nmake /f win32\\Makefile.msc clean)
@@ -59,7 +59,7 @@ ifeq ($(OS),osx)
 ZLIB = $(ZLIB_DIR)/libz.a
 
 $(ZLIB):
-	(cd $(ZLIB_DIR); ./configure; make)
+	(cd $(ZLIB_DIR); cp zconf.h.original zconf.h; ./configure; make)
 
 zlib-clean:
 	(make -C $(ZLIB_DIR) clean)
