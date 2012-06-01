@@ -70,7 +70,7 @@ zlib: $(ZLIB)
 LIBPNG_DIR = dependencies/libpng
 
 ifeq ($(OS),windows)
-LIBPNG = $(LIBPNG_DIR)libpng.lib
+LIBPNG = $(LIBPNG_DIR)/libpng.lib
 
 $(LIBPNG): $(ZLIB)
 	(cd $(LIBPNG_DIR) && nmake /f scripts\\makefile.vcwin32)
