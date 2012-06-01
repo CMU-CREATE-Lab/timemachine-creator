@@ -24,8 +24,16 @@ void API::setFrame(QWebFrame *frame) {
   this->frame = frame;
 }
 
+void API::setWindow(MainWindow *mainwindow) {
+	this->mainwindow = mainwindow;
+}
+
 void API::evaluateJavaScript(const QString & scriptSource) {
   frame->evaluateJavaScript(scriptSource);
+}
+
+void API::setUndoMenu(bool state) {
+	mainwindow->setUndoMenu(state);
 }
 
 int API::log() {
@@ -187,8 +195,7 @@ bool API::invokeRubySubprocess(QStringList args, int callback_id)
   std::string ruby_path;
   
   if (os() == "windows") {
-    // The included version of ruby is up one level from where tmc.exe is run
-    ruby_path = rootdir + "/../ruby/windows/bin/ruby.exe";
+    ruby_path = rootdir + "/ruby/windows/bin/ruby.exe";
   } else {
     ruby_path = "/usr/bin/ruby";
   }

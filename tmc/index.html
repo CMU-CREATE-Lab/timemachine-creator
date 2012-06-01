@@ -151,7 +151,14 @@
 			rescale();
 			refresh();
 		}
+		
+		// put the undo code here. it is called by menubar
+		function undoAction() {
+			alert('undo');
+			api.setUndoMenu(false);
+		}
 	  
+	  var undoArray = new Array();
 	  var backUpData;
       var data = new Array();
       var scale = 64;
@@ -378,6 +385,13 @@
               // Mark as deleted, but do not actually delete. Useful for undo feature
               data[selectedImages[i].col][selectedImages[i].row].deleted = true;
             }
+			// unod --- If undoArray is not empty, activate undo
+			undoArray.push(1);
+			if (undoArray.length > 0)
+				api.setUndoMenu(true);
+			else
+				api.setUndoMenu(false);
+			// undo ---
             selectedImages.splice(0, selectedImages.length);
             rescale();
             refresh();

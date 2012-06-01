@@ -35,3 +35,5 @@ api.writeFile = window._api.writeFile;
 api.readFile = window._api.readFile;
 
 api.saveAsDialog = window._api.saveAsDialog;
+
+api.setUndoMenu = window._api.setUndoMenu;
