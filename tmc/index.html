@@ -130,8 +130,7 @@
 				  return;
 				}
 				var definitionPath = saveDir + '/definition.timemachinedefinition';
-				var writeData = data; // this is the actual data to be written
-				if (!api.writeFile(definitionPath, JSON.stringify(writeData))) {
+				if (!api.writeFile(definitionPath, JSON.stringify(backUpData))) {
 				   alert('Error creating ' + definitionPath);
 				   return;
 				}
@@ -142,10 +141,18 @@
 		// put the loading code here. it is called by menubar
 		function openData() {
 			var startDirectory = '';
-			data = JSON.parse(api.readFile('Open Time Machine Definition', startDirectory, '*.timemachinedefinition'));
-			alert('Data loaded');
+			foo = JSON.parse(api.readFile('Open Time Machine Definition', startDirectory, '*.timemachinedefinition'));
+			data = new Array();
+			for(c = 0;c<$(foo).size(); c++) {
+				data.push(foo[c]);
+			}
+			//alert('Data loaded');
+
+			rescale();
+			refresh();
 		}
-		
+	  
+	  var backUpData;
       var data = new Array();
       var scale = 64;
       var min = 0;
@@ -722,11 +729,12 @@
               $("#numFrames").text(data[0].length + " Frames")
               //console.log(data);
               //computeDeltas();
-
               if (data[0].length > 0) {
                 rescale();
+				backUpData = jQuery.extend(true, {}, data);
                 refresh();
               }
+			  
             }
             var dropbox = document.getElementById("dropbox");
             dropbox.addEventListener("dragenter", noopHandler, false);
@@ -736,6 +744,7 @@
             dropbox.addEventListener("dragleave", removeDropHighlight, false);
           </script>
         </div>
+		
         <div id="controls" style="background:#fff; position:absolute; height:100%; top:60px; left:0px; width:200px">
           <p style="padding: 0px 0px 0px 10px">
             Format:
