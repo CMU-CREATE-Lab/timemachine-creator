@@ -7,6 +7,7 @@ require 'fileutils'
 require 'open-uri'
 require 'set'
 require 'thread'
+require 'win32/registry'
 require File.dirname(__FILE__) + '/backports'
 require File.dirname(__FILE__) + '/image_size'
 require File.dirname(__FILE__) + '/json'
@@ -22,6 +23,16 @@ else
   $os = 'osx'
 end
 
+def read_from_registry(hkey,subkey)
+  begin
+    reg_type = Win32::Registry::Constants::KEY_READ | KEY_WOW64_64KEY
+    reg = Win32::Registry.open(hkey,subkey,reg_type)
+    return reg
+  rescue Win32::Registry::Error
+    # If we fail to read the key (e.g. it does not exist, we end up here)
+    return nil
+  end
+end
 
 $tilestacktool_args = []
 
@@ -1033,7 +1044,7 @@ class Maker
           if (command[0] == 'mv')
             File.rename(command[1], command[2])
           else
-            Kernel.system(*command)
+            Kernel.system(*command) # This seems to randomly raise an exception in ruby 1.9
           end
         end
       else
@@ -1173,28 +1184,62 @@ if $os == 'windows'
   tstpath += '.exe'
 end
 
-
+# If tilestacktool is not found in the project directory, assume it is in the user PATH
 $tilestacktool = File.exists?(tstpath) ? tstpath : 'tilestacktool'
 
-$stitch = 'stitch'
+stitchpath = nil
 
-if $os == 'osx'
-  search = '/Applications/GigaPan */GigaPan Stitch */Contents/MacOS/GigaPan Stitch *'
-elsif $os == 'windows'
-  search = 'C:/Program*/GigaPan*/*/stitch.exe'
-end
+# Check for stitch in the registry
+if $os == 'windows'
+  KEY_32_IN_64 = 'Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Installer\Folders'
+  KEY = 'Software\Microsoft\Windows\CurrentVersion\Installer\Folders'
+  KEY_WOW64_64KEY = 0x0100
 
-if search
-  found = Dir.glob(search).sort.reverse[0]
-  if found
-    $stitch = found
-    STDERR.puts "Found stitch at #{$stitch}"
+  reg = read_from_registry(Win32::Registry::HKEY_LOCAL_MACHINE,KEY_32_IN_64)
+  reg = read_from_registry(Win32::Registry::HKEY_LOCAL_MACHINE,KEY) if reg.nil?
+
+  if reg
+    reg.each do |name, type, data|
+      if (name =~ /GigaPan ([2-9]|[1-9]\d+).\d+.\d+\\$/) # Look for at least version 2.x
+        stitchpath = name
+        break
+      end
+    end
+    reg.close
+    stitchpath = File.join(stitchpath,"stitch.exe")
+    STDERR.puts "Found stitch at: #{stitchpath}"
   else
-    STDERR.puts "Could not find stitch in path #{search}"
+    STDERR.puts "Could not find an entry for stitch in the registry. Checking default installation path..."
   end
 end
 
-$explorer_source_dir = File.expand_path "#{File.dirname(__FILE__)}/../time-machine-explorer"
+# If a path to stitch was not found in the registry or we are not on windows, check the default install path
+if stitchpath.nil?
+  if $os == 'osx'
+    search = '/Applications/GigaPan */GigaPan Stitch */Contents/MacOS/GigaPan Stitch *'
+  elsif $os == 'windows'
+    search = 'C:/Program*/GigaPan*/*/stitch.exe'
+  end
+
+  if search
+    found = Dir.glob(search).sort.reverse[0] # If multiple versions, grab the path of the latest release
+    if found
+      if (found =~ /GigaPan ([2-9]|[1-9]\d+).\d+.\d+\\$/) # Look for at least version 2.x
+        stitchpath = found
+        STDERR.puts "Found stitch at: #{stitchpath}"
+      else
+        STDERR.puts "Found stitch at: #{stitchpath} but the version found does not support timelapses. Please update to at least version 2.x"
+      end
+    else
+      STDERR.puts "Could not find stitch in default installation path: #{search}"
+    end
+  end
+end
+
+# If stitch is not found or the one found is too old, assume it is in the user PATH
+$stitch = File.exists?(stitchpath) ? stitchpath : 'stitch'
+
+$explorer_source_dir = File.expand_path("#{File.dirname(__FILE__)}/../time-machine-explorer")
 jsonfile = ""
 
 

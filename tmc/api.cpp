@@ -187,7 +187,8 @@ bool API::invokeRubySubprocess(QStringList args, int callback_id)
   std::string ruby_path;
   
   if (os() == "windows") {
-    ruby_path = rootdir + "/ruby/windows/bin/ruby.exe";
+    // The included version of ruby is up one level from where tmc.exe is run
+    ruby_path = rootdir + "/../ruby/windows/bin/ruby.exe";
   } else {
     ruby_path = "/usr/bin/ruby";
   }
