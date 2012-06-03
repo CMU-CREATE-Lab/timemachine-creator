@@ -1,0 +1,8 @@
+#!/bin/sh
+
+rm -rf tmc.app
+make
+mkdir -p tmc.app/Contents/tmc
+cp -a index.html test.html js assets tmc.app/Contents/tmc
+rm tmc.dmg
+macdeployqt tmc.app -dmg -no-strip

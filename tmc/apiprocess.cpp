@@ -22,7 +22,7 @@ void APIProcess::receiveReadyReadStandardOutput() {
   process.readAllStandardOutput();
 }
 
-void APIProcess::receiveFinished(int exitCode, QProcess::ExitStatus exitStatus) {
+void APIProcess::receiveFinished(int exitCode, QProcess::ExitStatus /*exitStatus*/) {
   if (stderrBuffer.length()) api->requestCallback(callback_id, QVariantList() << QString(stderrBuffer));
 
   api->requestCallback(callback_id, QVariantList() << exitCode);

@@ -26,6 +26,15 @@
 
 #include "mainwindow.h"
 
+// Directory structure
+// <root>/tmc/index.html
+// <root>/tilestacktool/tilestacktool
+//
+// OS X, development.  root = git root;  binary is <root>/tmc/tmc.app/Contents/MacOS/tmc
+// OS X, deployed.  root = .app directory;  binary is <root>/MacOS/tmc
+// Windows, development.  root = git root; binary is <root>/tmc/[debug or release]/tmc.exe
+// Windows, deployed.  root = install directory;  binary is <root>/tmc.exe
+
 int main(int argc, char *argv[])
 {
 #ifdef _WIN32
@@ -37,15 +46,40 @@ int main(int argc, char *argv[])
   QApplication a(argc, argv);
 
   // Get root directory
-  std::string rootdir = filename_directory(executable_path());
-  if (os() == "windows") rootdir = filename_directory(rootdir);
-  if (os() == "osx") rootdir = filename_directory(filename_directory(filename_directory(rootdir)));
+  std::string exedir = filename_directory(executable_path());
+  std::string rootdir;
+  
+  if (os() == "windows") {
+    if (filename_exists(exedir + "/tmc")) {
+      // Deployed path
+      rootdir = exedir;
+    } else {
+      // Development path
+      rootdir = filename_directory(exedir);
+    }
+  } else if (os() == "osx") {
+    std::string devfile = exedir + "/../../../tmc.pro";
+    fprintf(stderr, "Looking for %s\n", devfile.c_str());
+    if (filename_exists(devfile)) {
+      fprintf(stderr, "exists; development\n");
+      // Development path
+      rootdir = filename_directory(filename_directory(filename_directory(filename_directory(exedir))));
+    } else {
+      fprintf(stderr, "doesn't exist; deployed\n");
+      // Deployed path
+      rootdir = filename_directory(exedir);
+    }
+  } else {
+    rootdir = filename_directory(exedir);
+  }
 
-  std::string path = rootdir + "/index.html";
+  fprintf(stderr, "Root directory: '%s'\n", rootdir.c_str());
+
+  std::string path = rootdir + "/tmc/index.html";
 
   for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "--test")) {
-      path = rootdir + "/test.html";
+      path = rootdir + "/tmc/test.html";
     }
   }
 

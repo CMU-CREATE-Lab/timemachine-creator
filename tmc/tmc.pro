@@ -3,3 +3,5 @@ INCLUDEPATH += ../cpp-utils
 HEADERS += mainwindow.h api.h apiprocess.h WebViewExt.h ../cpp-utils/cpp-utils.h
 CONFIG += console
 QT += webkit
+
+QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.5
