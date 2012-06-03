@@ -5,6 +5,8 @@
 #include <QtGui>
 #include "api.h"
 
+class API;
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -13,10 +15,13 @@ class MainWindow : public QMainWindow
 public:
     MainWindow();
 	void setApi(API *api);
+	void setUndoMenu(bool state);
 	
 private slots:
 	void open();
 	void save();
+	
+	void undo();
 	
 	void about();
 	

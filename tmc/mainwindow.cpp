@@ -19,6 +19,8 @@ MainWindow::MainWindow()
 	connect(saveAction, SIGNAL(triggered()), this, SLOT(save()));
 	connect(exitAction, SIGNAL(triggered()), qApp, SLOT(quit()));
 	
+	connect(undoAction, SIGNAL(triggered()), this, SLOT(undo()));
+	
 	connect(aboutAction, SIGNAL(triggered()), this, SLOT(about()));
 	
 	// creating the menu bar
@@ -30,9 +32,15 @@ MainWindow::MainWindow()
 	
 	fileMenu = menuBar()->addMenu(tr("&Edit"));
 	fileMenu->addAction(undoAction);
+	setUndoMenu(false);
 	
 	fileMenu = menuBar()->addMenu(tr("&Help"));
 	fileMenu->addAction(aboutAction);
+}
+
+void MainWindow::setUndoMenu(bool state)
+{
+	undoAction->setEnabled(state);
 }
 
 void MainWindow::setApi(API *api)
@@ -48,6 +56,11 @@ void MainWindow::open()
 void MainWindow::save()
 {
 	api->evaluateJavaScript("saveData(); null");
+}
+
+void MainWindow::undo()
+{
+	api->evaluateJavaScript("undoAction(); null");
 }
 
 void MainWindow::about()
