@@ -20,6 +20,8 @@ public:
 private slots:
 	void open();
 	void save();
+	void addImages();
+	void addFolders();
 	
 	void undo();
 	
@@ -29,6 +31,8 @@ private:
 	QMenu *fileMenu;
 	
 	QAction *openAction;
+	QAction *addImagesAction;
+	QAction *addFoldersAction;
 	QAction *saveAction;
 	QAction *exitAction;
 	

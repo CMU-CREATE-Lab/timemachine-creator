@@ -155,7 +155,12 @@
 		// put the undo code here. it is called by menubar
 		function undoAction() {
 			alert('undo');
-			api.setUndoMenu(false);
+			api.setUndoMenu(false); // disables the undo menu
+		}
+		
+		// put the images' dropped code here.
+		function imagesDropped() {
+			addDroppedFiles();
 		}
 	  
 	  var undoArray = new Array();
@@ -275,6 +280,77 @@
             }
           }
         }
+		
+		  // code from saman
+		  // I have assumed that each column in "data" is sorted based on the time stamps.
+		  var newdata = [];
+		  var best = [];
+		  var timeTH = 2; // maximum time difference (in seconds) between images in other cameras with images in camera 1
+		  for(var i=0;i<data.length;i++)
+		  {
+			newdata.push([]);
+			best.push(0);
+		  }
+		  
+		  //newdata[1].push(data[1][0]);
+		  
+		  for(var i=0;i<data[0].length;i++) // finding the counterpart images for each image in camera 0
+		  {
+			var haveFound = 1;
+			best[0] = i;
+			for(var b=1;b<data.length;b++) // finding the closesth image (in time) to the original image in other cameras
+			{
+				best[b] = findClosesth(i,b);
+				if(Math.abs(data[b][best[b]].time-data[0][i].time)>timeTH) // in this case, there is no way that we can use this image in camera 0
+				{
+					haveFound = 0;
+					break;
+				}
+			}
+			
+			if(haveFound==1) // we have found all the counterpart images. now we have to save them
+			{
+				for(var j=0;j<data.length;j++)
+					newdata[j].push(data[j][best[j]]);
+			}
+		  }
+		  
+		  // showing the actual images
+		  var left_margin = 400;
+		 
+		  for (var c = 0; c < newdata.length; c++) {
+			var col = newdata[c];
+			for (var r = 0; r < col.length; r++) {
+			  var elt = col[r];
+			  if (elt.time >= mintime && elt.time <= maxtime) {
+				var y = scale * (newdata[0][r].time - toptime);
+				var legend = elt.filename.replace(".time", "");
+				if (elt.delta != undefined) legend += " " + elt.delta;
+				if (view == "filenames") {
+				  context.fillText(legend, left_margin + c * 150, y);
+				} else if (view == "thumbnails") {
+				  if (!elt.image) {
+					elt.image = new Image();
+					elt.image.src = elt.filename.replace(".time", ".thumb");
+				  }
+				  var x = left_margin + c * 150;
+				  context.save();
+				  context.transform(0, -1, 1, 0, (x+80)-(y+80), (x+80)+(y+80));
+				  if (!elt.image.complete) loading = true;
+				  if (elt.image.complete && elt.image.width > 0) {
+					context.drawImage(elt.image, x, y);
+				  } else {
+					context.fillRect(x, y, 160, 120);
+				  }
+				  context.restore();
+				  context.fillText(legend, x, y+161);
+				} else {
+				  context.fillRect(left_margin + c * 25, y, 25, 1);
+				}
+			  }
+			}
+		  }
+		  // end of code from saman
 
         if (loading) setTimeout(refresh, 100);
       }
@@ -304,6 +380,27 @@
           y: canvasY
         }
       }
+	  
+	    // finds the index of the closesth element in column b to element a in column 0 of data
+		function findClosesth(a,b)
+		{
+			dummyOffset = 0; // we must have one for each column 1-end
+			l = 0;
+			r = data[b].length-1;
+			
+			while(r-l>1)
+			{
+				m = Math.floor((r+l)/2);
+				if(data[b][m].time+dummyOffset < data[0][a].time)
+					l = m;
+				else
+					r = m;
+			}
+			
+			if(Math.abs(data[b][l].time+dummyOffset-data[0][a].time) < Math.abs(data[b][r].time+dummyOffset-data[0][a].time))
+				return l;
+			return r;
+		}
 
       function rescale() {
         min = 1e+100;
@@ -386,12 +483,12 @@
               data[selectedImages[i].col][selectedImages[i].row].deleted = true;
             }
 			// unod --- If undoArray is not empty, activate undo
-			undoArray.push(1);
+			undoArray.push(1); // a dummy line for test
 			if (undoArray.length > 0)
 				api.setUndoMenu(true);
 			else
 				api.setUndoMenu(false);
-			// undo ---
+			// undo --- end
             selectedImages.splice(0, selectedImages.length);
             rescale();
             refresh();
@@ -708,6 +805,42 @@
                 "background": "#f5f5f5"
               })
             }
+			
+			function addDroppedFiles() {
+				var droppedFiles = api.droppedFilesRecursive();
+				//$('#dropped').text(droppedFiles.join('\n'));
+				//console.log(droppedFiles);
+				var col = new Array();
+				var rowNum = 0;
+				for (i = 0; i < droppedFiles.length; i++) {
+				//var thumbnail;
+				if (droppedFiles[i].match(/\.jpg|.png$/i) == null) continue;
+				//if ((thumbnail = api.readThumbnail(droppedFiles[i])) == null) continue;
+				//var img = new Image;
+				var h = {};
+				//thumbnail.assignToHTMLImageElement(img);
+
+				h['filename'] = droppedFiles[i]; //droppedFiles[i].replace(/\\/g,'/').replace( /.*\//, '' );
+				//h['image'] = img;
+				h['time'] = api.exifTime(droppedFiles[i]);
+				h['row'] = rowNum++;
+				h['col'] = 0; // TODO: single camera support only at this time
+				h['deleted'] = false;
+				//console.log(h);
+				col.push(h);
+				}
+
+				data = new Array();
+				data.push(col);
+				$("#numFrames").text(data[0].length + " Frames")
+				//console.log(data);
+				//computeDeltas();
+				if (data[0].length > 0) {
+				rescale();
+				backUpData = jQuery.extend(true, {}, data);
+				refresh();
+				}
+			}
 
             function dropHandler(evt) {
               $("#dropbox").css({
@@ -715,40 +848,8 @@
               })
               evt.stopPropagation();
               evt.preventDefault();
-              var droppedFiles = api.droppedFilesRecursive();
-              //$('#dropped').text(droppedFiles.join('\n'));
-              //console.log(droppedFiles);
-              var col = new Array();
-              var rowNum = 0;
-              for (i = 0; i < droppedFiles.length; i++) {
-                //var thumbnail;
-                if (droppedFiles[i].match(/\.jpg|.png$/i) == null) continue;
-                //if ((thumbnail = api.readThumbnail(droppedFiles[i])) == null) continue;
-                //var img = new Image;
-                var h = {};
-                //thumbnail.assignToHTMLImageElement(img);
-
-                h['filename'] = droppedFiles[i]; //droppedFiles[i].replace(/\\/g,'/').replace( /.*\//, '' );
-                //h['image'] = img;
-                h['time'] = api.exifTime(droppedFiles[i]);
-                h['row'] = rowNum++;
-                h['col'] = 0; // TODO: single camera support only at this time
-                h['deleted'] = false;
-                //console.log(h);
-                col.push(h);
-              }
-
-              data = new Array();
-              data.push(col);
-              $("#numFrames").text(data[0].length + " Frames")
-              //console.log(data);
-              //computeDeltas();
-              if (data[0].length > 0) {
-                rescale();
-				backUpData = jQuery.extend(true, {}, data);
-                refresh();
-              }
-			  
+              
+			  addDroppedFiles();
             }
             var dropbox = document.getElementById("dropbox");
             dropbox.addEventListener("dragenter", noopHandler, false);

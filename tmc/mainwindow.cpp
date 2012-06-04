@@ -6,8 +6,10 @@ MainWindow::MainWindow()
 	this->setCentralWidget(new QWidget);
 	
 	// creating actions
-	openAction = new QAction(tr("&Open"), this);
-	saveAction = new QAction(tr("&Save"), this);
+	openAction = new QAction(tr("&Open Project"), this);
+	saveAction = new QAction(tr("&Save Project"), this);
+	addImagesAction = new QAction(tr("Add &Images"), this);
+	addFoldersAction = new QAction(tr("Add Fo&lders"), this);
 	exitAction = new QAction(tr("E&xit"), this);
 	
 	undoAction = new QAction(tr("&Undo"), this);
@@ -17,6 +19,8 @@ MainWindow::MainWindow()
 	// creating connections
 	connect(openAction, SIGNAL(triggered()), this, SLOT(open()));
 	connect(saveAction, SIGNAL(triggered()), this, SLOT(save()));
+	connect(addImagesAction, SIGNAL(triggered()), this, SLOT(addImages()));
+	connect(addFoldersAction, SIGNAL(triggered()), this, SLOT(addFolders()));
 	connect(exitAction, SIGNAL(triggered()), qApp, SLOT(quit()));
 	
 	connect(undoAction, SIGNAL(triggered()), this, SLOT(undo()));
@@ -27,6 +31,9 @@ MainWindow::MainWindow()
 	fileMenu = menuBar()->addMenu(tr("&File"));
 	fileMenu->addAction(openAction);
 	fileMenu->addAction(saveAction);
+	fileMenu->addSeparator();
+	fileMenu->addAction(addImagesAction);
+	fileMenu->addAction(addFoldersAction);
 	fileMenu->addSeparator();
 	fileMenu->addAction(exitAction);
 	
@@ -51,6 +58,36 @@ void MainWindow::setApi(API *api)
 void MainWindow::open()
 {
 	api->evaluateJavaScript("openData(); null");
+}
+
+void MainWindow::addImages()
+{
+	QFileDialog dialog(this);
+	dialog.setFileMode(QFileDialog::ExistingFiles);//ExistingFiles
+	dialog.setViewMode(QFileDialog::Detail);
+	if (dialog.exec()) {
+		QStringList selectedFiles = dialog.selectedFiles();
+		api->dropPaths(selectedFiles);
+		api->evaluateJavaScript("imagesDropped(); null");
+	}
+	
+	return;
+}
+
+void MainWindow::addFolders()
+{
+	//QStringList selectedFiles = QFileDialog::getOpenFileNames(this,"Select image folders",NULL,NULL,QFileDialog::Directory);
+	
+	QFileDialog dialog(this);
+	dialog.setFileMode(QFileDialog::Directory);//ExistingFiles
+	dialog.setViewMode(QFileDialog::Detail);
+	if (dialog.exec()) {
+		QStringList selectedFiles = dialog.selectedFiles();
+		api->dropPaths(selectedFiles);
+		api->evaluateJavaScript("imagesDropped(); null");
+	}
+	
+	return;
 }
 
 void MainWindow::save()
