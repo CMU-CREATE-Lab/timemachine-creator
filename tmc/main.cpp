@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
       rootdir = exedir;
     } else {
       // Development path
-      rootdir = filename_directory(exedir);
+      rootdir = filename_directory(filename_directory(exedir));
     }
   } else if (os() == "osx") {
     std::string devfile = exedir + "/../../../tmc.pro";

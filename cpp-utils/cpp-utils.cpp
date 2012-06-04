@@ -1,3 +1,4 @@
+
 #ifdef _WIN32
   #define _CRT_SECURE_NO_WARNINGS 1
 #endif
@@ -198,9 +199,10 @@ std::string remove_b(const char *str) {
   return ret;
 }
 
-FILE *popen_utf8(const std::string &filename, const char *mode) {
+FILE *popen_utf8(const std::string &cmdline, const char *mode) {
 #ifdef _WIN32
-  return _wpopen(Unicode(filename).path(), Unicode(mode).path());
+  // Add quotes around entire commandline per http://msdn.microsoft.com/en-us/library/96ayss4b.aspx
+  return _wpopen(Unicode("\"" + cmdline + "\"").path(), Unicode(mode).path());
 #else
   return popen(filename.c_str(), remove_b(mode).c_str());
 #endif

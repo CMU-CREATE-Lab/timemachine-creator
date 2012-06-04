@@ -933,13 +933,11 @@ class Compiler
 
   def howto_rule
     # dependencies = capture_times_rule.targets
-    directions = []
-    directions << ['echo', "'Add this to #{@urls['view'] || "your page"}: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{@versioned_id}|timelapse_dataset=1}}'"]
-    if @urls['track']
-      directions << ['echo', "'and update tracking page #{@urls['track']}'"]
-    end
+    msg = "Add this to #{@urls['view'] || "your page"}: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{@versioned_id}|timelapse_dataset=1}}"
+    @urls['track'] and msg += " and update tracking page #{@urls['track']}"
+    
     Rule.add("howto", videoset_rules,
-             directions,
+             [['echo', msg]],
              {:local=>true})
   end
 
@@ -1082,6 +1080,9 @@ class Maker
           STDERR.write "#{date} Job #{job_no} executing #{command.join(' ')}\n"
           if (command[0] == 'mv')
             File.rename(command[1], command[2])
+          elsif (command[0] == 'echo')
+            STDERR.puts command[1..-1].join(' ')
+            true
           else
             Kernel.system(*command) # This seems to randomly raise an exception in ruby 1.9
           end
@@ -1232,7 +1233,7 @@ def stitch_version_from_path(path)
   path.scan(/GigaPan (\d+)\.(\d+)\.(\d+)/) do |a,b,c|
     return sprintf('%05d.%05d.%05d', a.to_i, b.to_i, c.to_i)
   end
-  return nil
+  return ''
 end
 
 # Check for stitch in the registry

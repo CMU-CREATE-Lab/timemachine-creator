@@ -1,2 +1,4 @@
 Makefile
 tmc.dmg
+Makefile.Debug
+Makefile.Release
