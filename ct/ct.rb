@@ -3,17 +3,24 @@
 # You need the xml-simple gem to run this script
 # [sudo] gem install xml-simple
 
+# Ruby standard modules
 require 'fileutils'
 require 'open-uri'
 require 'set'
 require 'thread'
-require 'win32/registry'
-require File.dirname(__FILE__) + '/backports'
-require File.dirname(__FILE__) + '/image_size'
-require File.dirname(__FILE__) + '/json'
-require File.dirname(__FILE__) + '/tile'
-require File.dirname(__FILE__) + '/tileset'
-require File.dirname(__FILE__) + '/xmlsimple'
+
+# Local modules
+$LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__)))
+require 'backports'
+require 'image_size'
+require 'json'
+require 'tile'
+require 'tileset'
+require 'xmlsimple'
+
+if VERSION < '1.8.7' || VERSION > '1.9.'
+  raise "Ruby version is #{VERSION}, but must be >= 1.8.7, and must be < 1.9 because of threading bugs in 1.9"
+end
 
 if `echo %PATH%`.chomp != '%PATH%'
   $os = 'windows'
@@ -21,6 +28,38 @@ elsif File.exists?('/proc')
   $os = 'linux'
 else
   $os = 'osx'
+end
+
+if $os == 'windows'
+  require 'win32/registry'
+end
+
+def self_test(stitch = true)
+  success = true
+  STDERR.puts "Testing tilestacktool...\n"
+  status = Kernel.system(*(tilestacktool_cmd + ['--selftest']))
+  
+  if status
+    STDERR.puts "tilestacktool: succeeded\n"
+  else
+    STDERR.puts "tilestacktool: FAILED\n"
+    success = false
+  end
+    
+  if stitch
+    STDERR.puts "Testing stitch...\n"
+    status = Kernel.system($stitch, '--version')
+    if status
+      STDERR.puts "stitch: succeeded\n"
+    else
+      STDERR.puts "stitch: FAILED\n"
+      success = false
+    end
+  end
+
+  STDERR.puts "ct.rb self-test #{success ? 'succeeded' : 'FAILED'}."
+  
+  return success
 end
 
 def read_from_registry(hkey,subkey)
@@ -1189,6 +1228,13 @@ $tilestacktool = File.exists?(tstpath) ? tstpath : 'tilestacktool'
 
 stitchpath = nil
 
+def stitch_version_from_path(path)
+  path.scan(/GigaPan (\d+)\.(\d+)\.(\d+)/) do |a,b,c|
+    return sprintf('%05d.%05d.%05d', a.to_i, b.to_i, c.to_i)
+  end
+  return nil
+end
+
 # Check for stitch in the registry
 if $os == 'windows'
   KEY_32_IN_64 = 'Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Installer\Folders'
@@ -1200,7 +1246,7 @@ if $os == 'windows'
 
   if reg
     reg.each do |name, type, data|
-      if (name =~ /GigaPan ([2-9]|[1-9]\d+).\d+.\d+\\$/) # Look for at least version 2.x
+      if stitch_version_from_path(name) > '00002' # Look for at least version 2.x
         stitchpath = name
         break
       end
@@ -1222,16 +1268,15 @@ if stitchpath.nil?
   end
 
   if search
-    found = Dir.glob(search).sort.reverse[0] # If multiple versions, grab the path of the latest release
-    if found
-      if (found =~ /GigaPan ([2-9]|[1-9]\d+).\d+.\d+\\$/) # Look for at least version 2.x
-        stitchpath = found
-        STDERR.puts "Found stitch at: #{stitchpath}"
-      else
-        STDERR.puts "Found stitch at: #{stitchpath} but the version found does not support timelapses. Please update to at least version 2.x"
-      end
-    else
+    # If multiple versions, grab the path of the latest release
+    found = Dir.glob(search).sort{|a,b| stitch_version_from_path(a) <=> stitch_version_from_path(b)}.reverse[0] 
+    if not found
       STDERR.puts "Could not find stitch in default installation path: #{search}"
+    elsif stitch_version_from_path(found) > '00002' # Look for at least version 2.x
+      STDERR.puts "Found stitch at: #{found}"
+      stitchpath = found
+    else
+      STDERR.puts "Found stitch at: #{found} but the version found does not support timelapses. Please update to at least version 2.x"
     end
   end
 end
@@ -1264,6 +1309,10 @@ while !ARGV.empty?
       arg = "#{arg}/definition.timemachinedefinition"
     end
     jsonfile = arg
+  elsif arg == '--selftest'
+    exit self_test ? 0 : 1
+  elsif arg == '--selftest-no-stitch'
+    exit self_test(false) ? 0 : 1
   else
     STDERR.puts "Unknown arg #{arg}"
     usage

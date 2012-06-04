@@ -12,10 +12,13 @@ endif
 
 build: $(TILESTACKTOOL)
 
-test: patp4_1x1_small
+test: selftest patp4_1x1_small
 
 DATASETS=../datasets
 PATP4S=$(DATASETS)/patp
+
+selftest: $(TILESTACKTOOL)
+	./tilestacktool --selftest
 
 patp4_1x1_small: $(TILESTACKTOOL)
 	./tilestacktool --tilesize 256 --image2tiles testresults/$@/patp0.data/tiles kro $(DATASETS)/$@/patp0.jpg

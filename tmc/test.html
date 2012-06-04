@@ -1,6 +1,6 @@
 <html>
 <head>
-<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+<script src="assets/javascripts/jquery.min.js"></script>
 <script src="js/api.js"></script>
 </head>
 <body>
@@ -132,5 +132,41 @@ $('#r10').click(r10);
 
 </script>
 
+<hr>
+
+<!-- ct.rb selftest -->
+
+<button id="ct_selftest">ct.rb selftest</button>
+<button id="ct_selftest_no_stitch">ct.rb selftest without stitch</button>
+<pre id="ct_selftest_out"></pre>
+
+<script>
+function ct_selftest() {
+  if (!api.invokeRubySubprocess(['../ct/ct.rb', '--selftest'], ct_selftest_out)) {
+    alert('Could not start ruby subprocess');
+  }
+  $('#ct_selftest_out').html('Starting ct_selftest\n');
+}
+
+function ct_selftest_no_stitch() {
+  if (!api.invokeRubySubprocess(['../ct/ct.rb', '--selftest-no-stitch'], ct_selftest_out)) {
+    alert('Could not start ruby subprocess');
+  }
+  $('#ct_selftest_out').html('Starting ct_selftest (no stitch)\n');
+}
+
+
+function ct_selftest_out(out) {
+  console.log("In ct_selftest_out, out=" + out);
+  if (typeof out === 'number') {
+    $('#ct_selftest_out').append("Process finished, exit code " + out + "\n");
+  } else {
+    $('#ct_selftest_out').append(out)
+  }
+}
+
+$('#ct_selftest').click(ct_selftest);
+$('#ct_selftest_no_stitch').click(ct_selftest_no_stitch);
+</script>
 </body>
 </html>

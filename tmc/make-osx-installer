@@ -1,8 +1,15 @@
 #!/bin/sh
 
-rm -rf tmc.app
+rm -rf tmc.app tmc.dmg
 make
-mkdir -p tmc.app/Contents/tmc
-cp -a index.html test.html js assets tmc.app/Contents/tmc
-rm tmc.dmg
-macdeployqt tmc.app -dmg -no-strip
+rm -rf installer
+mkdir installer
+cp -a tmc.app installer/tmc.app
+mkdir -p installer/tmc.app/Contents/{tmc,ct,tilestacktool,tilestacktool/ffmpeg/osx}
+cp -a index.html test.html js assets installer/tmc.app/Contents/tmc
+cp -a ../ct/{*.rb,backports,json} installer/tmc.app/Contents/ct
+cp -a ../tilestacktool/tilestacktool installer/tmc.app/Contents/tilestacktool
+cp -a ../tilestacktool/ffmpeg/osx/ffmpeg installer/tmc.app/Contents/tilestacktool/ffmpeg/osx
+(cd installer; macdeployqt tmc.app -dmg -no-strip)
+mv installer/tmc.dmg .
+

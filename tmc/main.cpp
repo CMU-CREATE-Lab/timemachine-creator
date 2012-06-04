@@ -26,14 +26,7 @@
 
 #include "mainwindow.h"
 
-// Directory structure
-// <root>/tmc/index.html
-// <root>/tilestacktool/tilestacktool
-//
-// OS X, development.  root = git root;  binary is <root>/tmc/tmc.app/Contents/MacOS/tmc
-// OS X, deployed.  root = .app directory;  binary is <root>/MacOS/tmc
-// Windows, development.  root = git root; binary is <root>/tmc/[debug or release]/tmc.exe
-// Windows, deployed.  root = install directory;  binary is <root>/tmc.exe
+// Directory structure is in ../README.txt
 
 int main(int argc, char *argv[])
 {

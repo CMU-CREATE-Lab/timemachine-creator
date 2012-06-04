@@ -128,11 +128,7 @@ void write_html(std::string dest)
   std::auto_ptr<Tilestack> src(tilestackstack.pop());
   std::string dir = filename_sans_suffix(dest);
 
-  #ifdef _WIN32
-    _wmkdir(Unicode(dir).path());
-  #else
-    mkdir(Unicode(dir).path(), 0777);
-  #endif
+  make_directory(dir);
 
   std::string html_filename = filename_sans_suffix(dest) + ".html";
   FILE *html = fopen(html_filename.c_str(), "w");
@@ -188,6 +184,23 @@ class FfmpegEncoder {
   FILE *out;
   size_t total_written;
 public:
+  
+  static bool test() {
+    std::string cmdline = string_printf("\"%s\" -version", path_to_ffmpeg().c_str());
+    FILE *ffmpeg = popen_utf8(cmdline.c_str(), "wb");
+    if (!ffmpeg) {
+      fprintf(stderr, "FfmpegEncoder::test: Can't run '%s'.  This is likely due to an installation problem.\n", cmdline.c_str());
+      return false;
+    }
+    while (fgetc(ffmpeg) != EOF) {}
+    int status = pclose(ffmpeg);
+    if (status) {
+      fprintf(stderr, "FfmpegEncoder::test:  pclose '%s' returns status %d.  This is likely due to an installation problem.\n", cmdline.c_str(), status);
+      return false;
+    }
+    return true;
+  }
+  
   FfmpegEncoder(std::string dest_filename, int width, int height,
                 double fps, double compression) :
     width(width), height(height), total_written(0) {
@@ -213,11 +226,7 @@ public:
     #endif
 
     unlink(dest_filename.c_str());
-    #ifdef _WIN32
-      out = _popen(("\"" + cmdline + "\"").c_str(), "wb");
-    #else
-      out = popen(cmdline.c_str(), "w");
-    #endif
+    out = popen_utf8(cmdline, "wb");
     if (!out) {
       throw_error("Error trying to run ffmpeg.  Make sure it's installed and in your path\n"
                   "Tried with this commandline:\n"
@@ -234,13 +243,9 @@ public:
   }
 
   void close() {
-    #ifdef _WIN32
-      if (out) _pclose(out);
-      fprintf(stderr, "Wrote %Id frames (%Id bytes) to ffmpeg\n", total_written / (width * height * 3), total_written);
-    #else
-      if (out) pclose(out);
-      fprintf(stderr, "Wrote %zd frames (%zd bytes) to ffmpeg\n", total_written / (width * height * 3), total_written);
-    #endif
+    if (out) pclose(out);
+    fprintf(stderr, "Wrote %ld frames (%ld bytes) to ffmpeg\n", 
+            (long) (total_written / (width * height * 3)), (long) total_written);
     out = NULL;
   }
 
@@ -621,6 +626,19 @@ bool register_command(Command cmd) {
   return true;
 }
 
+bool self_test() {
+  bool success = true;
+  fprintf(stderr, "tilestacktool self-test: ");
+  {
+    fprintf(stderr, "ffmpeg:\n");
+    bool ffmpeg_ok = FfmpegEncoder::test();
+    fprintf(stderr, "%s\n", ffmpeg_ok ? "success" : "FAIL");
+    success = success && ffmpeg_ok;
+  }
+  fprintf(stderr, "Self-test %s\n", success ? "succeeded" : "FAILED");
+  return success;
+}
+
 int main(int argc, char **argv)
 {
   try {
@@ -666,6 +684,9 @@ int main(int argc, char **argv)
         std::string src = args.shift();
         image2tiles(dest, format, src);
       }
+      else if (arg == "--selftest") {
+        exit(!self_test());
+      }
       else if (arg == "--loadtiles") {
         std::vector<std::string> srcs;
         while (!args.empty() && args.front().substr(0,1) != "-") {
@@ -707,11 +728,7 @@ int main(int argc, char **argv)
       }
     }
     if (source_tiles_to_delete.size()) {
-      #ifdef _WIN32
-        fprintf(stderr, "Deleting %Id source tiles\n", source_tiles_to_delete.size());
-      #else
-        fprintf(stderr, "Deleting %zd source tiles\n", source_tiles_to_delete.size());
-      #endif
+      fprintf(stderr, "Deleting %ld source tiles\n", (long) source_tiles_to_delete.size());
 
       for (unsigned i = 0; i < source_tiles_to_delete.size(); i++) {
         unlink(source_tiles_to_delete[i].c_str());

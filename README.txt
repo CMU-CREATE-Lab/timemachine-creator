@@ -1,4 +1,4 @@
-To compile:
+TO COMPILE:
 
 OS X:
 -----
@@ -30,3 +30,18 @@ Compile:
 
 Run:
 1. cd to /debug (this directory was created by 'qmake' in your source files directory. Double cick the name of your program: {name}.exe
+
+===================
+
+Directory structure:
+
+<root>/tmc/index.html
+<root>/tilestacktool/(tilestacktool|tilestacktool.exe)
+<root>/ffmpeg/(osx|windows|linux)/ffmpeg
+
+OS X, development.  root = git root;  binary is <root>/tmc/tmc.app/Contents/MacOS/tmc
+OS X, deployed.  root = .app directory;  binary is <root>/MacOS/tmc
+Windows, development.  root = git root; binary is <root>/tmc/[debug or release]/tmc.exe
+Windows, deployed.  root = install directory;  binary is <root>/tmc.exe
+
+

@@ -25,6 +25,11 @@ void make_directory_and_parents(const std::string &dirname);
 bool filename_exists(const std::string &filename);
 void rename_file(const std::string &src, const std::string &dest);
 FILE *fopen_utf8(const std::string &path, const char *mode);
+FILE *popen_utf8(const std::string &path, const char *mode);
+#ifdef _WIN32
+int pclose(FILE *p);
+#endif
+
 bool iequals(const std::string &a, const std::string &b);
 std::string temporary_path(const std::string &path);
 std::string hostname();

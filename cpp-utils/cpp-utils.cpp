@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <algorithm>
 #include <stdexcept>
 #include <vector>
 #include <sys/stat.h>
@@ -188,9 +189,28 @@ FILE *fopen_utf8(const std::string &filename, const char *mode) {
 #else
   return fopen(filename.c_str(), mode);
 #endif
-
 }
 
+std::string remove_b(const char *str) {
+  std::string ret(str);
+  // Remove instances of 'b'
+  ret.erase(std::remove(ret.begin(), ret.end(), 'b'));
+  return ret;
+}
+
+FILE *popen_utf8(const std::string &filename, const char *mode) {
+#ifdef _WIN32
+  return _wpopen(Unicode(filename).path(), Unicode(mode).path());
+#else
+  return popen(filename.c_str(), remove_b(mode).c_str());
+#endif
+}
+
+#ifdef _WIN32
+int pclose(FILE *p) {
+  return _pclose(p);
+}
+#endif
 
 bool iequals(const std::string &a, const std::string &b)
 {
