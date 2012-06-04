@@ -16,6 +16,7 @@ public:
     MainWindow();
 	void setApi(API *api);
 	void setUndoMenu(bool state);
+	void setRedoMenu(bool state);
 	
 private slots:
 	void open();
@@ -24,6 +25,7 @@ private slots:
 	void addFolders();
 	
 	void undo();
+	void redo();
 	
 	void about();
 	
@@ -37,8 +39,11 @@ private:
 	QAction *exitAction;
 	
 	QAction *undoAction;
+	QAction *redoAction;
 	
 	QAction *aboutAction;
+	
+	void createStatusBar();
 };
 
 #endif

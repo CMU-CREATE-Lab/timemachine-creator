@@ -158,6 +158,12 @@
 			api.setUndoMenu(false); // disables the undo menu
 		}
 		
+		// put the redo code here. it is called by menubar
+		function redoAction() {
+			alert('redo');
+			api.setRedoMenu(false); // disables the redo menu
+		}
+		
 		// put the images' dropped code here.
 		function imagesDropped() {
 			addDroppedFiles();
@@ -485,9 +491,15 @@
 			// unod --- If undoArray is not empty, activate undo
 			undoArray.push(1); // a dummy line for test
 			if (undoArray.length > 0)
+			{
 				api.setUndoMenu(true);
+				api.setRedoMenu(true);
+			}
 			else
+			{
 				api.setUndoMenu(false);
+				api.setRedoMenu(false);
+			}
 			// undo --- end
             selectedImages.splice(0, selectedImages.length);
             rescale();

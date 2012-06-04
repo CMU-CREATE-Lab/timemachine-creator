@@ -6,7 +6,7 @@ endif
 
 test: small medium
 
-small: patp4_1x1_small pitt4_2x1_dpp_small carnival4_2x2_small carnival4_2x2_listed_small
+small: patp4_1x1_small pitt4_2x1_dpp_small
 
 medium: patp10_1x1
 

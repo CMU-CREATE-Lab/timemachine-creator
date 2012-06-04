@@ -36,6 +36,10 @@ void API::setUndoMenu(bool state) {
 	mainwindow->setUndoMenu(state);
 }
 
+void API::setRedoMenu(bool state) {
+	mainwindow->setRedoMenu(state);
+}
+
 int API::log() {
   fprintf(stderr, "log!\n");
   QVariantList args;

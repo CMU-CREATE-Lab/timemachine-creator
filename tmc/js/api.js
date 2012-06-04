@@ -37,3 +37,5 @@ api.readFile = window._api.readFile;
 api.saveAsDialog = window._api.saveAsDialog;
 
 api.setUndoMenu = window._api.setUndoMenu;
+
+api.setRedoMenu = window._api.setRedoMenu;
