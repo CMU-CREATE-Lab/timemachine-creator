@@ -10,6 +10,14 @@ else
 TILESTACKTOOL = tilestacktool
 endif
 
+ifeq ($(OS),osx)
+PLATFORM_CXX_FLAGS=-mmacosx-version-min=10.5 
+endif
+
+ifeq ($(OS),linux)
+PLATFORM_CXX_FLAGS=-static
+endif
+
 build: $(TILESTACKTOOL)
 
 test: selftest patp4_1x1_small
@@ -49,6 +57,7 @@ SOURCES = tilestacktool.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_D
 ZLIB_DIR = dependencies/zlib
 
 ifeq ($(OS),windows)
+
 ZLIB = $(ZLIB_DIR)/zlib.lib
 
 $(ZLIB):
@@ -56,9 +65,9 @@ $(ZLIB):
 
 zlib-clean:
 	(cd $(ZLIB_DIR) && nmake /f win32\\Makefile.msc clean)
-endif
 
-ifeq ($(OS),osx)
+else
+
 ZLIB = $(ZLIB_DIR)/libz.a
 
 $(ZLIB):
@@ -66,6 +75,7 @@ $(ZLIB):
 
 zlib-clean:
 	(make -C $(ZLIB_DIR) clean)
+
 endif
 
 zlib: $(ZLIB)
@@ -73,6 +83,7 @@ zlib: $(ZLIB)
 LIBPNG_DIR = dependencies/libpng
 
 ifeq ($(OS),windows)
+
 LIBPNG = $(LIBPNG_DIR)/libpng.lib
 
 $(LIBPNG): $(ZLIB)
@@ -80,9 +91,9 @@ $(LIBPNG): $(ZLIB)
 
 libpng-clean:
 	(cd $(LIBPNG_DIR) && nmake /f scripts\\makefile.vcwin32 clean)
-endif
 
-ifeq ($(OS),osx)
+else
+
 LIBPNG = $(LIBPNG_DIR)/lib/libpng.a
 
 $(LIBPNG):
@@ -90,6 +101,7 @@ $(LIBPNG):
 
 libpng-clean:
 	(make -C $(LIBPNG_DIR) clean; rm -rf $(LIBPNG_DIR)/{lib,include})
+
 endif
 
 libpng: $(LIBPNG)
@@ -97,6 +109,7 @@ libpng: $(LIBPNG)
 LIBJPEG_DIR = dependencies/jpeg-8d
 
 ifeq ($(OS),windows)
+
 LIBJPEG = $(LIBJPEG_DIR)/libjpeg.lib
 
 $(LIBJPEG): $(LIBJPEG_DIR)/jconfig.h
@@ -108,9 +121,9 @@ $(LIBJPEG_DIR)/jconfig.h:
 
 libjpeg-clean:
 	(cd $(LIBJPEG_DIR) && nmake /f Makefile.vc clean)
-endif
 
-ifeq ($(OS),osx)
+else
+
 LIBJPEG = $(LIBJPEG_DIR)/lib/libjpeg.a
 
 $(LIBJPEG):
@@ -118,6 +131,7 @@ $(LIBJPEG):
 
 libjpeg-clean:
 	(make -C $(LIBJPEG_DIR) clean; rm -rf $(LIBJPEG_DIR)/{lib,include})
+
 endif
 
 libjpeg: $(LIBJPEG)
@@ -126,7 +140,7 @@ tilestacktool.exe: $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG)
 	cl /EHsc /Ox /MT /Ijsoncpp /I$(LIBJPEG_DIR) /I$(LIBPNG_DIR) /I../cpp-utils /Fetilestacktool.exe $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG) /link /NODEFAULTLIB:LIBCMT
 
 tilestacktool: $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG)
-	g++ -mmacosx-version-min=10.5 -O3 -g -Ijsoncpp -I/opt/local/include -I$(CPP_UTILS_DIR) -Wall $^ -o $@ -L/opt/local/lib $(ZLIB) $(LIBPNG) $(LIBJPEG)
+	g++ $(PLATFORM_CXX_FLAGS) -O3 -g -Ijsoncpp -I/opt/local/include -I$(CPP_UTILS_DIR) -Wall $^ -o $@ -L/opt/local/lib $(ZLIB) $(LIBPNG) $(LIBJPEG)
 
 clean: zlib-clean libpng-clean libjpeg-clean
 	$(call RM_R,testresults)

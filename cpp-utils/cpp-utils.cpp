@@ -204,7 +204,7 @@ FILE *popen_utf8(const std::string &cmdline, const char *mode) {
   // Add quotes around entire commandline per http://msdn.microsoft.com/en-us/library/96ayss4b.aspx
   return _wpopen(Unicode("\"" + cmdline + "\"").path(), Unicode(mode).path());
 #else
-  return popen(filename.c_str(), remove_b(mode).c_str());
+  return popen(cmdline.c_str(), remove_b(mode).c_str());
 #endif
 }
 

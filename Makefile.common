@@ -1,6 +1,6 @@
 UNAME := $(shell uname)
 
-OS := unix
+OS := linux
 
 ifeq ($(UNAME),)
 OS := windows
