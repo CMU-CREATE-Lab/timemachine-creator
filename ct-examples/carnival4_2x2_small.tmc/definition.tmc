@@ -1,0 +1,26 @@
+{
+  "source":{
+    "type":"stitch",
+    "align_to": "[(i-1)/10*10]",
+    "align_to_comment": "Align each gigapan to a master selected every 10 gigapans",
+    "cols": 2,
+    "rows": 2,
+    "stitcher_args": "--no-vignette-correction --equalize-exposure-using-exif --adjust-exposure 0.5"
+   },
+   "videosets":[
+	{
+	    "label": "Small",
+	    "type": "h.264",
+	    "size": "small",
+	    "quality": 26,
+	    "fps": 3
+	},
+	{
+	    "label": "Large",
+	    "type": "h.264",
+	    "size": "large",
+	    "quality": 26,
+	    "fps": 3
+	}
+    ]  
+}

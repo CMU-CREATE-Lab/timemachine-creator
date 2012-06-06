@@ -11,6 +11,7 @@ require 'thread'
 
 # Local modules
 $LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__)))
+$LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__)) + "/ctlib")
 require 'backports'
 require 'image_size'
 require 'json'
@@ -18,7 +19,7 @@ require 'tile'
 require 'tileset'
 require 'xmlsimple'
 
-if VERSION < '1.8.7' || VERSION > '1.9.'
+if VERSION < '1.8.6' || VERSION > '1.9.'
   raise "Ruby version is #{VERSION}, but must be >= 1.8.7, and must be < 1.9 because of threading bugs in 1.9"
 end
 
@@ -47,14 +48,20 @@ def self_test(stitch = true)
   end
     
   if stitch
-    STDERR.puts "Testing stitch...\n"
-    status = Kernel.system($stitch, '--version')
+    STDERR.puts "Testing stitch..."
+    status = Kernel.system($stitch, '--batch-mode', '--version')
     if status
-      STDERR.puts "stitch: succeeded\n"
+      STDERR.puts "stitch: succeeded"
     else
-      STDERR.puts "stitch: FAILED\n"
+      STDERR.puts "stitch: FAILED"
       success = false
     end
+  end
+
+  if $explorer_source_dir
+    STDERR.puts "Explorer source dir: succeeded"
+  else
+    STDERR.puts "Explorer source dir not found: FAILED"
   end
 
   STDERR.puts "ct.rb self-test #{success ? 'succeeded' : 'FAILED'}."
@@ -83,7 +90,7 @@ def stitch_cmd
   cmd = [$stitch]
   cmd << '--batch-mode'
   cmd << '--nolog'
-  $os == 'linux' and !$local and cmd << '--xvfb'
+  $os == 'linux' and $submit and cmd << '--xvfb'
   cmd
 end
 
@@ -142,12 +149,13 @@ end
 
 def usage(msg=nil)
   msg and STDERR.puts msg
-  STDERR.puts "usage: ct.rb [foo.timemachinedefinition]"
-  STDERR.puts "ct.rb [-j N] [-r N] [-v] [-l]"
-  STDERR.puts "-j N:  number of parallel jobs to run (default ${njobs})"
-  STDERR.puts "-r N:  max number of rules per job (default ${rules_per_job})"
-  STDERR.puts "-l:    only run jobs locally (implies -j 1 -r 1)"
+  STDERR.puts "usage:"
+  STDERR.puts "ct.rb [flags] input.tmc output.timemachine"
+  STDERR.puts "Flags:"
+  STDERR.puts "-j N:  number of parallel jobs to run (default 1)"
+  STDERR.puts "-r N:  max number of rules per job (default 1)"
   STDERR.puts "-v:    verbose"
+  STDERR.puts "--remote:  Use 'submit_synchronous' to submit remote jobs"
   STDERR.puts "--tilestacktool path: full path of tilestacktool"
   exit 1
 end
@@ -562,10 +570,20 @@ class StitchSource
     @align_to = settings["align_to"] or raise "Must include align-to"
     settings["align_to_comment"] or raise "Must include align-to-comment"
     @stitcher_args = settings["stitcher_args"] or raise "Must include stitcher args"
-    @camera_response_curve = settings["camera_response_curve"] || false
-    if @camera_response_curve && !File.exists?(@camera_response_curve)
+    @camera_response_curve = settings["camera_response_curve"]
+    if !@camera_response_curve
+      response_curve_path = [File.expand_path("#{File.dirname(__FILE__)}/g10.response"),
+  			     File.expand_path("#{File.dirname(__FILE__)}/ctlib/g10.response")]
+      @camera_response_curve = response_curve_path.find {|file| File.exists? file}
+      if !@camera_response_curve
+        raise "Can't find camera response curve in search path #{response_curve_path.join(':')}"
+      end
+    end
+
+    if !File.exists?(@camera_response_curve)
       raise "Camera response curve set to #{@camera_response_curve} but the file doesn't exist"
     end
+
     @cols = settings["cols"] or raise "Must include cols"
     @rows = settings["rows"] or raise "Must include rows"
     @rowfirst = settings["rowfirst"] || false
@@ -1212,26 +1230,30 @@ class Maker
 
 end
 
-njobs = 75
-rules_per_job = 10
-$local = false
 retry_attempts = 0
 destination = nil
 
-tstpath = File.expand_path "#{File.dirname(__FILE__)}/../tilestacktool/tilestacktool"
+exe_suffix = ($os == 'windows') ? '.exe' : ''
 
-if $os == 'windows'
-  tstpath += '.exe'
-end
+tilestacktool_search_path = [File.expand_path("#{File.dirname(__FILE__)}/tilestacktool#{exe_suffix}"),
+  			     File.expand_path("#{File.dirname(__FILE__)}/../tilestacktool/tilestacktool#{exe_suffix}")];
+
+
 
 # If tilestacktool is not found in the project directory, assume it is in the user PATH
-$tilestacktool = File.exists?(tstpath) ? tstpath : 'tilestacktool'
+$tilestacktool = tilestacktool_search_path.find {|x| File.exists?(x)}
+
+if $tilestacktool
+  STDERR.puts "Found tilestacktool at #{$tilestacktool}"
+else
+  STDERR.puts "Could not find tilestacktool in path #{tilestacktool_search_path.join(':')}"
+end
 
 stitchpath = nil
 
 def stitch_version_from_path(path)
-  path.scan(/GigaPan (\d+)\.(\d+)\.(\d+)/) do |a,b,c|
-    return sprintf('%05d.%05d.%05d', a.to_i, b.to_i, c.to_i)
+  path.scan(/(GigaPan |gigapan-)(\d+)\.(\d+)\.(\d+)/) do |a,b,c,d|
+    return sprintf('%05d.%05d.%05d', b.to_i, c.to_i, d.to_i)
   end
   return ''
 end
@@ -1266,8 +1288,9 @@ if stitchpath.nil?
     search = '/Applications/GigaPan */GigaPan Stitch */Contents/MacOS/GigaPan Stitch *'
   elsif $os == 'windows'
     search = 'C:/Program*/GigaPan*/*/stitch.exe'
+  elsif $os == 'linux'
+    search = File.expand_path(File.dirname(__FILE__)) + '/../gigapan-*.*.*-linux/stitch'
   end
-
   if search
     # If multiple versions, grab the path of the latest release
     found = Dir.glob(search).sort{|a,b| stitch_version_from_path(a) <=> stitch_version_from_path(b)}.reverse[0] 
@@ -1283,11 +1306,24 @@ if stitchpath.nil?
 end
 
 # If stitch is not found or the one found is too old, assume it is in the user PATH
-$stitch = File.exists?(stitchpath) ? stitchpath : 'stitch'
+$stitch = (stitchpath && File.exists?(stitchpath)) ? stitchpath : 'stitch'
 
-$explorer_source_dir = File.expand_path("#{File.dirname(__FILE__)}/../time-machine-explorer")
-jsonfile = ""
+explorer_source_search_path = [File.expand_path("#{File.dirname(__FILE__)}/time-machine-explorer"),
+			       File.expand_path("#{File.dirname(__FILE__)}/../time-machine-explorer")]
+			    
+$explorer_source_dir = explorer_source_search_path.find {|x| File.exists? x}
+if $explorer_source_dir
+  STDERR.puts "Found explorer sources at #{$explorer_source_dir}"
+else
+  STDERR.puts "Could not find explorer sources in path #{explorer_source_search_path.join(':')}"
+end
 
+jsonfile = nil
+destination = nil
+
+njobs = 1
+rules_per_job = 1
+$submit = false
 
 while !ARGV.empty?
   arg = ARGV.shift
@@ -1297,19 +1333,17 @@ while !ARGV.empty?
     rules_per_job  = ARGV.shift.to_i
   elsif arg == '-v'
     $verbose = true
-  elsif arg == '-l'
-    $local = true
-    njobs = 1
-    rules_per_job = 1
+  elsif arg == '--remote'
+    $submit = true
   elsif arg == '--tilestacktool'
     $tilestacktool = File.expand_path ARGV.shift
-  elsif arg == '--create'
-    destination = File.expand_path ARGV.shift
-  elsif File.extname(arg) == '.timemachinedefinition'
+  elsif File.extname(arg) == '.tmc'
     if File.directory?(arg)
-      arg = "#{arg}/definition.timemachinedefinition"
+      arg = "#{arg}/definition.tmc"
     end
     jsonfile = arg
+  elsif File.extname(arg) == '.timemachine'
+    destination = arg
   elsif arg == '--selftest'
     exit self_test ? 0 : 1
   elsif arg == '--selftest-no-stitch'
@@ -1320,23 +1354,27 @@ while !ARGV.empty?
   end
 end
 
+if !jsonfile 
+  usage "Must specify source.tmc"
+end
+
 if !destination
-  raise "Must specify --destination"
+  usage "Must specify destination.timemachine"
 end
 
 store = nil
 
 if jsonfile
-  if File.extname(File.dirname(jsonfile)) == ".timemachinedefinition"
+  if File.extname(File.dirname(jsonfile)) == ".tmc"
     store = File.dirname(jsonfile)
   end
 else
-  if File.exists?('definition.timemachinedefinition')
-    jsonfile = 'definition.timemachinedefinition'
+  if File.exists?('definition.tmc')
+    jsonfile = 'definition.tmc'
   elsif File.exists?('default.json')
     jsonfile = 'default.json'
   else
-    raise "Can't find definition.timemachinedefinition"
+    raise "Can't find definition.tmc"
   end
   store = '.'
 end
@@ -1351,7 +1389,7 @@ while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
   compiler.write_json
   compiler.compute_rules # Creates rules, which will be accessible from Rule.all
   compiler.write_rules
-  Maker.new(Rule.all).make(njobs, rules_per_job, $local)
+  Maker.new(Rule.all).make(njobs, rules_per_job, ! $submit)
   retry_attempts += 1
 end
 

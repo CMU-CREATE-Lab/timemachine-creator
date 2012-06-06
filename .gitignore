@@ -8,3 +8,5 @@ junkyard
 *.dSYM
 debug/
 *.pdb
+tmc-linux-*.*
+gigapan-*.*.*-linux*

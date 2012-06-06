@@ -256,6 +256,13 @@ public:
                                      executable_suffix().c_str());
 
     if (filename_exists(colocated)) return colocated;
+    
+    colocated = string_printf("%s/ffmpeg%s",
+			      filename_directory(executable_path()).c_str(),
+			      executable_suffix().c_str());
+
+    if (filename_exists(colocated)) return colocated;
+			      
     return "ffmpeg";
   }
 };

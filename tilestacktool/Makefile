@@ -33,10 +33,10 @@ patp4_1x1_small: $(TILESTACKTOOL)
 	./tilestacktool --tilesize 256 --image2tiles testresults/$@/patp1.data/tiles kro $(DATASETS)/$@/patp1.jpg
 	./tilestacktool --tilesize 256 --image2tiles testresults/$@/patp2.data/tiles kro $(DATASETS)/$@/patp2.jpg
 	./tilestacktool --tilesize 256 --image2tiles testresults/$@/patp3.data/tiles kro $(DATASETS)/$@/patp3.jpg
-	./tilestacktool --loadtiles testresults/$@/patp{0,1,2,3}.data/tiles/r0.kro --create-parent-directories --save testresults/$@/transpose/r0.ts2
-	./tilestacktool --loadtiles testresults/$@/patp{0,1,2,3}.data/tiles/r1.kro --create-parent-directories --save testresults/$@/transpose/r1.ts2
-	./tilestacktool --loadtiles testresults/$@/patp{0,1,2,3}.data/tiles/r2.kro --create-parent-directories --save testresults/$@/transpose/r2.ts2
-	./tilestacktool --loadtiles testresults/$@/patp{0,1,2,3}.data/tiles/r3.kro --create-parent-directories --save testresults/$@/transpose/r3.ts2
+	./tilestacktool --loadtiles testresults/$@/patp?.data/tiles/r0.kro --create-parent-directories --save testresults/$@/transpose/r0.ts2
+	./tilestacktool --loadtiles testresults/$@/patp?.data/tiles/r1.kro --create-parent-directories --save testresults/$@/transpose/r1.ts2
+	./tilestacktool --loadtiles testresults/$@/patp?.data/tiles/r2.kro --create-parent-directories --save testresults/$@/transpose/r2.ts2
+	./tilestacktool --loadtiles testresults/$@/patp?.data/tiles/r3.kro --create-parent-directories --save testresults/$@/transpose/r3.ts2
 	$(call CP,testresults/$@/patp0.data/tiles/r.json,testresults/$@/transpose/r.json)
 	./tilestacktool --path2stack 256 256 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":0, "ymin":0, "width":512, "height":512}}' testresults/$@/transpose --save testresults/$@/transpose/r.ts2
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --writevideo testresults/$@/testvid.mp4 1 24
@@ -74,7 +74,8 @@ $(ZLIB):
 	(cd $(ZLIB_DIR); cp zconf.h.original zconf.h; ./configure; make)
 
 zlib-clean:
-	(make -C $(ZLIB_DIR) clean)
+	make -C $(ZLIB_DIR) clean
+	rm -rf $(ZLIB_DIR)/lib $(ZLIB_DIR)/include
 
 endif
 
@@ -100,7 +101,8 @@ $(LIBPNG):
 	(cd $(LIBPNG_DIR); ./configure --prefix=`pwd`; make install)
 
 libpng-clean:
-	(make -C $(LIBPNG_DIR) clean; rm -rf $(LIBPNG_DIR)/{lib,include})
+	rm -rf $(LIBPNG_DIR)/lib $(LIBPNG_DIR)/include
+	make -C $(LIBPNG_DIR) clean
 
 endif
 
@@ -130,7 +132,8 @@ $(LIBJPEG):
 	(cd $(LIBJPEG_DIR); ./configure --prefix=`pwd`; make install)
 
 libjpeg-clean:
-	(make -C $(LIBJPEG_DIR) clean; rm -rf $(LIBJPEG_DIR)/{lib,include})
+	rm -rf $(LIBJPEG_DIR)/lib $(LIBJPEG_DIR)/include
+	make -C $(LIBJPEG_DIR) clean
 
 endif
 
@@ -139,8 +142,8 @@ libjpeg: $(LIBJPEG)
 tilestacktool.exe: $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG)
 	cl /EHsc /Ox /MT /Ijsoncpp /I$(LIBJPEG_DIR) /I$(LIBPNG_DIR) /I../cpp-utils /Fetilestacktool.exe $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG) /link /NODEFAULTLIB:LIBCMT
 
-tilestacktool: $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG)
-	g++ $(PLATFORM_CXX_FLAGS) -O3 -g -Ijsoncpp -I/opt/local/include -I$(CPP_UTILS_DIR) -Wall $^ -o $@ -L/opt/local/lib $(ZLIB) $(LIBPNG) $(LIBJPEG)
+tilestacktool: $(SOURCES) $(LIBPNG) $(ZLIB) $(LIBJPEG)
+	g++ $(PLATFORM_CXX_FLAGS) -O3 -g -Ijsoncpp -I$(LIBJPEG_DIR) -I$(LIBPNG_DIR) -I$(CPP_UTILS_DIR) -Wall $^ -o $@
 
 clean: zlib-clean libpng-clean libjpeg-clean
 	$(call RM_R,testresults)

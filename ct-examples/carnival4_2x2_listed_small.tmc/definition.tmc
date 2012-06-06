@@ -1,0 +1,44 @@
+{
+  "source":{
+    "type":"stitch",
+    "align_to": "[(i-1)/10*10]",
+    "align_to_comment": "Align each gigapan to a master selected every 10 gigapans",
+    "images": [
+    ["../../datasets/carnival4_2x2_small/2010-04-10-085948/IMG_5374.JPG",
+     "../../datasets/carnival4_2x2_small/2010-04-10-085948/IMG_5375.JPG",
+     "../../datasets/carnival4_2x2_small/2010-04-10-085948/IMG_5379.JPG",
+     "../../datasets/carnival4_2x2_small/2010-04-10-085948/IMG_5380.JPG"],
+    ["../../datasets/carnival4_2x2_small/2010-04-10-090948/IMG_5424.JPG",
+     "../../datasets/carnival4_2x2_small/2010-04-10-090948/IMG_5425.JPG",
+     "../../datasets/carnival4_2x2_small/2010-04-10-090948/IMG_5429.JPG",
+     "../../datasets/carnival4_2x2_small/2010-04-10-090948/IMG_5430.JPG"],
+    ["../../datasets/carnival4_2x2_small/2010-04-10-091948/IMG_5474.JPG",
+     "../../datasets/carnival4_2x2_small/2010-04-10-091948/IMG_5475.JPG",
+     "../../datasets/carnival4_2x2_small/2010-04-10-091948/IMG_5479.JPG",
+     "../../datasets/carnival4_2x2_small/2010-04-10-091948/IMG_5480.JPG"],
+    ["../../datasets/carnival4_2x2_small/2010-04-10-092948/IMG_5524.JPG",
+     "../../datasets/carnival4_2x2_small/2010-04-10-092948/IMG_5525.JPG",
+     "../../datasets/carnival4_2x2_small/2010-04-10-092948/IMG_5529.JPG",
+     "../../datasets/carnival4_2x2_small/2010-04-10-092948/IMG_5530.JPG"]
+    ],
+    "cols": 2,
+    "rows": 2,
+    "stitcher_args": "--no-vignette-correction --equalize-exposure-using-exif --adjust-exposure 0.5"
+   },
+   "videosets":[
+	{
+	    "label": "Small",
+	    "type": "h.264",
+	    "size": "small",
+	    "quality": 26,
+	    "fps": 3
+	},
+	{
+	    "label": "Large",
+	    "type": "h.264",
+	    "size": "large",
+	    "quality": 26,
+	    "fps": 3
+	}
+    ]  
+}

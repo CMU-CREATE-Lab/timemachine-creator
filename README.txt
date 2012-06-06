@@ -33,15 +33,38 @@ Run:
 
 ===================
 
-Directory structure:
+Development directory structure:
 
-<root>/tmc/index.html
-<root>/tilestacktool/(tilestacktool|tilestacktool.exe)
-<root>/ffmpeg/(osx|windows|linux)/ffmpeg
+<gitroot>/tmc/(tmc.app/Contents/MacOS/tmc|(debug|release)/tmc[.exe])
+<gitroot>/tmclib/index.html
+<gitroot>/tilestacktool/tilestacktool[.exe]
+<gitroot>/ffmpeg/(osx|windows|linux)/ffmpeg[.exe]
+
+Windows and Linux deploy directory structure:
+<root>/tmc|tmc[.exe]
+<root>/tmclib/index.html
+<root>/tilestacktool[.exe]
+<root>/ffmpeg[.exe]
+<root>/time-machine-explorer
+<root>/ct.rb
+<root>/ctlib/[*.rb etc]
+
+Mac deploy directory structure:
+tmc.app/Contents/MacOS/tmc
+tmc.app/Contents/tmc/index.html
+tmc.app/Contents/tilestacktool
+tmc.app/Contents/ffmpeg
+tmc.app/Contents/time-machine-explorer
+
+
+
+
+
 
 OS X, development.  root = git root;  binary is <root>/tmc/tmc.app/Contents/MacOS/tmc
 OS X, deployed.  root = .app directory;  binary is <root>/MacOS/tmc
 Windows, development.  root = git root; binary is <root>/tmc/[debug or release]/tmc.exe
 Windows, deployed.  root = install directory;  binary is <root>/tmc.exe
+Linux, development.  root = git root; binary is <root>/tmc/[debug or release]/tmc
 
 
