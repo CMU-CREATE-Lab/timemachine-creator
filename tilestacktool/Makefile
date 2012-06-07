@@ -70,10 +70,13 @@ else
 
 ZLIB = $(ZLIB_DIR)/libz.a
 
-$(ZLIB):
-	(cd $(ZLIB_DIR); cp zconf.h.original zconf.h; ./configure; make)
+$(ZLIB): $(ZLIB_DIR)/Makefile
+	make -C $(ZLIB_DIR)
 
-zlib-clean:
+$(ZLIB_DIR)/Makefile:
+	(cd $(ZLIB_DIR); cp zconf.h.original zconf.h; cp Makefile.original Makefile; ./configure)
+
+zlib-clean: $(ZLIB_DIR)/Makefile
 	make -C $(ZLIB_DIR) clean
 	rm -rf $(ZLIB_DIR)/lib $(ZLIB_DIR)/include
 

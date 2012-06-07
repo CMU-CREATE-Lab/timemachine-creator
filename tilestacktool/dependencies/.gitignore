@@ -19,6 +19,7 @@ jpegsrc.v8d.tar.gz
 libpng/pnglibconf.h
 zlib/zdll.exp
 zlib/zlib1.res
+zlib/Makefile
 *.lo
 *.dylib
 *.la
