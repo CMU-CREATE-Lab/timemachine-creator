@@ -4,13 +4,18 @@ ifeq ($(OS),windows)
 RUBY = ../ruby/windows/bin/ruby
 endif
 
-test: small medium
+test: small
 
-small: patp4_1x1_small pitt4_2x1_dpp_small
+all: small medium
+
+small: selftest patp4_1x1_small pitt4_2x1_dpp_small
 
 medium: patp10_1x1
 
 # These rules require copying or linking the definition file, but not the source images
+
+selftest:
+	$(RUBY) ./ct.rb --selftest
 
 patp4_1x1_small carnival4_2x2_listed_small:
 	$(call MKDIR_P,testresults/$@.tmc)

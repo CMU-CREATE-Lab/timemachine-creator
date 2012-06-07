@@ -951,7 +951,7 @@ class Compiler
 
   def howto_rule
     # dependencies = capture_times_rule.targets
-    msg = "Add this to #{@urls['view'] || "your page"}: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{@versioned_id}|timelapse_dataset=1}}"
+    msg = "If you're authoring a mediawiki page at timemachine.gigapan.org, you can add this to #{@urls['view'] || "your page"} to see the result: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{@versioned_id}|timelapse_dataset=1}}"
     @urls['track'] and msg += " and update tracking page #{@urls['track']}"
     
     Rule.add("howto", videoset_rules,
