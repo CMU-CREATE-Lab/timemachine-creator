@@ -39,3 +39,5 @@ api.saveAsDialog = window._api.saveAsDialog;
 api.setUndoMenu = window._api.setUndoMenu;
 
 api.setRedoMenu = window._api.setRedoMenu;
+
+api.getOpenedProjectPath = window._api.getOpenedProjectPath;

@@ -33,10 +33,12 @@ public:
   Q_INVOKABLE bool invokeRubySubprocess(QStringList args, int callback_id);
   Q_INVOKABLE void setUndoMenu(bool state);
   Q_INVOKABLE void setRedoMenu(bool state);
+  Q_INVOKABLE QString getOpenedProjectPath();
 signals:
   void callback(int id, QVariantList args);
 protected:
   QStringList droppedPaths;
+  QString openedProject;
   std::string rootdir;
 };
 

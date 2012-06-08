@@ -6,6 +6,14 @@
 	<script src="js/api.js"></script>
     <link rel="stylesheet" type="text/css" href="assets/stylesheets/smoothness/jquery-ui.css"/>
     <style type="text/css">
+		.ui-widget-content {
+		 background: #ffffff !important;
+	   }
+
+	   .ui-widget-header {
+		 background: #cccccc !important;
+	   }
+	   
       html {
         font-size: .8em;
         min-width: 640px;
@@ -150,6 +158,8 @@
 
 			rescale();
 			refresh();
+			
+			//alert(api.getOpenedProjectPath());
 		}
 		
 		// put the undo code here. it is called by menubar
@@ -170,6 +180,9 @@
 		}
 	  
 	  var undoArray = new Array();
+	  var filmstripIndex = 0;
+	  var activeData = new Array();
+	  var filmstripMode = false;
 	  var backUpData;
       var data = new Array();
       var scale = 64;
@@ -192,9 +205,77 @@
         var ret = "" + n;
         return (ret.length == 1) ? "0" + ret : ret;
       }
+	  
+	  function updateActiveData()
+	  {
+		activeData = new Array();
+		if(data.length == 0) return;
+		
+		for(var i = 0; i < data.length; i++)
+		{
+			activeData.push(new Array());
+			for(var j = 0; j < data[i].length; j++)
+			{
+				if(data[i][j].deleted == false)
+					activeData[i].push(data[i][j].filename);
+			}
+		}
+		
+	  }
+	  
+	  function isNumber(n) {
+		return !isNaN(parseFloat(n)) && isFinite(n);
+      }
+	  
+	  function jumpTo()
+	  {
+		if(isNumber($("#jumpToFrame").val()))
+			filmstripIndex = $("#jumpToFrame").val()-1;
+	  }
 
       function refresh() {
-      	if (data.length == 0) return;
+
+		if (filmstripMode == true)
+		{
+			if(activeData.length == 0)
+			{
+				$("#filmstripText").text("No data");
+				$("#filmstripImage").hide();
+				$("#btnPrevImage").hide();
+				$("#btnNextImage").hide();
+				$("#btnJump").hide();
+				$("#jumpToFrame").hide();
+				return;
+			}
+			else
+			{
+				$("#btnPrevImage").removeAttr('disabled');
+				$("#btnNextImage").removeAttr('disabled');
+				if(filmstripIndex<=0)
+				{
+					filmstripIndex = 0;
+					$("#btnPrevImage").attr('disabled', 'disabled');
+				}
+				if(filmstripIndex>=activeData[0].length-1)
+				{
+					filmstripIndex = activeData[0].length-1;
+					$("#btnNextImage").attr('disabled', 'disabled');
+				}
+				$("#filmstripText").text("Frame " + (filmstripIndex+1) + " out of " + activeData[0].length);
+				$("#filmstripImage").show();
+				$("#btnPrevImage").show();
+				$("#btnNextImage").show();
+				$("#btnJump").show();
+				$("#jumpToFrame").show();
+			}
+			
+			$("#filmstripImage").attr("src", activeData[0][filmstripIndex]);
+			
+			return;
+		}
+		
+		if (data.length == 0) return;
+		
         //console.log("refresh");
         var mintime = getTime(-1);
         var toptime = getTime(0);
@@ -409,6 +490,15 @@
 		}
 
       function rescale() {
+		if(filmstripMode == true) {
+			$("#top_area").css({
+			  "width": ($("#filmstripdiv").outerWidth(true) - 380) + "px"
+			});
+
+			$("#filmstripImage").width($("#filmstripdiv").outerWidth(true) - 690);
+			return;
+		}
+		
         min = 1e+100;
         max = -1e+100;
 
@@ -790,11 +880,57 @@
           but is transparent to not block canvas -->
           <div id="world" style="height:10000px; width:100%; opacity:0;"></div>
         </div>
+		
+		<!-- code from sam ************** -->
+		<div id="filmstripdiv" style="display:none; background:#eee; position:absolute; margin-left: 180px; margin-top: 108px; width:100%; height:100%;">
+		
+			<span id="filmstripText" style="position:absolute; left:150px; top:40px;"></span>
+			
+			<button id="btnJump" type="button" style="position:absolute; left:150px; top:60px; width:120px; height:30px;" onclick="jumpTo(); rescale(); refresh();" >Jump to frame: </button>
+			
+			<input type="text" id="jumpToFrame" style="position:absolute; left:280px; top:60px; width:60px; height:30px;" />
+			
+			<button id="btnPrevImage" type="button" style="position:absolute; left:10px; margin-top:-15px; top:35%; width:120px; height:30px;" onclick="filmstripIndex--; rescale(); refresh();" >Previous Image</button>
+			
+			<img id="filmstripImage" src="" style="position:absolute; top:100px; left:150px;"/>
+			
+			<button id="btnNextImage" type="button" style="position:absolute; right: 220px; top:35%; margin-top:-15px; width:120px; height:30px;" onclick="filmstripIndex++; rescale(); refresh();" >Next Image</button>
+		</div>
+		<!-- code from sam ++++++++++++++ -->
+		
         <div id="top_area" style="position:absolute; height:100px; top:60px; left:200px;width:100%;">
           <!-- Drag and drop files and folders -->
           <div id="dropbox" style="border-style:dotted; border-width: 4px; background: #f5f5f5; padding: 20px; display: table; width: 50%; margin: 0px auto; text-align: center; height: 80px">
             Drop images or directories here
           </div>
+		  
+		  <!-- code from sam ************** -->
+		  <script>
+		  function toggleFilmstrip()
+		  {
+		    //$(),css('width',12)
+			$('#zoom').toggle();
+			$('#scroll').toggle();
+			$('#filmstripdiv').toggle();
+			if($("#btnToggle").html() == 'Timeline')
+			{
+				$("#btnToggle").html('Filmstrip');
+				filmstripMode = false;	
+			}
+			else
+			{
+				$("#btnToggle").html('Timeline');
+				filmstripMode = true;
+				filmstripIndex = 0;
+				updateActiveData();
+			}
+			rescale();
+			refresh();
+		  }
+		  </script>
+		  <button id="btnToggle" type="button" onclick="toggleFilmstrip()" style="position:absolute; top:20px;left:20px; width:80px; height:30px;">Filmstrip</button>
+		  <!-- code from sam ++++++++++++++ -->
+		  
           <script>
             function zoomIn() {
               zoom(2);
@@ -848,6 +984,7 @@
 				//console.log(data);
 				//computeDeltas();
 				if (data[0].length > 0) {
+				updateActiveData();
 				rescale();
 				backUpData = jQuery.extend(true, {}, data);
 				refresh();

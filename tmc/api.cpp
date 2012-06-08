@@ -176,9 +176,15 @@ QString API::readFile(QString caption, QString startingDirectory, QString filter
   if(path != "") {
 	  QFile file(path);
 	  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return ""; // null would be better
+	  openedProject = path;
 	  return QTextStream(&file).readAll();
   }
   return NULL;
+}
+
+QString API::getOpenedProjectPath()
+{
+	return openedProject;
 }
 
 bool API::makeDirectory(QString path)
