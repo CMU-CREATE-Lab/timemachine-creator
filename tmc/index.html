@@ -160,9 +160,12 @@
 		}
 		
 		// put the loading code here. it is called by menubar
-		function openData() {
-			var startDirectory = '';
-			foo = JSON.parse(api.readFile('Open Time Machine Definition', startDirectory, '*.timemachinedefinition'));
+		function openData(startDirectory) {
+			//var startDirectory = '';
+			if (typeof startDirectory == 'undefined')
+				foo = JSON.parse(api.readFileDialog('Open Time Machine Definition', '', '*.timemachinedefinition'));
+			else
+				foo = JSON.parse(api.readFile(startDirectory));
 			data = new Array();
 			for(c = 0;c<$(foo).size(); c++) {
 				data.push(foo[c]);
@@ -216,6 +219,24 @@
 		function addFoldersAction() {
 			api.setAddFoldersMenu(false); // just for test
 		}
+		
+		// is it safe to close app
+		function isSafeToClose() {
+			return true;
+		}
+		
+		// open recent project. 
+		// TODO : must check whether current project is saved or not
+		function openRecentProject(path) {
+			openData(path);
+		}
+		
+		// open url in a new browser app
+		function openInBrowser(url) {
+			api.openBrowser(url);
+		}
+		
+		//openInBrowser("http://www.cnn.com");
 	  
 	  var definitionPath;
 	  var undoArray = new Array();

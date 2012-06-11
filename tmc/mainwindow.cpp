@@ -24,6 +24,14 @@ MainWindow::MainWindow()
 	addFoldersAction = new QAction(tr("Add Fo&lders"), this);
 	addFoldersAction->setShortcut(Qt::ControlModifier + Qt::ShiftModifier + Qt::Key_F);
 	addFoldersAction->setStatusTip(tr("Create a new project by adding folders containing your image files"));
+	
+	for (int i = 0; i < MaxRecentFiles; ++i) {
+        recentFileActs[i] = new QAction(this);
+        recentFileActs[i]->setVisible(false);
+        connect(recentFileActs[i], SIGNAL(triggered()),
+                this, SLOT(openRecentFile()));
+    }
+	
 	exitAction = new QAction(tr("E&xit"), this);
 	exitAction->setShortcuts(QKeySequence::Close);
 	exitAction->setStatusTip(tr("Close the software"));
@@ -45,7 +53,7 @@ MainWindow::MainWindow()
 	connect(saveAsAction, SIGNAL(triggered()), this, SLOT(saveAs()));
 	connect(addImagesAction, SIGNAL(triggered()), this, SLOT(addImages()));
 	connect(addFoldersAction, SIGNAL(triggered()), this, SLOT(addFolders()));
-	connect(exitAction, SIGNAL(triggered()), qApp, SLOT(quit()));
+	connect(exitAction, SIGNAL(triggered()), this, SLOT(close()));
 	
 	connect(undoAction, SIGNAL(triggered()), this, SLOT(undo()));
 	connect(redoAction, SIGNAL(triggered()), this, SLOT(redo()));
@@ -60,8 +68,12 @@ MainWindow::MainWindow()
 	fileMenu->addSeparator();
 	fileMenu->addAction(addImagesAction);
 	fileMenu->addAction(addFoldersAction);
+	separatorAct = fileMenu->addSeparator();
+    for (int i = 0; i < MaxRecentFiles; ++i)
+        fileMenu->addAction(recentFileActs[i]);
 	fileMenu->addSeparator();
 	fileMenu->addAction(exitAction);
+	updateRecentFileActions();
 	
 	fileMenu = menuBar()->addMenu(tr("&Edit"));
 	fileMenu->addAction(undoAction);
@@ -72,6 +84,67 @@ MainWindow::MainWindow()
 	fileMenu = menuBar()->addMenu(tr("&Help"));
 	fileMenu->addAction(aboutAction);
 }
+
+void MainWindow::setCurrentFile(const QString &fileName)
+{
+    curFile = fileName;
+    setWindowFilePath(curFile);
+
+    QSettings settings;
+    QStringList files = settings.value("recentFileList").toStringList();
+    files.removeAll(fileName);
+    files.prepend(fileName);
+    while (files.size() > MaxRecentFiles)
+        files.removeLast();
+
+    settings.setValue("recentFileList", files);
+	
+    foreach (QWidget *widget, QApplication::topLevelWidgets()) {
+        MainWindow *mainWin = qobject_cast<MainWindow *>(widget);
+        if (mainWin)
+            mainWin->updateRecentFileActions();
+    }
+}
+
+void MainWindow::updateRecentFileActions()
+{
+    QSettings settings;
+    QStringList files = settings.value("recentFileList").toStringList();
+
+    int numRecentFiles = qMin(files.size(), (int)MaxRecentFiles);
+
+    for (int i = 0; i < numRecentFiles; ++i) {
+        QString text = tr("&%1 %2").arg(i + 1).arg(strippedName(files[i]));
+        recentFileActs[i]->setText(text);
+        recentFileActs[i]->setData(files[i]);
+        recentFileActs[i]->setVisible(true);
+    }
+    for (int j = numRecentFiles; j < MaxRecentFiles; ++j)
+        recentFileActs[j]->setVisible(false);
+
+    separatorAct->setVisible(numRecentFiles > 0);
+ }
+
+QString MainWindow::strippedName(const QString &fullFileName)
+{
+	return QFileInfo(fullFileName).dir().dirName();
+}
+
+void MainWindow::openRecentFile()
+{
+	QAction *action = qobject_cast<QAction *>(sender());
+	if (action)
+		api->evaluateJavaScript("openRecentProject('"+action->data().toString()+"'); null");
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+ {
+    if (api->closeApp()) {
+		event->accept();
+    } else {
+        event->ignore();
+    }
+ }
 
 void MainWindow::createStatusBar()
 {

@@ -34,6 +34,8 @@ api.writeFile = window._api.writeFile;
 
 api.readFile = window._api.readFile;
 
+api.readFileDialog = window._api.readFileDialog;
+
 api.saveAsDialog = window._api.saveAsDialog;
 
 api.setUndoMenu = window._api.setUndoMenu;
@@ -51,3 +53,5 @@ api.setSaveAsMenu = window._api.setSaveAsMenu;
 api.setAddImagesMenu = window._api.setAddImagesMenu;
 
 api.setAddFoldersMenu = window._api.setAddFoldersMenu;
+
+api.openBrowser = window._api.openBrowser;

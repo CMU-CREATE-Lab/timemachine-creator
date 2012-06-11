@@ -37,6 +37,10 @@ int main(int argc, char *argv[])
 #endif
 
   QApplication a(argc, argv);
+  
+  // don't delete this! it is required for QSettings
+  a.setOrganizationName("Create Lab");
+  a.setApplicationName("Time Machine Creator");
 
   // Get root directory
   std::string exedir = filename_directory(executable_path());
@@ -125,7 +129,6 @@ int main(int argc, char *argv[])
 
   //view.show();
   windowMenu->show();
-  
   
   return a.exec();
 }

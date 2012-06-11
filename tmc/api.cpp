@@ -32,6 +32,15 @@ void API::evaluateJavaScript(const QString & scriptSource) {
   frame->evaluateJavaScript(scriptSource);
 }
 
+bool API::closeApp() {
+	QVariant v = frame->evaluateJavaScript("isSafeToClose();");
+	return v.toBool();
+}
+
+void API::openBrowser(QString url) {
+	QDesktopServices::openUrl(url);
+}
+
 void API::setUndoMenu(bool state) {
 	mainwindow->setUndoMenu(state);
 }
@@ -187,19 +196,26 @@ bool API::writeFile(QString path, QString data)
     return false;
   }
   QTextStream(&file) << data;
+  mainwindow->setCurrentFile(path);
   return true;
 }
 
-QString API::readFile(QString caption, QString startingDirectory, QString filter)
+QString API::readFileDialog(QString caption, QString startingDirectory, QString filter)
 {
   QString path = QFileDialog::getOpenFileName(NULL, caption, startingDirectory, filter);
-  if(path != "") {
-	  QFile file(path);
-	  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return ""; // null would be better
-	  openedProject = path;
-	  return QTextStream(&file).readAll();
-  }
-  return NULL;
+  return readFile(path);
+}
+
+QString API::readFile(QString path)
+{
+	if(path != "") {
+		QFile file(path);
+		if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return ""; // null would be better
+		openedProject = path;
+		mainwindow->setCurrentFile(path);
+		return QTextStream(&file).readAll();
+	}
+	return NULL;
 }
 
 QString API::getOpenedProjectPath()
