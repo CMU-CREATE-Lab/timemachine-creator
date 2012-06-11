@@ -17,10 +17,16 @@ public:
 	void setApi(API *api);
 	void setUndoMenu(bool state);
 	void setRedoMenu(bool state);
+	void setOpenProjectMenu(bool state);
+	void setSaveMenu(bool state);
+	void setSaveAsMenu(bool state);
+	void setAddImagesMenu(bool state);
+	void setAddFoldersMenu(bool state);
 	
 private slots:
 	void open();
 	void save();
+	void saveAs();
 	void addImages();
 	void addFolders();
 	
@@ -36,6 +42,7 @@ private:
 	QAction *addImagesAction;
 	QAction *addFoldersAction;
 	QAction *saveAction;
+	QAction *saveAsAction;
 	QAction *exitAction;
 	
 	QAction *undoAction;

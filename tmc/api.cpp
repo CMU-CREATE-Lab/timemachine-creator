@@ -40,6 +40,26 @@ void API::setRedoMenu(bool state) {
 	mainwindow->setRedoMenu(state);
 }
 
+void API::setOpenProjectMenu(bool state) {
+	mainwindow->setOpenProjectMenu(state);
+}
+
+void API::setSaveMenu(bool state) {
+	mainwindow->setSaveMenu(state);
+}
+
+void API::setSaveAsMenu(bool state) {
+	mainwindow->setSaveAsMenu(state);
+}
+
+void API::setAddImagesMenu(bool state) {
+	mainwindow->setAddImagesMenu(state);
+}
+
+void API::setAddFoldersMenu(bool state) {
+	mainwindow->setAddFoldersMenu(state);
+}
+
 int API::log() {
   fprintf(stderr, "log!\n");
   QVariantList args;

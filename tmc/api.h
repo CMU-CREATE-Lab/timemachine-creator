@@ -14,6 +14,7 @@ class API : public QObject
   Q_OBJECT
   QWebFrame *frame;
   MainWindow *mainwindow;
+  
 public:
   API(const std::string &rootdir);
   void setFrame(QWebFrame *frame);
@@ -34,8 +35,15 @@ public:
   Q_INVOKABLE void setUndoMenu(bool state);
   Q_INVOKABLE void setRedoMenu(bool state);
   Q_INVOKABLE QString getOpenedProjectPath();
+  Q_INVOKABLE void setOpenProjectMenu(bool state);
+  Q_INVOKABLE void setSaveMenu(bool state);
+  Q_INVOKABLE void setSaveAsMenu(bool state);
+  Q_INVOKABLE void setAddImagesMenu(bool state);
+  Q_INVOKABLE void setAddFoldersMenu(bool state);
+  
 signals:
   void callback(int id, QVariantList args);
+  
 protected:
   QStringList droppedPaths;
   QString openedProject;

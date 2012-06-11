@@ -41,3 +41,13 @@ api.setUndoMenu = window._api.setUndoMenu;
 api.setRedoMenu = window._api.setRedoMenu;
 
 api.getOpenedProjectPath = window._api.getOpenedProjectPath;
+
+api.setOpenProjectMenu = window._api.setOpenProjectMenu;
+
+api.setSaveMenu = window._api.setSaveMenu;
+
+api.setSaveAsMenu = window._api.setSaveAsMenu;
+
+api.setAddImagesMenu = window._api.setAddImagesMenu;
+
+api.setAddFoldersMenu = window._api.setAddFoldersMenu;

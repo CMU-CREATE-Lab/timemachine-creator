@@ -12,9 +12,12 @@ MainWindow::MainWindow()
 	openAction = new QAction(tr("&Open Project"), this);
 	openAction->setShortcuts(QKeySequence::Open);
 	openAction->setStatusTip(tr("Open a new time machine project"));
-	saveAction = new QAction(tr("&Save Project"), this);
+	saveAction = new QAction(tr("&Save"), this);
 	saveAction->setShortcuts(QKeySequence::Save);
 	saveAction->setStatusTip(tr("Save your time machine project"));
+	saveAsAction = new QAction(tr("Save &As..."), this);
+	saveAsAction->setShortcuts(QKeySequence::SaveAs);
+	saveAsAction->setStatusTip(tr("Save as your time machine project"));
 	addImagesAction = new QAction(tr("Add &Images"), this);
 	addImagesAction->setShortcut(Qt::ControlModifier + Qt::ShiftModifier + Qt::Key_I);
 	addImagesAction->setStatusTip(tr("Create a new project by adding your image files"));
@@ -39,6 +42,7 @@ MainWindow::MainWindow()
 	// creating connections
 	connect(openAction, SIGNAL(triggered()), this, SLOT(open()));
 	connect(saveAction, SIGNAL(triggered()), this, SLOT(save()));
+	connect(saveAsAction, SIGNAL(triggered()), this, SLOT(saveAs()));
 	connect(addImagesAction, SIGNAL(triggered()), this, SLOT(addImages()));
 	connect(addFoldersAction, SIGNAL(triggered()), this, SLOT(addFolders()));
 	connect(exitAction, SIGNAL(triggered()), qApp, SLOT(quit()));
@@ -52,6 +56,7 @@ MainWindow::MainWindow()
 	fileMenu = menuBar()->addMenu(tr("&File"));
 	fileMenu->addAction(openAction);
 	fileMenu->addAction(saveAction);
+	fileMenu->addAction(saveAsAction);
 	fileMenu->addSeparator();
 	fileMenu->addAction(addImagesAction);
 	fileMenu->addAction(addFoldersAction);
@@ -81,6 +86,31 @@ void MainWindow::setUndoMenu(bool state)
 void MainWindow::setRedoMenu(bool state)
 {
 	redoAction->setEnabled(state);
+}
+
+void MainWindow::setOpenProjectMenu(bool state)
+{
+	openAction->setEnabled(state);
+}
+
+void MainWindow::setSaveMenu(bool state)
+{
+	saveAction->setEnabled(state);
+}
+
+void MainWindow::setSaveAsMenu(bool state)
+{
+	saveAsAction->setEnabled(state);
+}
+
+void MainWindow::setAddImagesMenu(bool state)
+{
+	addImagesAction->setEnabled(state);
+}
+
+void MainWindow::setAddFoldersMenu(bool state)
+{
+	addFoldersAction->setEnabled(state);
 }
 
 void MainWindow::setApi(API *api)
@@ -122,9 +152,14 @@ void MainWindow::addFolders()
 	return;
 }
 
+void MainWindow::saveAs()
+{
+	api->evaluateJavaScript("saveAs(); null");
+}
+
 void MainWindow::save()
 {
-	api->evaluateJavaScript("saveData(); null");
+	api->evaluateJavaScript("save(); null");
 }
 
 void MainWindow::undo()

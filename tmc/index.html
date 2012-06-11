@@ -127,7 +127,7 @@
     </style>
     <script>
 		// put the saving code here. it is called by menubar
-		function saveData() {
+		function saveAs() {
 			var startDirectory = '';
 			var saveDir = api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.timemachinedefinition');
 			if (saveDir == '') {
@@ -137,13 +137,26 @@
 				  alert('Error creating directory ' + saveDir);
 				  return;
 				}
-				var definitionPath = saveDir + '/definition.timemachinedefinition';
+				definitionPath = saveDir + '/definition.timemachinedefinition';
 				if (!api.writeFile(definitionPath, JSON.stringify(backUpData))) {
 				   alert('Error creating ' + definitionPath);
 				   return;
 				}
 				alert('Data saved');
 			}
+		}
+		
+		function save() {
+			definitionPath = api.getOpenedProjectPath();
+			if(!definitionPath) {
+				saveAs();
+				return;
+			}
+			else if (!api.writeFile(definitionPath, JSON.stringify(backUpData))) {
+				   alert('Error creating ' + definitionPath);
+				   return;
+			}
+			alert('Saved');
 		}
 		
 		// put the loading code here. it is called by menubar
@@ -178,7 +191,33 @@
 		function imagesDropped() {
 			addDroppedFiles();
 		}
+		
+		// enable or disable open project menu
+		function openProjectAction() {
+			api.setOpenProjectMenu(false); // just for test
+		}
+		
+		// enable or disable save menu
+		function saveAction() {
+			api.setSaveMenu(false); // just for test
+		}
+		
+		// enable or disable saveAs menu
+		function saveAsAction() {
+			api.setSaveAsMenu(false); // just for test
+		}
+		
+		// enable or disable add images menu
+		function addImagesAction() {
+			api.setAddImagesMenu(false); // just for test
+		}
+		
+		// enable or disable add folder menu
+		function addFoldersAction() {
+			api.setAddFoldersMenu(false); // just for test
+		}
 	  
+	  var definitionPath;
 	  var undoArray = new Array();
 	  var filmstripIndex = 0;
 	  var activeData = new Array();
