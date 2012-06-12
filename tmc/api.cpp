@@ -38,7 +38,40 @@ bool API::closeApp() {
 }
 
 void API::openBrowser(QString url) {
+#if defined Q_WS_WIN
+	// search whether user has chrome installed
+	QSettings brwCH("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe",QSettings::NativeFormat);
+	QString brwPath = brwCH.value( "Default", "0" ).toString();
+	if(brwPath!="0") {
+		QProcess::startDetached(brwPath, QStringList() << url);
+		return;
+	}
+	
+	// search whether user has safari installed
+	QSettings brwSA("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\Safari.exe",QSettings::NativeFormat);
+	brwPath = brwSA.value( "Default", "0" ).toString();
+	if(brwPath!="0") {
+		QProcess::startDetached(brwPath, QStringList() << url);
+		return;
+	}
+	
+	// tell user that they don't have any compatible browser and exit
+	QMessageBox::critical(mainwindow,tr("No Browser"),tr("There is no compatible browser installed on this computer.\nYou need either Chrome or Safari in order to view this page."));
+	return;
+	
+// TODO: must be tested on MAC
+#elif defined Q_WS_MAC
+	if(QFileInfo("/Applications/Google Chrome.app").exists())
+		QProcess::startDetached("/Applications/Google Chrome.app", QStringList() << url);
+	else if(QFileInfo("/Applications/Safari.app").exists())
+		QProcess::startDetached("/Applications/Safari.app", QStringList() << url);
+	else
+		QDesktopServices::openUrl(url);
+
+// TODO: must be tested on Linux
+#else	
 	QDesktopServices::openUrl(url);
+#endif
 }
 
 void API::setUndoMenu(bool state) {

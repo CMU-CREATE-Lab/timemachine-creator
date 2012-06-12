@@ -88,7 +88,8 @@ MainWindow::MainWindow()
 void MainWindow::setCurrentFile(const QString &fileName)
 {
     curFile = fileName;
-    setWindowFilePath(curFile);
+    //setWindowFilePath(curFile);
+	this->setWindowTitle("tmc - "+strippedName(curFile));
 
     QSettings settings;
     QStringList files = settings.value("recentFileList").toStringList();
@@ -99,11 +100,12 @@ void MainWindow::setCurrentFile(const QString &fileName)
 
     settings.setValue("recentFileList", files);
 	
-    foreach (QWidget *widget, QApplication::topLevelWidgets()) {
+    /*foreach (QWidget *widget, QApplication::topLevelWidgets()) {
         MainWindow *mainWin = qobject_cast<MainWindow *>(widget);
         if (mainWin)
             mainWin->updateRecentFileActions();
-    }
+    }*/
+	updateRecentFileActions();
 }
 
 void MainWindow::updateRecentFileActions()
@@ -134,7 +136,18 @@ void MainWindow::openRecentFile()
 {
 	QAction *action = qobject_cast<QAction *>(sender());
 	if (action)
-		api->evaluateJavaScript("openRecentProject('"+action->data().toString()+"'); null");
+	{
+		if (QFileInfo(action->data().toString()).exists())
+			api->evaluateJavaScript("openRecentProject('"+action->data().toString()+"'); null");
+		else {
+			QSettings settings;
+			QStringList files = settings.value("recentFileList").toStringList();
+			files.removeAll(action->data().toString());
+			settings.setValue("recentFileList", files);
+			updateRecentFileActions();
+			QMessageBox::critical(this,tr("File Does Not Exist."),tr("This file does not exist."));
+		}
+	}
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)

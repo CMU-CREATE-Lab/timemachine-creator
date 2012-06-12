@@ -160,12 +160,11 @@
 		}
 		
 		// put the loading code here. it is called by menubar
-		function openData(startDirectory) {
-			//var startDirectory = '';
-			if (typeof startDirectory == 'undefined')
+		function openData(path) {
+			if (typeof path == 'undefined')
 				foo = JSON.parse(api.readFileDialog('Open Time Machine Definition', '', '*.timemachinedefinition'));
 			else
-				foo = JSON.parse(api.readFile(startDirectory));
+				foo = JSON.parse(api.readFile(path));
 			data = new Array();
 			for(c = 0;c<$(foo).size(); c++) {
 				data.push(foo[c]);
