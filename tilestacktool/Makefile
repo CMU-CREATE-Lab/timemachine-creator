@@ -1,6 +1,6 @@
 COMMANDS=
 
-CPP_UTILS_DIR=../cpp-utils
+CPP_UTILS_DIR=../cpp_utils
 
 include ../Makefile.common
 
@@ -52,7 +52,7 @@ test-modis: tilestacktool
 	./tilestacktool --load modis/r12.8.ts2 --writehtml modis/r12.8.html
 	./tilestacktool --load modis/r12.8.ts2 --writevideo modis/r12.8.mp4 1 26
 
-SOURCES = tilestacktool.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp-utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp $(COMMANDS)
+SOURCES = tilestacktool.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp qt-faststart.cpp $(COMMANDS)
 
 ZLIB_DIR = dependencies/zlib
 
@@ -143,7 +143,7 @@ endif
 libjpeg: $(LIBJPEG)
 
 tilestacktool.exe: $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG)
-	cl /EHsc /Ox /MT /Ijsoncpp /I$(LIBJPEG_DIR) /I$(LIBPNG_DIR) /I../cpp-utils /Fetilestacktool.exe $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG) /link /NODEFAULTLIB:LIBCMT
+	cl /EHsc /Ox /MT /Ijsoncpp /I$(LIBJPEG_DIR) /I$(LIBPNG_DIR) /I../cpp_utils /Fetilestacktool.exe $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG) /link /NODEFAULTLIB:LIBCMT
 
 tilestacktool: $(SOURCES) $(LIBPNG) $(ZLIB) $(LIBJPEG)
 	g++ $(PLATFORM_CXX_FLAGS) -O3 -g -Ijsoncpp -I$(LIBJPEG_DIR) -I$(LIBPNG_DIR) -I$(CPP_UTILS_DIR) -Wall $^ -o $@

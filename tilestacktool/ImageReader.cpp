@@ -3,7 +3,7 @@
 #include <stdexcept>
 #include <vector>
 
-#include "cpp-utils.h"
+#include "cpp_utils.h"
 #include "marshal.h"
 
 #include "ImageReader.h"

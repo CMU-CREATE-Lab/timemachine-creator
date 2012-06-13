@@ -13,11 +13,12 @@
 #include <vector>
 
 #include "marshal.h"
-#include "cpp-utils.h"
+#include "cpp_utils.h"
 #include "png_util.h"
 #include "GPTileIdx.h"
 #include "ImageReader.h"
 #include "ImageWriter.h"
+#include "qt-faststart.h"
 
 #include "io.h"
 
@@ -70,7 +71,10 @@ public:
     pixel_format =                read_u32(&footer[32]);
     compression_format =          read_u32(&footer[36]);
     unsigned long long magic =    read_u64(&footer[40]);
-    assert(magic == 0x646e65326b747374);
+    if (magic != 0x646e65326b747374) {
+      fprintf(stderr, "Incorrect magic (%08x:%08x)", (unsigned int)(magic >> 32), (unsigned int)magic);
+      assert(0);
+    }
 
     size_t tocentry_size = 24;
     size_t toclen = tocentry_size * nframes;
@@ -95,6 +99,7 @@ void load(std::string filename)
 u8 viz_channel(u16 in, double min, double max, double gamma) {
   double tmp = (in - min) / (max - min);
   if (tmp < 0) tmp = 0;
+  // gamma > 1 brightens midtones; < 1 darkens midtones
   int ret = (int) floor(256 * pow(tmp, 1.0/gamma));
   if (ret > 255) ret = 255;
   return (u8)ret;
@@ -183,10 +188,12 @@ class FfmpegEncoder {
   int width, height;
   FILE *out;
   size_t total_written;
+  std::string tmp_filename;
+  std::string dest_filename;
 public:
   
   static bool test() {
-    std::string cmdline = string_printf("\"%s\" -version", path_to_ffmpeg().c_str());
+    std::string cmdline = string_printf("\"%s\" -loglevel error -version", path_to_ffmpeg().c_str());
     FILE *ffmpeg = popen_utf8(cmdline.c_str(), "wb");
     if (!ffmpeg) {
       fprintf(stderr, "FfmpegEncoder::test: Can't run '%s'.  This is likely due to an installation problem.\n", cmdline.c_str());
@@ -198,12 +205,25 @@ public:
       fprintf(stderr, "FfmpegEncoder::test:  pclose '%s' returns status %d.  This is likely due to an installation problem.\n", cmdline.c_str(), status);
       return false;
     }
+
+    fprintf(stderr, "ffmpeg: success\n");
+
+    // No longer using qt-faststart executable;  instead, using internal qt_faststart function    
+    // cmdline = string_printf("\"%s\"", path_to_qt_faststart().c_str());
+    // status = system(cmdline.c_str());
+    // if (status != 0) {
+    //   fprintf(stderr, "FfmpegEncoder::test: Can't run '%s'.  This is likely due to an installation problem.\n", cmdline.c_str());
+    //   return false;
+    // }
+    // fprintf(stderr, "qt-faststart: success\n");
+
     return true;
   }
   
   FfmpegEncoder(std::string dest_filename, int width, int height,
                 double fps, double compression) :
-    width(width), height(height), total_written(0) {
+    width(width), height(height), total_written(0), dest_filename(dest_filename) {
+    tmp_filename = temporary_path("tmp.mp4");
     int nthreads = 8;
     std::string cmdline = string_printf("\"%s\" -threads %d -loglevel error -benchmark", path_to_ffmpeg().c_str(), nthreads);
     // Input
@@ -216,7 +236,7 @@ public:
     cmdline += " -coder 1 -flags +loop -cmp +chroma -partitions +parti8x8+parti4x4+partp8x8+partb8x8 -me_method umh -subq 8 -me_range 16 -keyint_min 25 -sc_threshold 40 -i_qfactor 0.71 -b_strategy 2 -qcomp 0.6 -qmin 10 -qmax 51 -qdiff 4 -refs 4 -directpred 3 -trellis 1 -flags2 +wpred+mixed_refs+dct8x8+fastpskip";
 
     cmdline += string_printf(" -crf %g -g %d -bf 0 \"%s\"",
-                             compression, frames_per_keyframe, dest_filename.c_str());
+                             compression, frames_per_keyframe, tmp_filename.c_str());
     fprintf(stderr, "Cmdline: %s\n", cmdline.c_str());
 
     #ifdef _WIN32
@@ -247,23 +267,47 @@ public:
     fprintf(stderr, "Wrote %ld frames (%ld bytes) to ffmpeg\n", 
             (long) (total_written / (width * height * 3)), (long) total_written);
     out = NULL;
+    //std::string cmd = string_printf("\"%s\" \"%s\" \"%s\"", path_to_qt_faststart().c_str(), tmp_filename.c_str(), dest_filename.c_str());
+    //if (system_utf8(cmd)) {
+    //  throw_error("Error running qtfaststart: '%s'", cmd.c_str());
+    //}
+    qt_faststart(tmp_filename, dest_filename);
+    delete_file(tmp_filename);
   }
 
+  
   static std::string path_to_ffmpeg() {
-    std::string colocated = string_printf("%s/ffmpeg/%s/ffmpeg%s",
-                                     filename_directory(executable_path()).c_str(),
-                                     os().c_str(),
-                                     executable_suffix().c_str());
+    return path_to_executable("ffmpeg");
+  }
 
-    if (filename_exists(colocated)) return colocated;
+  static std::string path_to_qt_faststart() {
+    return path_to_executable("qt-faststart");
+  }
     
-    colocated = string_printf("%s/ffmpeg%s",
-			      filename_directory(executable_path()).c_str(),
-			      executable_suffix().c_str());
-
-    if (filename_exists(colocated)) return colocated;
-			      
-    return "ffmpeg";
+  static std::string path_to_executable(std::string executable) {
+    executable += executable_suffix();
+    std::vector<std::string> search_path;
+    search_path.push_back(string_printf("%s/ffmpeg/%s/%s",
+					filename_directory(executable_path()).c_str(),
+					os().c_str(),
+					executable.c_str()));
+    search_path.push_back(string_printf("%s/%s",
+					filename_directory(executable_path()).c_str(),
+					executable.c_str()));
+    
+    for (unsigned i = 0; i < search_path.size(); i++) {
+      if (filename_exists(search_path[i])) {
+	fprintf(stderr, "Found %s at path %s\n", executable.c_str(), search_path[i].c_str());
+	return search_path[i];
+      }
+    }
+    
+    fprintf(stderr, "Could not find %s in search path:\n", executable.c_str());
+    for (unsigned i = 0; i < search_path.size(); i++) {
+      fprintf(stderr, "%s\n", search_path[i].c_str());
+    }
+    fprintf(stderr, "Using version in PATH, if available\n");
+    return executable;
   }
 };
 
@@ -428,12 +472,12 @@ protected:
 public:
   Stackset(const std::string &stackset_path) : stackset_path(stackset_path) {
     std::string json_path = stackset_path + "/r.json";
-    Json::Reader reader;
-    std::ifstream json_in(json_path.c_str());
-    if (!json_in.good()) {
-      throw_error("Can't open %s for reading", json_path.c_str());
+    std::string json = read_file(json_path);
+    if (json == "") {
+      throw_error("Can't open %s for reading, or is empty", json_path.c_str());
     }
-    if (!reader.parse(json_in, info)) {
+    Json::Reader json_reader;
+    if (!json_reader.parse(json, info)) {
       throw_error("Can't parse %s as JSON", json_path.c_str());
     }
     width = info["width"].asInt();
@@ -442,9 +486,16 @@ public:
     tile_height = info["tile_height"].asInt();
 
     nlevels = compute_tile_nlevels(width, height, tile_width, tile_height);
-    (TilestackInfo&)(*this) = (TilestackInfo&)(*get_reader(nlevels-1, 0, 0));
+    TilestackReader *reader = get_reader(nlevels-1, 0, 0);
+    if (!reader) throw_error("Initializing stackset but couldn't find tilestack at path %s", 
+			     path(nlevels-1, 0, 0).c_str());
+    (TilestackInfo&)(*this) = (TilestackInfo&)(*reader);
   }
   
+  std::string path(int level, int x, int y) {
+    return stackset_path + "/" + GPTileIdx(level, x, y).path() + ".ts2";
+  }
+
   TilestackReader *get_reader(int level, int x, int y) {
     static unsigned long long cached_idx = -1;
     static TilestackReader *cached_reader = NULL;
@@ -453,10 +504,8 @@ public:
     if (readers.find(idx) == readers.end()) {
       // TODO(RS): If this starts running out of RAM, consider LRU on the readers
       try {
-	std::string path = stackset_path + "/" + GPTileIdx(level, x, y).path() + ".ts2";
-	
-	readers[idx] = new TilestackReader(std::auto_ptr<Reader>(FileReader::open(path)));
-      } catch (std::runtime_error) {
+	readers[idx] = new TilestackReader(std::auto_ptr<Reader>(FileReader::open(path(level, x, y))));
+      } catch (std::runtime_error &e) {
         readers[idx] = NULL;
       }
     }
@@ -620,6 +669,7 @@ void usage(const char *fmt, ...) {
           "        Frame format {\"frameno\":N, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
           "        Multiframe with single bounds. from and to are both inclusive.  step defaults to 1:\n"
           "          {\"frames\":{\"from\":N, \"to\":N, \"step\":N], \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
+          "--createfile file   (like touch file)\n"
           );
   exit(1);
 }
@@ -637,7 +687,7 @@ bool self_test() {
   bool success = true;
   fprintf(stderr, "tilestacktool self-test: ");
   {
-    fprintf(stderr, "ffmpeg:\n");
+    fprintf(stderr, "ffmpeg/qt-faststart:\n");
     bool ffmpeg_ok = FfmpegEncoder::test();
     fprintf(stderr, "%s\n", ffmpeg_ok ? "success" : "FAIL");
     success = success && ffmpeg_ok;

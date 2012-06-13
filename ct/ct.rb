@@ -19,6 +19,9 @@ require 'tile'
 require 'tileset'
 require 'xmlsimple'
 
+$run_remotely = nil
+$run_remotely_json = false
+
 if VERSION < '1.8.6' || VERSION > '1.9.'
   raise "Ruby version is #{VERSION}, but must be >= 1.8.7, and must be < 1.9 because of threading bugs in 1.9"
 end
@@ -90,7 +93,7 @@ def stitch_cmd
   cmd = [$stitch]
   cmd << '--batch-mode'
   cmd << '--nolog'
-  $os == 'linux' and $submit and cmd << '--xvfb'
+  $os == 'linux' and $run_remotely and cmd << '--xvfb'
   cmd
 end
 
@@ -107,6 +110,29 @@ class Filesystem
 
   def self.write_file(path, data)
     open(path, 'w') { |fh| fh.write data }
+  end
+
+  def self.cache_path(root)
+  end
+
+  def self.exists?(path)
+    File.exists? path
+  end
+    
+  def self.cached_exists?(path)
+    File.exists? path
+  end
+
+  def self.cp_r(src, dest)
+    FileUtils.cp_r src, dest
+  end
+
+  def self.cp(src, dest)
+    FileUtils.cp src, dest
+  end
+
+  def self.mv(src, dest)
+    FileUtils.mv src, dest
   end
 end
 
@@ -155,7 +181,8 @@ def usage(msg=nil)
   STDERR.puts "-j N:  number of parallel jobs to run (default 1)"
   STDERR.puts "-r N:  max number of rules per job (default 1)"
   STDERR.puts "-v:    verbose"
-  STDERR.puts "--remote:  Use 'submit_synchronous' to submit remote jobs"
+  STDERR.puts "--remote [script]:  Use script to submit remote jobs"
+  STDERR.puts "--remote_json [script]:  Use script to submit remote jobs"
   STDERR.puts "--tilestacktool path: full path of tilestacktool"
   exit 1
 end
@@ -219,7 +246,6 @@ class Rule
     @targets = targets
     @dependencies = dependencies
     @commands = commands
-    @local = options[:local] || false
     @@all << self
     @@all_targets += targets
   end
@@ -355,6 +381,8 @@ class VideosetCompiler
                 'bounds' => vt.source_bounds(@vid_width, @vid_height)};
       cmd << JSON.generate(frames)
       cmd << @parent.tilestack_dir
+
+      cmd += @parent.video_filter || []
 
       cmd += ['--writevideo', target, @fps, @quality]
       # TODO: leader!
@@ -595,7 +623,7 @@ class StitchSource
   end
 
   def find_directories
-    File.exists?("#{@parent.store}/0100-unstitched") or raise "Could not find #{@parent.store}/0100-unstitched"
+    Filesystem.cached_exists?("#{@parent.store}/0100-unstitched") or raise "Could not find #{@parent.store}/0100-unstitched"
     dirs = Dir.glob("#{@parent.store}/0100-unstitched/*").sort.select {|dir| File.directory? dir}
     dirs.empty? and raise 'Found no directories in 0100-unstitched'
     dirs
@@ -760,8 +788,8 @@ end
 $sourcetypes['stitch'] = StitchSource;
 
 class Compiler
-  attr_reader :source, :tiles_dir, :raw_tilestack_dir, :tilestack_dir, :videosets_dir, :urls, :store
-  # attr_reader :id, :versioned_id
+  attr_reader :source, :tiles_dir, :raw_tilestack_dir, :tilestack_dir, :videosets_dir, :urls, :store, :video_filter
+  attr_reader :id, :versioned_id
   
   def to_s
     "#<Compiler name=#{name} width=#{@width} height=#{@height}>"
@@ -778,6 +806,7 @@ class Compiler
     @store = File.expand_path(@store)
     STDERR.puts "Store is #{@store}"
     @stack_filter = settings['stack_filter']
+    @video_filter = settings['video_filter']
     @tiles_dir = "#{store}/0200-tiles"
     @tilestack_dir = "#{store}/0300-tilestacks"
     @raw_tilestack_dir = @stack_filter ? "#{store}/0250-raw-tilestacks" : @tilestack_dir
@@ -822,24 +851,26 @@ class Compiler
     else
       @videosets_parent_dir="#{store}/0400-videosets"
       @videosets_dir="#{@videosets_parent_dir}/#{@versioned_id}"
-      if ! File.exists? @videosets_parent_dir
+      if ! Filesystem.cached_exists? @videosets_parent_dir
         case destination_info["type"]
         when "local"
           Filesystem.mkdir_p @videosets_parent_dir
         when "symlink"
           target = destination_info["target"] or raise("Must specify 'target' for 'symlink' in 'destination'")
-          File.exists? target or raise("'target' path #{target} does not exist")
+          Filesystem.cached_exists? target or raise("'target' path #{target} does not exist")
           File.symlink(target, @videosets_parent_dir)
         else
           raise "Destination type not recognized"
         end
       end
     end
-    Filesystem.mkdir_p @videosets_dir
-    ['css', 'images', 'js', 'player_template.html', 'time_warp_composer.html'].each do |src|
-      FileUtils.cp_r "#{$explorer_source_dir}/#{src}", @videosets_dir
+    if not Filesystem.cached_exists? @videosets_dir
+      videosets_tmp = @videosets_dir + ".tmp"
+      Filesystem.mkdir_p videosets_tmp
+      Filesystem.cp_r ['css', 'images', 'js', 'player_template.html', 'time_warp_composer.html'].map{|path|"#{$explorer_source_dir}/#{path}"}, videosets_tmp
+      Filesystem.cp "#{$explorer_source_dir}/integrated-viewer.html", "#{videosets_tmp}/view.html"
+      Filesystem.mv videosets_tmp, @videosets_dir
     end
-    FileUtils.cp "#{$explorer_source_dir}/integrated-viewer.html", "#{@videosets_dir}/view.html"
   end
 
   def initialize_tiles
@@ -949,18 +980,8 @@ class Compiler
     Rule.add("capture_times", videoset_rules, [cmd])
   end
 
-  def howto_rule
-    # dependencies = capture_times_rule.targets
-    msg = "If you're authoring a mediawiki page at timemachine.gigapan.org, you can add this to #{@urls['view'] || "your page"} to see the result: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{@versioned_id}|timelapse_dataset=1}}"
-    @urls['track'] and msg += " and update tracking page #{@urls['track']}"
-    
-    Rule.add("howto", videoset_rules,
-             [['echo', msg]],
-             {:local=>true})
-  end
-
   def compute_rules
-    howto_rule
+    videoset_rules
   end
 
   def info
@@ -991,18 +1012,11 @@ class Compiler
     
     all_targets = grouped_rules.flat_map &:targets
     
-    open("#{store}/rules.txt", 'w') do |rulesfile|
-      rulesfile.puts "# generated by ct.rb"
-      rulesfile.puts
-      rulesfile.puts "all: #{all_targets.join(" ")}"
-      rulesfile.puts
-      
-      grouped_rules.each do |rule|
-        rulesfile.puts rule.to_make
-        rulesfile.puts
-      end
-      
-    end
+    rules = []
+    rules << "# generated by ct.rb"
+    rules << "all: #{all_targets.join(" ")}"
+    rules += grouped_rules.map { |rule| rule.to_make }
+    Filesystem.write_file("#{store}/rules.txt", rules.join("\n\n"))
   end
 end
 
@@ -1063,7 +1077,7 @@ class Maker
     if @targets.member?(target)
       @targets[target]
     else
-      @targets[target] = File.exists?(target)
+      @targets[target] = Filesystem.cached_exists?(target)
     end
   end
 
@@ -1093,23 +1107,31 @@ class Maker
     begin
       counter = 1;
 
-      if @local || rules.all?(&:local)
+      if !$run_remotely || rules.all?(&:local)
         result = rules.flat_map(&:commands).all? do |command|
           STDERR.write "#{date} Job #{job_no} executing #{command.join(' ')}\n"
           if (command[0] == 'mv')
             File.rename(command[1], command[2])
-          elsif (command[0] == 'echo')
-            STDERR.puts command[1..-1].join(' ')
-            true
           else
-            Kernel.system(*command) # This seems to randomly raise an exception in ruby 1.9
+            ret = Kernel.system(*command) # This seems to randomly raise an exception in ruby 1.9
+            unless ret
+              STDERR.write "Command #{command.join(' ')} failed with ret=#{ret}, #{$?}\n"
+            end
+            ret
           end
         end
       else
-        commands = rules.flat_map &:commands
-        command = commands.join(" && ")
-        command = "submit_synchronous '#{command}'"
-    
+        if $run_remotely_json
+          json_file = "job_#{job_no}_#{Process.pid}.json"
+          open(json_file, "w") do |json|
+            json.puts JSON.pretty_generate rules.flat_map &:commands
+          end
+          command = "#{$run_remotely} --jobs @#{json_file}"
+        else
+          commands = rules.flat_map &:commands
+          command = commands.join(" && ")
+          command = "#{$run_remotely} '#{command}'"
+        end
         STDERR.write "#{date} Job #{job_no} executing #{command}\n"
     
         # Retry up to 3 times if we fail
@@ -1136,8 +1158,7 @@ class Maker
     end
   end
 
-  def make(max_jobs, max_rules_per_job, local=false)
-    @local = local
+  def make(max_jobs, max_rules_per_job)
     begin_time = Time.now
     # build all rules
     # rule depends on dependencies:
@@ -1323,7 +1344,6 @@ destination = nil
 
 njobs = 1
 rules_per_job = 1
-$submit = false
 
 while !ARGV.empty?
   arg = ARGV.shift
@@ -1334,16 +1354,15 @@ while !ARGV.empty?
   elsif arg == '-v'
     $verbose = true
   elsif arg == '--remote'
-    $submit = true
+    $run_remotely = ARGV.shift
+  elsif arg == '--remote-json'
+    $run_remotely_json = true
   elsif arg == '--tilestacktool'
     $tilestacktool = File.expand_path ARGV.shift
   elsif File.extname(arg) == '.tmc'
-    if File.directory?(arg)
-      arg = "#{arg}/definition.tmc"
-    end
-    jsonfile = arg
+    jsonfile = File.basename(arg) == 'definition.tmc' ? arg : "#{arg}/definition.tmc"
   elsif File.extname(arg) == '.timemachine'
-    destination = arg
+    destination = File.expand_path(arg)
   elsif arg == '--selftest'
     exit self_test ? 0 : 1
   elsif arg == '--selftest-no-stitch'
@@ -1369,15 +1388,18 @@ if jsonfile
     store = File.dirname(jsonfile)
   end
 else
-  if File.exists?('definition.tmc')
+  if Filesystem.exists?('definition.tmc')
     jsonfile = 'definition.tmc'
-  elsif File.exists?('default.json')
+  elsif Filesystem.exists?('default.json')
     jsonfile = 'default.json'
   else
     raise "Can't find definition.tmc"
   end
-  store = '.'
+  store = Dir.getwd
 end
+
+Filesystem.cache_directory store
+Filesystem.cache_directory destination
 
 STDERR.puts "Reading #{jsonfile}"
 definition = JSON.parse(Filesystem.read_file(jsonfile))
@@ -1389,10 +1411,13 @@ while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
   compiler.write_json
   compiler.compute_rules # Creates rules, which will be accessible from Rule.all
   compiler.write_rules
-  Maker.new(Rule.all).make(njobs, rules_per_job, ! $submit)
+  Maker.new(Rule.all).make(njobs, rules_per_job)
   retry_attempts += 1
 end
 
+STDERR.puts "If you're authoring a mediawiki page at timemachine.gigapan.org, you can add this to #{compiler.urls['view'] || "your page"} to see the result: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{compiler.versioned_id}|timelapse_dataset=1}}"
+compiler.urls['track'] and STDERR.puts "and update tracking page #{compiler.urls['track']}"
+    
 STDERR.puts "View at file://#{destination}/view.html"
 
 # result = RubyProf.stop

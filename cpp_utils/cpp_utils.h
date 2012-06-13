@@ -24,7 +24,10 @@ void make_directory(const std::string &dirname);
 void make_directory_and_parents(const std::string &dirname);
 bool filename_exists(const std::string &filename);
 void rename_file(const std::string &src, const std::string &dest);
+bool delete_file(const std::string &src);
 FILE *fopen_utf8(const std::string &path, const char *mode);
+std::string read_file(const std::string &path);
+int system_utf8(const std::string &cmdline);
 FILE *popen_utf8(const std::string &path, const char *mode);
 #ifdef _WIN32
 int pclose(FILE *p);

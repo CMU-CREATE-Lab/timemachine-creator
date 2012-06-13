@@ -24,7 +24,7 @@
   #include <sys/resource.h>
 #endif
 
-#include "cpp-utils.h"
+#include "cpp_utils.h"
 
 // From Randy Sargent's public domain library, 2001-2012
 
@@ -148,6 +148,8 @@ std::string string_printf(const char *fmt, ...) {
   return ret;
 }
 
+#ifndef CPP_UTILS_OMIT_FILESYSTEM
+
 void make_directory(const std::string &dirname) {
 #ifdef _WIN32
   _wmkdir(Unicode(dirname).path());
@@ -184,6 +186,29 @@ void rename_file(const std::string &src, const std::string &dest) {
 #endif
 }
 
+bool delete_file(const std::string &src) {
+#ifdef _WIN32
+  return 0 == _wunlink(Unicode(src).path());
+#else
+  return 0 == unlink(Unicode(src).path());
+#endif
+}
+
+std::string read_file(const std::string &filename) {
+  FILE *in = fopen_utf8(filename, "rb");
+  if (!in) return "";
+  std::vector<char> buf(1024*1024);
+  std::string ret;
+  while (1) {
+    size_t nread = fread(&buf[0], 1, sizeof(buf), in);
+    if (nread <= 0) break;
+    ret.append(&buf[0], nread);
+  }
+  return ret;
+}
+
+#endif /* #ifndef CPP_UTILS_OMIT_FILESYSTEM */
+
 FILE *fopen_utf8(const std::string &filename, const char *mode) {
 #ifdef _WIN32
   return _wfopen(Unicode(filename).path(), Unicode(mode).path());
@@ -192,11 +217,20 @@ FILE *fopen_utf8(const std::string &filename, const char *mode) {
 #endif
 }
 
-std::string remove_b(const char *str) {
+static std::string remove_b(const char *str) {
   std::string ret(str);
   // Remove instances of 'b'
   ret.erase(std::remove(ret.begin(), ret.end(), 'b'));
   return ret;
+}
+
+int system_utf8(const std::string &cmdline) {
+#ifdef _WIN32
+  // Add quotes around entire commandline per http://msdn.microsoft.com/en-us/library/96ayss4b.aspx
+  return _wsystem(Unicode("\"" + cmdline + "\"").path());
+#else
+  return system(cmdline.c_str());
+#endif
 }
 
 FILE *popen_utf8(const std::string &cmdline, const char *mode) {
@@ -342,11 +376,10 @@ std::string home_directory() {
 #include <pwd.h>
 
 std::string home_directory() {
-  struct passwd pwd, *pwdptr;
+  struct passwd pwd, *pwdptr = NULL;
   char buf[10000];
-  int ret = getpwuid_r(getuid(), &pwd, buf, sizeof(buf), &pwdptr);
-  assert(ret == 0 && pwdptr);
-  return pwdptr->pw_dir;
+  getpwuid_r(getuid(), &pwd, buf, sizeof(buf), &pwdptr);
+  return pwdptr ? pwdptr->pw_dir : "";
 }
 #endif
 
