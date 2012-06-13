@@ -54,4 +54,6 @@ api.setAddImagesMenu = window._api.setAddImagesMenu;
 
 api.setAddFoldersMenu = window._api.setAddFoldersMenu;
 
+api.setRecentlyAddedMenu = window._api.setRecentlyAddedMenu;
+
 api.openBrowser = window._api.openBrowser;

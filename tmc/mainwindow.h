@@ -23,6 +23,7 @@ public:
 	void setSaveAsMenu(bool state);
 	void setAddImagesMenu(bool state);
 	void setAddFoldersMenu(bool state);
+	void setRecentlyAddedMenu(bool state);
 	void setCurrentFile(const QString &fileName);
 	
 protected:

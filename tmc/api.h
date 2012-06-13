@@ -43,6 +43,7 @@ public:
   Q_INVOKABLE void setSaveAsMenu(bool state);
   Q_INVOKABLE void setAddImagesMenu(bool state);
   Q_INVOKABLE void setAddFoldersMenu(bool state);
+  Q_INVOKABLE void setRecentlyAddedMenu(bool state);
   Q_INVOKABLE void openBrowser(QString url);
   
 signals:

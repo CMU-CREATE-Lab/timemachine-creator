@@ -69,7 +69,39 @@ void API::openBrowser(QString url) {
 		QDesktopServices::openUrl(url);
 
 // TODO: must be tested on Linux
-#else	
+#else
+	QProcess process;
+    process.setReadChannel(QProcess::StandardOutput);
+    process.setReadChannelMode(QProcess::MergedChannels);
+	process.start("type -p chromium");
+
+    process.waitForStarted(1000);
+    process.waitForFinished(1000);
+
+    QByteArray list = process.readAll();
+	
+	// if there is chromium installed
+	if(list.length()>0)
+	{
+		QProcess::startDetached(list, QStringList() << url);
+		return;
+    }
+	
+	process.start("type -p google-chrome");
+
+    process.waitForStarted(1000);
+    process.waitForFinished(1000);
+
+    list = process.readAll();
+	
+	// if there is google-chrome installed
+	if(list.length()>0)
+	{
+		QProcess::startDetached(list, QStringList() << url);
+		return;
+    }
+	
+	// go with the default browser
 	QDesktopServices::openUrl(url);
 #endif
 }
@@ -100,6 +132,10 @@ void API::setAddImagesMenu(bool state) {
 
 void API::setAddFoldersMenu(bool state) {
 	mainwindow->setAddFoldersMenu(state);
+}
+
+void API::setRecentlyAddedMenu(bool state) {
+	mainwindow->setRecentlyAddedMenu(state);
 }
 
 int API::log() {

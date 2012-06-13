@@ -199,6 +199,12 @@ void MainWindow::setAddFoldersMenu(bool state)
 	addFoldersAction->setEnabled(state);
 }
 
+void MainWindow::setRecentlyAddedMenu(bool state)
+{
+	for (int i = 0; i < MaxRecentFiles; ++i)
+        recentFileActs[i]->setEnabled(state);
+}
+
 void MainWindow::setApi(API *api)
 {
 	this->api = api;
