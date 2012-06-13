@@ -112,7 +112,7 @@ class Filesystem
     open(path, 'w') { |fh| fh.write data }
   end
 
-  def self.cache_path(root)
+  def self.cache_directory(root)
   end
 
   def self.exists?(path)
