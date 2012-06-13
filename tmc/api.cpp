@@ -32,12 +32,74 @@ void API::evaluateJavaScript(const QString & scriptSource) {
   frame->evaluateJavaScript(scriptSource);
 }
 
+bool API::closeApp() {
+	QVariant v = frame->evaluateJavaScript("isSafeToClose();");
+	return v.toBool();
+}
+
+void API::openBrowser(QString url) {
+#if defined Q_WS_WIN
+	// search whether user has chrome installed
+	QSettings brwCH("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe",QSettings::NativeFormat);
+	QString brwPath = brwCH.value( "Default", "0" ).toString();
+	if(brwPath!="0") {
+		QProcess::startDetached(brwPath, QStringList() << url);
+		return;
+	}
+	
+	// search whether user has safari installed
+	QSettings brwSA("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\Safari.exe",QSettings::NativeFormat);
+	brwPath = brwSA.value( "Default", "0" ).toString();
+	if(brwPath!="0") {
+		QProcess::startDetached(brwPath, QStringList() << url);
+		return;
+	}
+	
+	// tell user that they don't have any compatible browser and exit
+	QMessageBox::critical(mainwindow,tr("No Browser"),tr("There is no compatible browser installed on this computer.\nYou need either Chrome or Safari in order to view this page."));
+	return;
+	
+// TODO: must be tested on MAC
+#elif defined Q_WS_MAC
+	if(QFileInfo("/Applications/Google Chrome.app").exists())
+		QProcess::startDetached("/Applications/Google Chrome.app", QStringList() << url);
+	else if(QFileInfo("/Applications/Safari.app").exists())
+		QProcess::startDetached("/Applications/Safari.app", QStringList() << url);
+	else
+		QDesktopServices::openUrl(url);
+
+// TODO: must be tested on Linux
+#else	
+	QDesktopServices::openUrl(url);
+#endif
+}
+
 void API::setUndoMenu(bool state) {
 	mainwindow->setUndoMenu(state);
 }
 
 void API::setRedoMenu(bool state) {
 	mainwindow->setRedoMenu(state);
+}
+
+void API::setOpenProjectMenu(bool state) {
+	mainwindow->setOpenProjectMenu(state);
+}
+
+void API::setSaveMenu(bool state) {
+	mainwindow->setSaveMenu(state);
+}
+
+void API::setSaveAsMenu(bool state) {
+	mainwindow->setSaveAsMenu(state);
+}
+
+void API::setAddImagesMenu(bool state) {
+	mainwindow->setAddImagesMenu(state);
+}
+
+void API::setAddFoldersMenu(bool state) {
+	mainwindow->setAddFoldersMenu(state);
 }
 
 int API::log() {
@@ -167,18 +229,31 @@ bool API::writeFile(QString path, QString data)
     return false;
   }
   QTextStream(&file) << data;
+  mainwindow->setCurrentFile(path);
   return true;
 }
 
-QString API::readFile(QString caption, QString startingDirectory, QString filter)
+QString API::readFileDialog(QString caption, QString startingDirectory, QString filter)
 {
   QString path = QFileDialog::getOpenFileName(NULL, caption, startingDirectory, filter);
-  if(path != "") {
-	  QFile file(path);
-	  if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return ""; // null would be better
-	  return QTextStream(&file).readAll();
-  }
-  return NULL;
+  return readFile(path);
+}
+
+QString API::readFile(QString path)
+{
+	if(path != "") {
+		QFile file(path);
+		if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return ""; // null would be better
+		openedProject = path;
+		mainwindow->setCurrentFile(path);
+		return QTextStream(&file).readAll();
+	}
+	return NULL;
+}
+
+QString API::getOpenedProjectPath()
+{
+	return openedProject;
 }
 
 bool API::makeDirectory(QString path)

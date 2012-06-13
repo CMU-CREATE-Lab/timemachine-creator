@@ -86,7 +86,6 @@ public:
       toc[i].length =    read_u64      (&tocdata[i*tocentry_size + 16]);
     }
   }
-
 };
 
 AutoPtrStack<Tilestack> tilestackstack;
@@ -391,6 +390,7 @@ void image2tiles(std::string dest, std::string format, std::string src)
     reader->read_rows(&stripe[0], nrows);
     for (unsigned left = 0; left < reader->width(); left += tilesize) {
       unsigned ncols = std::min(reader->width() - left, tilesize);
+      fill(tile.begin(), tile.end(), 0);
       for (unsigned y = 0; y < tilesize; y++) {
         memcpy(&tile[y * reader->bytes_per_pixel() * tilesize],
                &stripe[y * reader->bytes_per_row() + left * reader->bytes_per_pixel()],

@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QtGui>
+#include <QList>
 #include "api.h"
 
 class API;
@@ -17,12 +18,23 @@ public:
 	void setApi(API *api);
 	void setUndoMenu(bool state);
 	void setRedoMenu(bool state);
+	void setOpenProjectMenu(bool state);
+	void setSaveMenu(bool state);
+	void setSaveAsMenu(bool state);
+	void setAddImagesMenu(bool state);
+	void setAddFoldersMenu(bool state);
+	void setCurrentFile(const QString &fileName);
+	
+protected:
+    void closeEvent(QCloseEvent *event);
 	
 private slots:
 	void open();
 	void save();
+	void saveAs();
 	void addImages();
 	void addFolders();
+	void openRecentFile();
 	
 	void undo();
 	void redo();
@@ -36,6 +48,8 @@ private:
 	QAction *addImagesAction;
 	QAction *addFoldersAction;
 	QAction *saveAction;
+	QAction *saveAsAction;
+	QAction *separatorAct;
 	QAction *exitAction;
 	
 	QAction *undoAction;
@@ -43,7 +57,14 @@ private:
 	
 	QAction *aboutAction;
 	
+	enum { MaxRecentFiles = 5 };
+    QAction *recentFileActs[MaxRecentFiles];
+	
 	void createStatusBar();
+    void updateRecentFileActions();
+    QString strippedName(const QString &fullFileName);
+	
+	QString curFile;
 };
 
 #endif
