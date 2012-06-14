@@ -1530,6 +1530,14 @@
               }
               //data.push(col);
               data[0].sort(function(a,b){return a.time-b.time});
+
+              for(i = 0; i < data[0].length; i++) {
+                data[0][i].row = i;
+                if (i > 0 && data[0][i].time == data[0][i-1].time) {
+                  data[0].splice(i,1)
+                  i--;
+                }
+              }
               //console.log(data);
               $("#numFrames").text(data[0].length + " Frames")
 
