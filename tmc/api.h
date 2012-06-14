@@ -45,6 +45,9 @@ public:
   Q_INVOKABLE void setAddFoldersMenu(bool state);
   Q_INVOKABLE void setRecentlyAddedMenu(bool state);
   Q_INVOKABLE void openBrowser(QString url);
+  Q_INVOKABLE bool makeFullDirectoryPath(QString path);
+  Q_INVOKABLE bool fileExists(QString path);
+  Q_INVOKABLE void doCloseApp();
   
 signals:
   void callback(int id, QVariantList args);

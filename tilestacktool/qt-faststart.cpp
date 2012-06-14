@@ -28,7 +28,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <inttypes.h>
+
+#ifdef _WIN32
+  #include <stdint.h>
+#else
+  #include <inttypes.h>
+#endif
+
 #include <string.h>
 
 #include <string>
@@ -43,8 +49,11 @@
 #endif
 
 #ifdef __MINGW32__
-#define fseeko(x, y, z) fseeko64(x, y, z)
-#define ftello(x)       ftello64(x)
+  #define fseeko fseeko64
+  #define ftello ftello64
+#elif _WIN32
+  #define fseeko _fseeki64
+  #define ftello _ftelli64
 #endif
 
 #define BE_16(x) ((((uint8_t*)(x))[0] <<  8) | ((uint8_t*)(x))[1])

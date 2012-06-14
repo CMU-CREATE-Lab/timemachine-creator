@@ -30,7 +30,7 @@
 #include <cstring>
 #include <cstdlib>
 #include "ExifData.h"
-#include "cpp-utils.h"
+#include "cpp_utils.h"
 
 //#include <boost/algorithm/string/predicate.hpp>
 

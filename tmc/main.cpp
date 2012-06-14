@@ -15,7 +15,7 @@
 #include <iostream>
 #include "WebViewExt.h"
 
-#include "cpp-utils.h"
+#include "cpp_utils.h"
 
 #include "api.h"
 

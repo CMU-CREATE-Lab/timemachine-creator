@@ -1,6 +1,5 @@
 // Load after jquery
 
-
 api = {}
 
 api._callbacks = [];
@@ -15,8 +14,7 @@ api._register_callback = function(callback) {
   return api._callbacks.length - 1;
 }
 
-
-$(function(){console.log("yo");window._api.callback.connect(api._callback);});
+$(function(){window._api.callback.connect(api._callback);});
 
 api.invokeRubySubprocess = function(args, callback) {
   return window._api.invokeRubySubprocess(args, api._register_callback(callback));
@@ -57,3 +55,9 @@ api.setAddFoldersMenu = window._api.setAddFoldersMenu;
 api.setRecentlyAddedMenu = window._api.setRecentlyAddedMenu;
 
 api.openBrowser = window._api.openBrowser;
+
+api.makeFullDirectoryPath = window._api.makeFullDirectoryPath;
+
+api.fileExists = window._api.fileExists;
+
+api.closeApp = window._api.doCloseApp;

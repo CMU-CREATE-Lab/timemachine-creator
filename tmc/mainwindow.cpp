@@ -4,7 +4,8 @@ MainWindow::MainWindow()
 {
 	// creating the central widget. the web content is shown here.
 	this->setCentralWidget(new QWidget);
-	
+        this->setWindowTitle("Time Machine Creator");
+
 	// creating status bar
 	createStatusBar();
 	
@@ -89,7 +90,7 @@ void MainWindow::setCurrentFile(const QString &fileName)
 {
     curFile = fileName;
     //setWindowFilePath(curFile);
-	this->setWindowTitle("tmc - "+strippedName(curFile));
+	this->setWindowTitle("Time Machine Creator - "+strippedName(curFile));
 
     QSettings settings;
     QStringList files = settings.value("recentFileList").toStringList();
@@ -201,7 +202,7 @@ void MainWindow::setAddFoldersMenu(bool state)
 
 void MainWindow::setRecentlyAddedMenu(bool state)
 {
-	for (int i = 0; i < MaxRecentFiles; ++i)
+        for (int i = 0; i < MaxRecentFiles; ++i)
         recentFileActs[i]->setEnabled(state);
 }
 
@@ -266,5 +267,5 @@ void MainWindow::redo()
 
 void MainWindow::about()
 {
-	QMessageBox::about(this,"About","Time Machine Creator, v1.0\nCreate Lab, 2012");
+	QMessageBox::about(this,"About","Time Machine Creator, v1.0\nCREATE Lab, 2012");
 }

@@ -34,7 +34,7 @@ $('#time2').text(api.exifTime("../datasets/pitt10x1/IMG_5000.JPG"));
 <script>
 function saveAs() {
   var startDirectory = '';
-  var saveDir = api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.timemachinedefinition');
+  var saveDir = api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.tmc');
   if (saveDir == '') {
     alert('saveAs canceled');
   } else {
@@ -81,7 +81,7 @@ dropbox.addEventListener("drop", dropHandler, false);
 function saveWriteRead() {
   $('#swr_out').text('');
   var startDirectory = '';
-  var saveDir = api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.timemachinedefinition');
+  var saveDir = api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.tmc');
   if (saveDir == '') {
     alert('saveAs canceled');
   } else {
@@ -89,7 +89,7 @@ function saveWriteRead() {
       alert('Error creating directory ' + saveDir);
       return;
     }
-    var definitionPath = saveDir + '/definition.timemachinedefinition';
+    var definitionPath = saveDir + '/definition.tmc';
     var writeData = {foo:3};
     if (!api.writeFile(definitionPath, JSON.stringify(writeData))) {
        alert('Error creating ' + definitionPath);

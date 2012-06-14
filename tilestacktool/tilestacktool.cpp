@@ -71,7 +71,7 @@ public:
     pixel_format =                read_u32(&footer[32]);
     compression_format =          read_u32(&footer[36]);
     unsigned long long magic =    read_u64(&footer[40]);
-    if (magic != 0x646e65326b747374) {
+    if (magic != 0x646e65326b747374LL) {
       fprintf(stderr, "Incorrect magic (%08x:%08x)", (unsigned int)(magic >> 32), (unsigned int)magic);
       assert(0);
     }

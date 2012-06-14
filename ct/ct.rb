@@ -22,8 +22,8 @@ require 'xmlsimple'
 $run_remotely = nil
 $run_remotely_json = false
 
-if VERSION < '1.8.6' || VERSION > '1.9.'
-  raise "Ruby version is #{VERSION}, but must be >= 1.8.7, and must be < 1.9 because of threading bugs in 1.9"
+if RUBY_VERSION < '1.8.5' || RUBY_VERSION > '1.9.'
+  raise "Ruby version is #{RUBY_VERSION}, but must be >= 1.8.6, and must be < 1.9 because of threading bugs in 1.9"
 end
 
 if `echo %PATH%`.chomp != '%PATH%'
@@ -432,8 +432,8 @@ class ImagesSource
     @raw_width = settings["width"]
     @raw_height = settings["height"]
     @subsample = settings["subsample"] || 1
-    @images = settings["images"]
-    @capture_times = settings["capture_times"]
+    @images = settings["images"] ? settings["images"].flatten : nil
+    @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
     @capture_time_parser = settings["capture_time_parser"] || "/home/rsargent/bin/extract_exif_capturetimes.rb"
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0100-unstitched/"    
     initialize_images
@@ -973,15 +973,20 @@ class Compiler
     @videoset_compilers.flat_map {|vc| vc.rules(dependencies)}
   end
 
-  def capture_times_rule()
-    cmd = ["ruby #{@@global_parent.source.capture_time_parser}",
-           "#{@@global_parent.source.capture_time_parser_inputs}",
-           "#{@videosets_dir}/tm.json"]
-    Rule.add("capture_times", videoset_rules, [cmd])
+  # def capture_times_rule
+  #   cmd = ["ruby #{@@global_parent.source.capture_time_parser}",
+  #          "#{@@global_parent.source.capture_time_parser_inputs}",
+  #          "#{@videosets_dir}/tm.json"]
+  #   Rule.add("capture_times", videoset_rules, [cmd])
+  # end
+
+  def capture_times_rule
+    source = @@global_parent.source.capture_times.nil? ? @@global_parent.source.capture_time_parser_inputs : @@jsonfile
+    Rule.add("capture_times", videoset_rules, [["ruby", "#{@@global_parent.source.capture_time_parser}", source, "#{@videosets_dir}/tm.json"]])
   end
 
   def compute_rules
-    videoset_rules
+    Filesystem.cached_exists?(@@global_parent.source.capture_time_parser) ? capture_times_rule : videoset_rules
   end
 
   def info
@@ -1339,7 +1344,7 @@ else
   STDERR.puts "Could not find explorer sources in path #{explorer_source_search_path.join(':')}"
 end
 
-jsonfile = nil
+@@jsonfile = nil
 destination = nil
 
 njobs = 1
@@ -1360,7 +1365,7 @@ while !ARGV.empty?
   elsif arg == '--tilestacktool'
     $tilestacktool = File.expand_path ARGV.shift
   elsif File.extname(arg) == '.tmc'
-    jsonfile = File.basename(arg) == 'definition.tmc' ? arg : "#{arg}/definition.tmc"
+    @@jsonfile = File.basename(arg) == 'definition.tmc' ? arg : "#{arg}/definition.tmc"
   elsif File.extname(arg) == '.timemachine'
     destination = File.expand_path(arg)
   elsif arg == '--selftest'
@@ -1373,7 +1378,7 @@ while !ARGV.empty?
   end
 end
 
-if !jsonfile 
+if !@@jsonfile 
   usage "Must specify source.tmc"
 end
 
@@ -1383,15 +1388,15 @@ end
 
 store = nil
 
-if jsonfile
-  if File.extname(File.dirname(jsonfile)) == ".tmc"
-    store = File.dirname(jsonfile)
+if @@jsonfile
+  if File.extname(File.dirname(@@jsonfile)) == ".tmc"
+    store = File.dirname(@@jsonfile)
   end
 else
   if Filesystem.exists?('definition.tmc')
-    jsonfile = 'definition.tmc'
+    @@jsonfile = 'definition.tmc'
   elsif Filesystem.exists?('default.json')
-    jsonfile = 'default.json'
+    @@jsonfile = 'default.json'
   else
     raise "Can't find definition.tmc"
   end
@@ -1401,8 +1406,8 @@ end
 Filesystem.cache_directory store
 Filesystem.cache_directory destination
 
-STDERR.puts "Reading #{jsonfile}"
-definition = JSON.parse(Filesystem.read_file(jsonfile))
+STDERR.puts "Reading #{@@jsonfile}"
+definition = JSON.parse(Filesystem.read_file(@@jsonfile))
 definition['destination'] = destination
 definition['store'] ||= store
 

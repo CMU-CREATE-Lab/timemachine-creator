@@ -3,17 +3,30 @@
     <title>GigaPan Time Machine Creator</title>
     <script src="assets/javascripts/jquery.min.js"></script>
     <script src="assets/javascripts/jquery-ui.min.js"></script>
-	<script src="js/api.js"></script>
-    <link rel="stylesheet" type="text/css" href="assets/stylesheets/smoothness/jquery-ui.css"/>
-    <style type="text/css">
-		.ui-widget-content {
-		 background: #ffffff !important;
-	   }
+    <script src="assets/javascripts/api.js"></script>
+    <script type="text/javascript" src="assets/javascripts/ui.spinner.min.js"></script>
+    <script type="text/javascript" src="assets/javascripts/jquery.progressbar.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="assets/stylesheets/smoothness/jquery-ui.css" />
+    <link rel="stylesheet" type="text/css" href="assets/stylesheets/ui.spinner.css" />
 
-	   .ui-widget-header {
-		 background: #cccccc !important;
-	   }
-	   
+    <style type="text/css">
+
+      .ui-selectmenu {
+        font-size: .8em !important;
+      }
+
+      .ui-state-default {
+        cursor: pointer;
+      }
+
+      .ui-icon-triangle-1-n {
+        margin-left: -.07em !important;
+      }
+
+      .ui-spinner-buttons {
+        top: 0px !important;
+      }
+  
       html {
         font-size: .8em;
         min-width: 640px;
@@ -36,6 +49,12 @@
       a { outline: none; }
       a.heading:hover{ text-decoration:underline !important; }
 
+      #render_export {
+        border-left-width:1px;
+        border-left-style:solid;
+        border-left-color:#000;
+      }
+
       #top_area {
         border-bottom-width:1px;
         border-bottom-style:solid;
@@ -56,10 +75,14 @@
         padding: 1em 1.48em;
       }
 
+      #zoomSlider {
+        background: #cccccc !important;
+      }
+
       #zoomSlider .ui-widget-header {
         background: none;
       }
-
+      
       #zoom {
         display:block;
         width:40px;
@@ -126,128 +149,276 @@
       #zoomSlider .ui-slider-handle:active{background-image:url(assets/images/zoom/zoom_handle_down.png);}
     </style>
     <script>
-		// put the saving code here. it is called by menubar
-		function saveAs() {
-			var startDirectory = '';
-			var saveDir = api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.timemachinedefinition');
-			if (saveDir == '') {
-				alert('Save canceled');
-			} else {	
-				if (!api.makeDirectory(saveDir)) {
-				  alert('Error creating directory ' + saveDir);
-				  return;
-				}
-				definitionPath = saveDir + '/definition.timemachinedefinition';
-				if (!api.writeFile(definitionPath, JSON.stringify(backUpData))) {
-				   alert('Error creating ' + definitionPath);
-				   return;
-				}
-				alert('Data saved');
-			}
-		}
-		
-		function save() {
-			definitionPath = api.getOpenedProjectPath();
-			if(!definitionPath) {
-				saveAs();
-				return;
-			}
-			else if (!api.writeFile(definitionPath, JSON.stringify(backUpData))) {
-				   alert('Error creating ' + definitionPath);
-				   return;
-			}
-			alert('Saved');
-		}
-		
-		// put the loading code here. it is called by menubar
-		function openData(path) {
-			if (typeof path == 'undefined')
-				foo = JSON.parse(api.readFileDialog('Open Time Machine Definition', '', '*.timemachinedefinition'));
-			else
-				foo = JSON.parse(api.readFile(path));
-			data = new Array();
-			for(c = 0;c<$(foo).size(); c++) {
-				data.push(foo[c]);
-			}
-			//alert('Data loaded');
+      var definitionPath = '';
+      var projectPath = '';
+      var projectName = ''
+      var inProgress = false;
+      var projectModified = false;
+      var capture_time_parser_path = "../ct/extract_exif_capturetimes.rb";
+      // put the saving code here. it is called by menubar
+      function saveAs() {
+        
+        var startDirectory = '';
+        var tmpPath = api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.tmc');
 
-			rescale();
-			refresh();
-			
-			//alert(api.getOpenedProjectPath());
-		}
-		
-		// put the undo code here. it is called by menubar
-		function undoAction() {
-			alert('undo');
-			api.setUndoMenu(false); // disables the undo menu
-		}
-		
-		// put the redo code here. it is called by menubar
-		function redoAction() {
-			alert('redo');
-			api.setRedoMenu(false); // disables the redo menu
-		}
-		
-		// put the images' dropped code here.
-		function imagesDropped() {
-			addDroppedFiles();
-		}
-		
-		// enable or disable open project menu
-		function openProjectAction() {
-			api.setOpenProjectMenu(false); // just for test
-		}
-		
-		// enable or disable save menu
-		function saveAction() {
-			api.setSaveMenu(false); // just for test
-		}
-		
-		// enable or disable saveAs menu
-		function saveAsAction() {
-			api.setSaveAsMenu(false); // just for test
-		}
-		
-		// enable or disable add images menu
-		function addImagesAction() {
-			api.setAddImagesMenu(false); // just for test
-		}
-		
-		// enable or disable add folder menu
-		function addFoldersAction() {
-			api.setAddFoldersMenu(false); // just for test
-		}
-		
-		// enable or disable recently added menu
-		function recentlyAddedAction() {
-			api.setRecentlyAddedMenu(false); // just for test
-		}
-		
-		// is it safe to close app
-		function isSafeToClose() {
-			return true;
-		}
-		
-		// open recent project. 
-		// TODO : must check whether current project is saved or not
-		function openRecentProject(path) {
-			openData(path);
-		}
-		
-		// open url in a new browser app
-		function openInBrowser(url) {
-			api.openBrowser(url);
-		}
-		
-		//openInBrowser("http://www.cnn.com");
-	  
-	  var definitionPath;
-	  var undoArray = new Array();
-	  var filmstripIndex = 0;
-	  var activeData = new Array();
-	  var filmstripMode = false;
-	  var backUpData;
+        if (tmpPath == '') {
+          alert('Save canceled');
+        } else {
+          projectModified = false;
+
+          var startIndex = tmpPath.lastIndexOf("/");
+          var endIndex = tmpPath.lastIndexOf(".tmc");
+          projectName = tmpPath.substring(startIndex+1,endIndex);
+          projectPath = tmpPath.substring(0,endIndex);
+          
+          var tmcPath = projectPath.substring(0,startIndex)+"/"+projectName+"/"+projectName+".tmc";
+          
+          if (!api.makeFullDirectoryPath(tmcPath)) {
+            alert('Error creating directory ' + tmcPath);
+            return;
+          }
+
+          definitionPath = tmcPath + '/definition.tmc';
+
+          var outputData = {}
+          outputData["source"] = {}
+          outputData["source"]["type"] = "images";
+          outputData["source"]["images"] = activeData["images"];
+          outputData["source"]["capture_times"] = activeData["capture_times"];
+          outputData["source"]["capture_time_parser"] = capture_time_parser_path;
+          outputData["source"]["tilesize"] = 256;
+
+          outputData["videosets"] = []
+
+          var videoSet = {}
+          videoSet["label"] = "Small"
+          videoSet["type"] = "h.264"
+          videoSet["size"] = "small"
+          videoSet["quality"] = $("#compression").spinner("value");
+          videoSet["fps"] = $("#fps").spinner("value");
+
+          outputData["videosets"].push(videoSet);
+
+          videoSet = {}
+          videoSet["label"] = "Large"
+          videoSet["type"] = "h.264"
+          videoSet["size"] = "large"
+          videoSet["quality"] = $("#compression").spinner("value");
+          videoSet["fps"] = $("#fps").spinner("value");
+
+          outputData["videosets"].push(videoSet);
+
+          if (!api.writeFile(definitionPath, JSON.stringify(outputData, undefined, 2))) {
+            alert('Error creating ' + definitionPath);
+            return;
+          }
+          alert('Project Saved');
+        }
+      }
+
+      function save() {
+        projectModified = false;
+        definitionPath = api.getOpenedProjectPath();
+        
+          var outputData = {}
+          outputData["source"] = {}
+          outputData["source"]["type"] = "images";
+          outputData["source"]["images"] = activeData["images"];
+          outputData["source"]["capture_times"] = activeData["capture_times"];
+          outputData["source"]["capture_time_parser"] = capture_time_parser_path;
+          outputData["source"]["tilesize"] = 256;
+
+          outputData["videosets"] = []
+
+          var videoSet = {}
+          videoSet["label"] = "Small"
+          videoSet["type"] = "h.264"
+          videoSet["size"] = "small"
+          videoSet["quality"] = $("#compression").spinner("value");
+          videoSet["fps"] = $("#fps").spinner("value");
+
+          outputData["videosets"].push(videoSet);
+
+          videoSet = {}
+          videoSet["label"] = "Large"
+          videoSet["type"] = "h.264"
+          videoSet["size"] = "large"
+          videoSet["quality"] = $("#compression").spinner("value");
+          videoSet["fps"] = $("#fps").spinner("value");
+
+          outputData["videosets"].push(videoSet);        
+        
+        if(!definitionPath) {
+          saveAs();
+          return;
+        }
+        else if (!api.writeFile(definitionPath, JSON.stringify(outputData, undefined, 2))) {
+          alert('Error creating ' + definitionPath);
+          return;
+        }
+        //alert('Project Saved');
+      }
+
+      // put the loading code here. it is called by menubar
+      function openData(startDirectory) {
+        $("#btnToggle").button("enable");
+        
+        if (filmstripMode) {
+          $("#filmstripControls").show();
+          $('#scroll').css({'overflow':'auto'});
+        } else {
+          $('#zoom').show();
+          $('#scroll').css({'overflow':'auto'});
+        }
+
+        if (typeof startDirectory == 'undefined')
+          tmd = JSON.parse(api.readFileDialog('Open Time Machine Definition', '', '*.tmc'));
+        else
+          tmd = JSON.parse(api.readFile(startDirectory));
+
+        //load data
+        data = new Array();
+        for (c = 0; c < tmd["source"]["images"].length; c++) {
+          //console.log(c);
+          col = new Array();
+          for (r = 0; r < tmd["source"]["images"][c].length; r++) {
+            h = {};
+            h['filename'] = tmd["source"]["images"][c][r];
+            if (tmd["source"]["capture_times"] == undefined) {
+              h['time'] = api.exifTime(h['filename']);
+            } else {
+              h['time'] = tmd["source"]["capture_times"][c][r];
+            }
+            h['row'] = r;
+            h['col'] = c;
+            h['deleted'] = false;
+            col.push(h);
+          }
+          data.push(col);
+        }
+
+        //load video settings
+        $("#compression").spinner("value", tmd["videosets"][0]["quality"])
+        $("#fps").spinner("value", tmd["videosets"][0]["fps"])
+
+        updateActiveData();
+        rescale();
+        refresh();
+        $("#numFrames").text(data[0].length + " Frames")
+
+        definitionPath = api.getOpenedProjectPath();
+
+        var endIndex = definitionPath.lastIndexOf(".tmc/");
+        var tmpPath = definitionPath.substring(0,endIndex);
+        endIndex = tmpPath.lastIndexOf("/");
+        projectPath = tmpPath.substring(0,endIndex);
+        var startIndex = projectPath.lastIndexOf("/");
+        projectName = projectPath.substring(startIndex+1);
+        //console.log(projectPath+"/"+projectName+".timemachine");
+        projectModified = false;
+
+      }
+
+      // put the undo code here. it is called by menubar
+      function undoAction() {
+        itemsToUndo = undoArray.pop();
+        redoArray.push(itemsToUndo);
+        //console.log(redoArray);
+        for (i = 0; i < itemsToUndo.length; i++) {
+          data[itemsToUndo[i].col][itemsToUndo[i].row].deleted = false;
+        }
+        api.setRedoMenu(true); //enables the redo menu
+        if (undoArray.length == 0) api.setUndoMenu(false); // disables the undo menu
+        updateActiveData();
+        $("#numFrames").text(activeData["images"][0].length + " Frames");
+        rescale();
+        refresh();
+      }
+
+      // put the redo code here. it is called by menubar
+      function redoAction() {
+        itemsToRedo = redoArray.pop();
+        undoArray.push(itemsToRedo);
+        //console.log(undoArray);
+        for (i = 0; i < itemsToRedo.length; i++) {
+          data[itemsToRedo[i].col][itemsToRedo[i].row].deleted = true;
+        }
+        api.setUndoMenu(true); //enables the undo menu
+        if (redoArray.length == 0) api.setRedoMenu(false); // disables the undo menu
+        $("#numFrames").text(activeData["images"][0].length + " Frames");
+        updateActiveData();
+        rescale();
+        refresh();
+      }
+
+      // put the images dropped code here.
+      function imagesDropped() {
+        addDroppedFiles();
+      }
+
+      // enable or disable open project menu
+      function openProjectAction(state) {
+        api.setOpenProjectMenu(state);
+      }
+
+      // enable or disable save menu
+      function saveAction(state) {
+        api.setSaveMenu(state);
+      }
+
+      // enable or disable saveAs menu
+      function saveAsAction(state) {
+        api.setSaveAsMenu(state);
+      }
+
+      // enable or disable add images menu
+      function addImagesAction(state) {
+        api.setAddImagesMenu(state);
+      }
+
+      // enable or disable add folder menu
+      function addFoldersAction(state) {
+        api.setAddFoldersMenu(state);
+      }
+
+      // enable or disable recently added menu
+      function recentlyAddedAction(state) {
+        api.setRecentlyAddedMenu(state);
+      }
+
+
+      // is it safe to close app
+      function isSafeToClose() {
+        //console.log("issafetoclose");
+        if (projectModified) {
+          $("#dialog-confirm").data('recentProjectPath', null).dialog("open");
+          $('.ui-dialog :button').blur();
+          return false;
+        } else {
+          return true;
+        }
+      }
+
+      // open recent project. 
+      function openRecentProject(path) {
+        if (projectModified) {
+          $("#dialog-confirm").data('recentProjectPath', path).dialog("open");
+          $('.ui-dialog :button').blur();
+        } else {
+          openData(path);
+        }
+      }
+
+      // open url in a new browser app
+      function openInBrowser(url) {
+        api.openBrowser(url);
+      }
+
+      var undoArray = new Array();
+      var redoArray = new Array();
+      var filmstripIndex = 0;
+      var activeData = new Array();
+      var filmstripMode = false;
       var data = new Array();
       var scale = 64;
       var min = 0;
@@ -269,78 +440,114 @@
         var ret = "" + n;
         return (ret.length == 1) ? "0" + ret : ret;
       }
-	  
-	  function updateActiveData()
-	  {
-		activeData = new Array();
-		if(data.length == 0) return;
-		
-		for(var i = 0; i < data.length; i++)
-		{
-			activeData.push(new Array());
-			for(var j = 0; j < data[i].length; j++)
-			{
-				if(data[i][j].deleted == false)
-					activeData[i].push(data[i][j].filename);
-			}
-		}
-		
-	  }
-	  
-	  function isNumber(n) {
-		return !isNaN(parseFloat(n)) && isFinite(n);
+
+      function updateActiveData() {
+        activeData = {};
+        activeData["images"] = new Array();
+        activeData["capture_times"] = new Array();
+
+        //if (activeData.length == 0 || activeData["images"].legnth == 0) return;
+
+        for (var i = 0; i < data.length; i++) {
+          activeData["images"].push(new Array());
+          activeData["capture_times"].push(new Array());
+          for (var j = 0; j < data[i].length; j++) {
+            if (data[i][j].deleted == false) {
+              activeData["images"][i].push(data[i][j].filename);
+              activeData["capture_times"][i].push(data[i][j].time);
+            }
+          }
+        }
+
+        //console.log(activeData);
       }
-	  
-	  function jumpTo()
-	  {
-		if(isNumber($("#jumpToFrame").val()))
-			filmstripIndex = $("#jumpToFrame").val()-1;
-	  }
+
+      function isNumber(n) {
+        return !isNaN(parseFloat(n)) && isFinite(n);
+      }
+
+      function jumpTo() {
+        if (isNumber($("#jumpToFrame").val())) filmstripIndex = $("#jumpToFrame").val() - 1;
+      }
 
       function refresh() {
+        //console.log('refresh');
+        if (activeData.length == 0 || activeData["images"].length == 0 || activeData["images"][0].length == 0) {
+          var canvas = document.getElementById('canvas');
+          canvas.width = canvas.width;
+          var context = canvas.getContext('2d');
 
-		if (filmstripMode == true)
-		{
-			if(activeData.length == 0)
-			{
-				$("#filmstripText").text("No data");
-				$("#filmstripImage").hide();
-				$("#btnPrevImage").hide();
-				$("#btnNextImage").hide();
-				$("#btnJump").hide();
-				$("#jumpToFrame").hide();
-				return;
-			}
-			else
-			{
-				$("#btnPrevImage").removeAttr('disabled');
-				$("#btnNextImage").removeAttr('disabled');
-				if(filmstripIndex<=0)
-				{
-					filmstripIndex = 0;
-					$("#btnPrevImage").attr('disabled', 'disabled');
-				}
-				if(filmstripIndex>=activeData[0].length-1)
-				{
-					filmstripIndex = activeData[0].length-1;
-					$("#btnNextImage").attr('disabled', 'disabled');
-				}
-				$("#filmstripText").text("Frame " + (filmstripIndex+1) + " out of " + activeData[0].length);
-				$("#filmstripImage").show();
-				$("#btnPrevImage").show();
-				$("#btnNextImage").show();
-				$("#btnJump").show();
-				$("#jumpToFrame").show();
-			}
-			
-			$("#filmstripImage").attr("src", activeData[0][filmstripIndex]);
-			
-			return;
-		}
-		
-		if (data.length == 0) return;
-		
-        //console.log("refresh");
+          context.fillStyle = 'black';
+          context.textBaseline = 'top';
+          context.font = '16px sans-serif';
+          context.fillText("No images loaded.", 0, 100);
+          $("#btnToggle").button("disable");
+          $("#zoom").hide();
+          return;
+        }
+
+        if (filmstripMode) {
+          
+          if (activeData.length == 0 || activeData["images"].length == 0 || activeData["images"][0].length == 0) return;
+
+          $("#btnPrevImage").removeAttr('disabled');
+          $("#btnNextImage").removeAttr('disabled');
+          if (filmstripIndex <= 0) {
+            filmstripIndex = 0;
+            $("#btnPrevImage").attr('disabled', 'disabled');
+          }
+          if (filmstripIndex >= activeData["images"][0].length - 1) {
+            filmstripIndex = activeData["images"][0].length - 1;
+            $("#btnNextImage").attr('disabled', 'disabled');
+          }
+
+          $("#jumpToFrame").val(filmstripIndex+1)
+
+          $("#filmstripText").text(activeData["images"][0].length);
+
+          var imageObj = new Image();
+          var prepend = (navigator.appVersion.indexOf("Win")!=-1) ? "file:///" : "file://"
+          imageObj.src = prepend+activeData["images"][0][filmstripIndex];          
+          
+          var maxWidth = $("#canvas").width(); // Max width for the image
+          var maxHeight = $("#canvas").height() - 140;    // Max height for the image
+          var ratio = 0;  // Used for aspect ratio
+          var Awidth = 3648;    // Current image width
+          var Aheight = 2736;  // Current image height
+
+          // Check if the current width is larger than the max
+          if(Awidth > maxWidth){
+            //console.log("current width larger than the max");
+            ratio = maxWidth / Awidth;   // get ratio for scaling image
+            Aheight = Aheight * ratio;    // Reset height to match scaled image
+            Awidth = Awidth * ratio;    // Reset width to match scaled image
+          }
+
+          // Check if current height is larger than max
+          if(Aheight > maxHeight){
+            //console.log("current height larger than max height");
+            ratio = maxHeight / Aheight; // get ratio for scaling image
+            Aheight = Aheight * ratio;    // Reset height to match scaled image
+            Awidth = Awidth * ratio;    // Reset width to match scaled image
+          }
+
+          var canvas = document.getElementById("canvas");
+          var context = canvas.getContext("2d");
+          //canvas.width = canvas.width
+          var x = 0;
+          var y = 55;
+          var width = Awidth;
+          var height = Aheight
+
+          imageObj.onload = function() {
+            context.drawImage(imageObj, x, y, width, height);
+          };
+
+          return;
+        }
+        
+        $("#zoom").show();
+
         var mintime = getTime(-1);
         var toptime = getTime(0);
         var maxtime = getTime(1);
@@ -366,14 +573,15 @@
 
         var loading = false;
 
-        for (var i = Math.floor(mintime / ticktime); i * ticktime <= maxtime; i++) {
-          var time = i * ticktime;
-          var y = scale * (time - toptime);
-          var date = new Date(time * 1000);
-          var label = date.getFullYear() + "-" + format2(date.getMonth() + 1) + "-" + format2(date.getDay()) + " " + format2(date.getHours()) + ":" + format2(date.getMinutes()) + ":" + format2(date.getSeconds()) + "." + Math.floor(date.getMilliseconds() / 100);
-          context.fillText(label, 1, y);
+        if (activeData["images"].length > 0 && activeData["images"][0].length > 0) {
+          for (var i = Math.floor(mintime / ticktime); i * ticktime <= maxtime; i++) {
+            var time = i * ticktime;
+            var y = scale * (time - toptime);
+            var date = new Date(time * 1000);
+            var label = date.getFullYear() + "-" + format2(date.getMonth() + 1) + "-" + format2(date.getDay()) + " " + format2(date.getHours()) + ":" + format2(date.getMinutes()) + ":" + format2(date.getSeconds()) + "." + Math.floor(date.getMilliseconds() / 100);
+            context.fillText(label, 1, y);
+          }
         }
-
         var left_margin = 120;
 
         for (var c = 0; c < data.length; c++) {
@@ -408,6 +616,7 @@
                 if (!elt.image.complete) loading = true;
                 if (elt.image.complete && elt.image.width > 0) {
                   //console.log("drawing image");
+                  //console.log(elt.image);
                   context.drawImage(elt.image, x, y);
 
                   if (jQuery.inArray(elt, selectedImages) >= 0) {
@@ -416,7 +625,6 @@
                     context.lineWidth = 2;
                     context.strokeRect(elt.x, elt.y, 160, 120);
                   }
-
 
                 } else {
                   //console.log("drawing box");
@@ -431,82 +639,78 @@
             }
           }
         }
-		
-		  // code from saman
-		  // I have assumed that each column in "data" is sorted based on the time stamps.
-		  var newdata = [];
-		  var best = [];
-		  var timeTH = 2; // maximum time difference (in seconds) between images in other cameras with images in camera 1
-		  for(var i=0;i<data.length;i++)
-		  {
-			newdata.push([]);
-			best.push(0);
-		  }
-		  
-		  //newdata[1].push(data[1][0]);
-		  
-		  for(var i=0;i<data[0].length;i++) // finding the counterpart images for each image in camera 0
-		  {
-			var haveFound = 1;
-			best[0] = i;
-			for(var b=1;b<data.length;b++) // finding the closesth image (in time) to the original image in other cameras
-			{
-				best[b] = findClosesth(i,b);
-				if(Math.abs(data[b][best[b]].time-data[0][i].time)>timeTH) // in this case, there is no way that we can use this image in camera 0
-				{
-					haveFound = 0;
-					break;
-				}
-			}
-			
-			if(haveFound==1) // we have found all the counterpart images. now we have to save them
-			{
-				for(var j=0;j<data.length;j++)
-					newdata[j].push(data[j][best[j]]);
-			}
-		  }
-		  
-		  // showing the actual images
-		  var left_margin = 400;
-		 
-		  for (var c = 0; c < newdata.length; c++) {
-			var col = newdata[c];
-			for (var r = 0; r < col.length; r++) {
-			  var elt = col[r];
-			  if (elt.time >= mintime && elt.time <= maxtime) {
-				var y = scale * (newdata[0][r].time - toptime);
-				var legend = elt.filename.replace(".time", "");
-				if (elt.delta != undefined) legend += " " + elt.delta;
-				if (view == "filenames") {
-				  context.fillText(legend, left_margin + c * 150, y);
-				} else if (view == "thumbnails") {
-				  if (!elt.image) {
-					elt.image = new Image();
-					elt.image.src = elt.filename.replace(".time", ".thumb");
-				  }
-				  var x = left_margin + c * 150;
-				  context.save();
-				  context.transform(0, -1, 1, 0, (x+80)-(y+80), (x+80)+(y+80));
-				  if (!elt.image.complete) loading = true;
-				  if (elt.image.complete && elt.image.width > 0) {
-					context.drawImage(elt.image, x, y);
-				  } else {
-					context.fillRect(x, y, 160, 120);
-				  }
-				  context.restore();
-				  context.fillText(legend, x, y+161);
-				} else {
-				  context.fillRect(left_margin + c * 25, y, 25, 1);
-				}
-			  }
-			}
-		  }
-		  // end of code from saman
 
+        // code from saman
+        // I have assumed that each column in "data" is sorted based on the time stamps.
+        var newdata = [];
+        var best = [];
+        var timeTH = 2; // maximum time difference (in seconds) between images in other cameras with images in camera 1
+        for (var i = 0; i < data.length - 1; i++) {
+          newdata.push([]);
+          best.push(0);
+        }
+
+        for (var i = 0; i < data[0].length; i++) // finding the counterpart images for each image in camera 0
+        {
+          var haveFound = 1;
+          best[0] = i;
+          for (var b = 1; b < data.length; b++) // finding the closesth image (in time) to the original image in other cameras
+          {
+            best[b] = findClosesth(i, b);
+            if (Math.abs(data[b][best[b]].time - data[0][i].time) > timeTH) // in this case, there is no way that we can use this image in camera 0
+            {
+              haveFound = 0;
+              break;
+            }
+          }
+
+          if (newdata.length > 0 && haveFound == 1) // we have found all the counterpart images. now we have to save them
+          {
+            for (var j = 0; j < data.length; j++)
+            newdata[j].push(data[j][best[j]]);
+          }
+        }
+
+        // showing the actual images
+        var left_margin = 400;
+
+        for (var c = 0; c < newdata.length; c++) {
+          var col = newdata[c];
+          for (var r = 0; r < col.length; r++) {
+            var elt = col[r];
+            if (elt.time >= mintime && elt.time <= maxtime) {
+              var y = scale * (newdata[0][r].time - toptime);
+              var legend = elt.filename.replace(".time", "");
+              if (elt.delta != undefined) legend += " " + elt.delta;
+              if (view == "filenames") {
+                context.fillText(legend, left_margin + c * 150, y);
+              } else if (view == "thumbnails") {
+                if (!elt.image) {
+                  elt.image = new Image();
+                  elt.image.src = elt.filename.replace(".time", ".thumb");
+                }
+                var x = left_margin + c * 150;
+                context.save();
+                context.transform(0, -1, 1, 0, (x + 80) - (y + 80), (x + 80) + (y + 80));
+                if (!elt.image.complete) loading = true;
+                if (elt.image.complete && elt.image.width > 0) {
+                  context.drawImage(elt.image, x, y);
+                } else {
+                  context.fillRect(x, y, 160, 120);
+                }
+                context.restore();
+                context.fillText(legend, x, y + 161);
+              } else {
+                context.fillRect(left_margin + c * 25, y, 25, 1);
+              }
+            }
+          }
+        }
+        // end of code from saman
         if (loading) setTimeout(refresh, 100);
       }
 
-      HTMLCanvasElement.prototype.relMouseCoords = function(event) {
+      HTMLCanvasElement.prototype.relMouseCoords = function (event) {
         var totalOffsetX = 0;
         var totalOffsetY = 0;
         var canvasX = 0;
@@ -531,38 +735,50 @@
           y: canvasY
         }
       }
-	  
-	    // finds the index of the closesth element in column b to element a in column 0 of data
-		function findClosesth(a,b)
-		{
-			dummyOffset = 0; // we must have one for each column 1-end
-			l = 0;
-			r = data[b].length-1;
-			
-			while(r-l>1)
-			{
-				m = Math.floor((r+l)/2);
-				if(data[b][m].time+dummyOffset < data[0][a].time)
-					l = m;
-				else
-					r = m;
-			}
-			
-			if(Math.abs(data[b][l].time+dummyOffset-data[0][a].time) < Math.abs(data[b][r].time+dummyOffset-data[0][a].time))
-				return l;
-			return r;
-		}
+
+      // Finds the index of the closesth element in column b to element a in column 0 of data
+      function findClosesth(a, b) {
+        dummyOffset = 0; // we must have one for each column 1-end
+        l = 0;
+        r = data[b].length - 1;
+
+        while (r - l > 1) {
+          m = Math.floor((r + l) / 2);
+          if (data[b][m].time + dummyOffset < data[0][a].time) l = m;
+          else r = m;
+        }
+
+        if (Math.abs(data[b][l].time + dummyOffset - data[0][a].time) < Math.abs(data[b][r].time + dummyOffset - data[0][a].time)) return l;
+        return r;
+      }
 
       function rescale() {
-		if(filmstripMode == true) {
-			$("#top_area").css({
-			  "width": ($("#filmstripdiv").outerWidth(true) - 380) + "px"
-			});
+        if (filmstripMode) {
+          $("#top_area").css({
+            "width": ($("#filmstripdiv").outerWidth(true) - 380) + "px"
+          });
 
-			$("#filmstripImage").width($("#filmstripdiv").outerWidth(true) - 690);
-			return;
-		}
-		
+          $("#filmstripImage").width($("#filmstripdiv").outerWidth(true) - 690);
+          
+        $("#scroll").css({
+          "height": ($("#controls").height() - $("#top_area").height() - 68) + "px"
+        });
+
+        $("#canvasdiv").css({
+          "height": ($("#controls").outerHeight(true) - $("#top_area").outerHeight(true)) + "px",
+          "left": "80px"
+        });
+
+        $("#top_area").css({
+          "width": ($("#tabs").width() - 200) + "px"
+        });
+
+        $("#canvas").attr("width", $("#canvasdiv").width());
+        $("#canvas").attr("height", $("#canvasdiv").height());        
+          
+          return;
+        }
+
         min = 1e+100;
         max = -1e+100;
 
@@ -574,19 +790,21 @@
             if (elt.time < min) min = elt.time;
             if (elt.time > max) max = elt.time;
           }
-        }
 
+        }
+        
         $("#world").height((max - min) * scale + 200); // Height of a thumnail (160) + height of filename text (8) + extra padding (32)
         $("#scroll").css({
           "height": ($("#controls").height() - $("#top_area").height() - 68) + "px"
         });
 
         $("#canvasdiv").css({
-          "height": ($("#controls").outerHeight(true) - $("#top_area").outerHeight(true)) + "px"
+          "height": ($("#controls").outerHeight(true) - $("#top_area").outerHeight(true)) + "px",
+          "left": "200px"
         });
 
         $("#top_area").css({
-          "width": ($("#canvasdiv").outerWidth(true) + 18) + "px"
+          "width": ($("#tabs").width() - 200) + "px"
         });
 
         $("#canvas").attr("width", $("#canvasdiv").width());
@@ -611,8 +829,8 @@
       }
 
       function zoom(factor) {
-        if (factor == .5) $("#zoomSlider").slider("value", ($("#zoomSlider").slider("option", "value") - $("#zoomSlider" ).slider("option", "step" )));
-        else if (factor == 2) $("#zoomSlider").slider("value", ($("#zoomSlider").slider("option" , "value") + $("#zoomSlider" ).slider("option", "step" )));
+        if (factor == .5) $("#zoomSlider").slider("value", ($("#zoomSlider").slider("option", "value") - $("#zoomSlider").slider("option", "step")));
+        else if (factor == 2) $("#zoomSlider").slider("value", ($("#zoomSlider").slider("option", "value") + $("#zoomSlider").slider("option", "step")));
 
         var time = getTime(0.5);
 
@@ -628,39 +846,39 @@
 
       function keypress(e) {
         //var key = String.fromCharCode(e.keyCode);
+
         switch (e.which) {
-          case 61: // equal/plus sign
-          case 43:
-            zoom(2);
-            break;
-          case 45: // minus sign
-            zoom(0.5);
-            break;
-          case 127:
-          case 46: // delete
+        case 61:
+          // equal/plus sign
+        case 43:
+          zoom(2);
+          break;
+        case 45:
+          // minus sign
+          zoom(0.5);
+          break;
+        case 127:
+        case 46:
+          // delete
+          if (data.length > 0 && data[0].length > 0) {
+            projectModified = true;
             for (i = 0; i < selectedImages.length; i++) {
               // Mark as deleted, but do not actually delete. Useful for undo feature
               data[selectedImages[i].col][selectedImages[i].row].deleted = true;
             }
-			// unod --- If undoArray is not empty, activate undo
-			undoArray.push(1); // a dummy line for test
-			if (undoArray.length > 0)
-			{
-				api.setUndoMenu(true);
-				api.setRedoMenu(true);
-			}
-			else
-			{
-				api.setUndoMenu(false);
-				api.setRedoMenu(false);
-			}
-			// undo --- end
-            selectedImages.splice(0, selectedImages.length);
+            undoArray.push(new Array());
+            jQuery.extend(true, undoArray[undoArray.length - 1], selectedImages);
+            if (undoArray.length > 0) api.setUndoMenu(true);
+            selectedImages.length = 0;
+
+            updateActiveData()
+            $("#numFrames").text(activeData["images"][0].length + " Frames");
             rescale();
             refresh();
             break;
-          default:
-            console.log("key " + e.which);
+          }
+        default:
+          //console.log("key " + e.which);
         }
       }
 
@@ -692,24 +910,242 @@
 
       function inBounds(elm, mx, my) {
         // Make sure mouse x,y fall in the area between the
-        // shape's x and (x + height) and its y and (y + height)
+        // shapes x and (x + height) and its y and (y + height)
         return (elm.x <= mx) && (elm.x + elm.w >= mx) && (elm.y <= my) && (elm.y + elm.h >= my);
       }
 
       function init() {
         console.log("loaded");
-        //$.ajax({
-        //  url: "pit10.json",
-        //  dataType: "json",
-        //  success: function(d) {
-        //    console.log("json success");
-        //    data = d;
-        //    computeDeltas();
-            rescale();
-            refresh();
-            $("#numFrames").text(data.length + " Frames")
-        //  }
-        //});
+
+        $("#numFrames").text(data.length + " Frames")
+        $('#zoom').hide();
+        $('#scroll').css({'overflow':'hidden'});
+        
+        api.setUndoMenu(false);
+        api.setRedoMenu(false);
+        saveAction(false);
+        
+        $("#previous_tms").hide()
+
+        $("#btnToggle").button().css({
+          'color': 'inherit',
+          'text-align': 'center',
+          'outline': 'none',
+          'font-size': '.8em',
+          'width': '95px',
+          'height': '25px'
+        });
+        
+        $("#btnToggle").html('Slideshow View');
+        $("#btnToggle").attr('title', 'Slideshow View');
+        $("#tmFormat").button().css({
+          'font-size': '.8em',
+          'text-align': 'center',
+          'width': '70px',
+          'height': '30px'
+        });
+        
+        $("#btnToggle").button("disable");
+
+        $("#render_export_btn").button().click(function () {
+          inProgress = true;
+          
+          // Call save dialog window if the current project has not been saved
+          if (definitionPath == "") saveAs();
+          else if (projectModified) save();
+          
+          $("#tabs").tabs("disable","tabs-1");
+          $("#compression").spinner("disable")
+          $("#fps").spinner("disable")
+          $("#num_jobs").button("disable");
+          openProjectAction(false);
+          saveAction(false);
+          saveAsAction(false);
+          addImagesAction(false);
+          addFoldersAction(false);
+          recentlyAddedAction(false);
+          
+          undoArray.length = 0;
+          redoArray.length = 0;
+          api.setUndoMenu(false);
+          api.setRedoMenu(false);
+          
+          $("#render_export_btn").hide();
+          $("#status_window").html("");
+          $("#status_window").append("In progress...<br/>");
+          $("#status_window").append("Destination: " + projectPath+"/"+projectName+".timemachine" + "<br/>");
+          $("#status_window").append("Started: " + get_current_time_formatted() + "<br/>");
+          $("#status_window").append("Progress: <span id='current_progress' style='position: absolute;margin-top: 2px;'>0.0%</span>");
+          $("#status_window").append("<br/><button style='margin-top: 10px' id='cancel_render_btn'>Cancel</button>");
+          
+          $("#cancel_render_btn").button().click(function () {
+            alert('cancel render!');
+          });
+          $("#current_progress").progressBar({ barImage: 'assets/images/progressbg_black.gif'} );
+          run_ct();
+
+        });
+
+
+        $(document).bind('keydown',function(e){
+            if (filmstripMode) {
+              if (e.which==37 || e.which==39) {
+                  e.preventDefault();
+                  if (e.which==37) {
+                    filmstripIndex--; 
+                    refresh();
+                  } else {
+                    filmstripIndex++; 
+                    refresh();
+                  }
+              }
+            }
+        }); 
+
+        $("#jumpToFrame").keyup(function(event){
+            if(event.keyCode == 13){
+              jumpTo();
+              refresh();
+            }
+        });
+
+        $('.ui-state-default').hover(
+
+        function () {
+          $(this).addClass('ui-state-hover');
+        }, function () {
+          $(this).removeClass('ui-state-hover');
+        });
+
+        $('#fps').spinner({
+          min: 1,
+          max: 99,
+          increment: 'fast'
+        });
+      
+        $('#compression').spinner({
+          min: 18,
+          max: 32,
+          increment: 'fast'
+        });
+
+        $("#change-format").dialog({
+          autoOpen: false,
+          modal: true,
+          width: 550,
+          resizable: false,
+          buttons: {
+            Ok: function () {
+              $(this).dialog("close");
+            }
+          }
+        });
+
+        $("#dialog-message").dialog({
+          autoOpen: false,
+          modal: true,
+          width: 430,
+          resizable: false,
+          buttons: {
+            Ok: function () {
+              $(this).dialog("close");
+            }
+          }
+        });
+        
+        $("#fps-dialog-message").dialog({
+          autoOpen: false,
+          modal: true,
+          width: 430,
+          resizable: false,
+          buttons: {
+            Ok: function () {
+              $(this).dialog("close");
+            }
+          }
+        });        
+        
+        $("#jobs-dialog-message").dialog({
+          autoOpen: false,
+          modal: true,
+          width: 430,
+          resizable: false,
+          buttons: {
+            Ok: function () {
+              $(this).dialog("close");
+            }
+          }
+        });        
+        
+        $("#compression-dialog-message").dialog({
+          autoOpen: false,
+          modal: true,
+          width: 430,
+          resizable: false,
+          buttons: {
+            Ok: function () {
+              $(this).dialog("close");
+            }
+          }
+        });          
+
+        $("#dialog-confirm").dialog({
+          autoOpen: false,
+          resizable: false,
+          height:230,
+          modal: true,
+          buttons: {
+            "Yes": function() {
+              projectModified = false;
+              save();
+              var path = $(this).data('recentProjectPath');
+              if (path) openData(path);
+              else api.closeApp();
+            },
+            "No": function() {
+              projectModified = false;
+              $(this).dialog( "close" );
+              var path = $(this).data('recentProjectPath');
+              if (path) openData(path);
+              else api.closeApp();
+            }
+          }
+        });
+
+        $('input:text, input:password').button().css({
+          'color': 'inherit',
+          'text-align': 'left',
+          'outline': 'none',
+          'cursor': 'text',
+          'font-size': '.8em',
+          'width': '15px',
+          'height': '10px'
+        });
+
+        $("#tmFormat").click(function () {
+          $("#change-format").dialog("open");
+          $('.ui-dialog :button').blur();
+        });
+
+        $("#jobs_explanation").click(function () {
+          $("#jobs-dialog-message").dialog("open");
+        });
+        
+        $("#fps_explanation").click(function () {
+          $("#fps-dialog-message").dialog("open");
+        });
+
+        $("#compression_explanation").click(function () {
+          $("#compression-dialog-message").dialog("open");
+        });
+        
+        $('#compression').spinner().change(function(){
+          projectModified = true;
+        });
+        
+        $('#fps').spinner().change(function(){
+          projectModified = true;
+        });        
 
         $("body").keypress(keypress);
 
@@ -719,22 +1155,19 @@
           min: 0,
           max: 16,
           value: 12,
-          slide: function(event, ui) {
-            //console.log(ui.value);
+          slide: function (event, ui) {
             if ($(this).slider("option", "value") > ui.value) {
               zoom(.5);
-              //console.log($("#zoomSlider").slider("option", "value"));
-              $("#zoomSlider").slider("option", "value",($("#zoomSlider").slider("option", "value")*0.5));
+              $("#zoomSlider").slider("option", "value", ($("#zoomSlider").slider("option", "value") * 0.5));
             } else {
               zoom(2);
-              $("#zoomSlider").slider("option", "value",($("#zoomSlider").slider("option", "value")*2));
+              $("#zoomSlider").slider("option", "value", ($("#zoomSlider").slider("option", "value") * 2));
             }
-          },
-          stop: function(event, ui) {
-             var values = [0.015625,0.03125,0.0625,0.125,0.25,0.5,1,2,4,8,16,32,64,128,256,512,1024];
-             scale = values[$("#zoomSlider").slider("option", "value")];
-             rescale(1);
-             refresh();
+          }, stop: function (event, ui) {
+            var values = [0.015625, 0.03125, 0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
+            scale = values[$("#zoomSlider").slider("option", "value")];
+            rescale(1);
+            refresh();
           }
         });
 
@@ -746,8 +1179,8 @@
         var originalPos;
         var originalCanvasPos;
 
-        $('#world').mousedown(function(e) {
-
+        $('#world').mousedown(function (e) {
+          if (data.length == 0 || data[0].length == 0) return;
           mouseSelection = true;
           originalPos = [e.pageX, e.pageY];
           originalCanvasPos = canvas.relMouseCoords(e);
@@ -756,7 +1189,7 @@
           var itemInBounds = false;
 
           for (i = 0; i < data[0].length; i++) {
-          	if (data[0][i].deleted) continue;
+            if (data[0][i].deleted) continue;
             if (inBounds(data[0][i], coords.x, coords.y)) {
               if (!(e.ctrlKey || e.metaKey) && !e.shiftKey) selectedImages.length = 0;
 
@@ -806,7 +1239,7 @@
 
         });
 
-        $('body').mousemove(function(e) {
+        $('body').mousemove(function (e) {
           if (mouseSelection) {
 
             if ($('#selection_area').length == 0) {
@@ -852,7 +1285,7 @@
 
             //!(r2.left > r1.right || r2.right < r1.left || r2.top > r1.bottom || r2.bottom < r1.top);
             for (i = 0; i < data[0].length; i++) {
-            	if (data[0][i].deleted) continue;
+              if (data[0][i].deleted) continue;
               // Determine whether the selection rectangle intersects one of our data objects (also a rectangle)
               if (!(origCanvasX > data[0][i].x + data[0][i].w || coords.x < data[0][i].x || origCanvasY > data[0][i].y + data[0][i].h || coords.y < data[0][i].y)) {
                 if ($.inArray(data[0][i], selectedImages) < 0) {
@@ -861,7 +1294,7 @@
                   break;
                 }
               } else {
-              	var idx = $.inArray(data[0][i], selectedImages);
+                var idx = $.inArray(data[0][i], selectedImages);
                 if (idx >= 0) {
                   selectedImages.splice(idx, 1);
                   refresh();
@@ -872,11 +1305,70 @@
           }
         });
 
-        $(document).mouseup(function(e) {
+        $(document).mouseup(function (e) {
           $('#selection_area').remove();
           mouseSelection = false;
         });
+        
+        $("#tabs").tabs();
+        
+        rescale();
+        refresh();
+      }
 
+      function padNumber(number, length) {
+        var str = '' + number;
+        while (str.length < length) {
+          str = '0' + str;
+        }
+
+        return str;
+      }
+
+      function run_ct() {
+        //console.log(projectPath+"/"+projectName+".timemachine/view.html");
+        if (!api.invokeRubySubprocess(['../ct/ct.rb', '-j', $("#num_jobs").val().toString(), definitionPath, projectPath+"/"+projectName+".timemachine"], ct_out)) {
+          alert('There was an error starting the process.');
+        }
+      }
+
+      function ct_out(out) {
+        //console.log("In ct_out, out=" + out);
+        if (typeof out === 'number') {
+          inProgress = false;
+          $("#cancel_render_btn").hide();
+          $("#status_window").append("Ended: " + get_current_time_formatted() + "<br/>");
+          $("#status_window").append("<br/><a href='javascript:void(0);' onclick='openInBrowser(\""+projectPath+"/"+projectName+".timemachine/view.html\""+")'"+">View Time Machine</a><br/>");
+          $("#status_window").append("<br/><button id='change_settings_btn'>Change settings for new render/export</button><br/>");
+          $("#change_settings_btn").button().click(function () {
+            
+            openProjectAction(true);
+            saveAsAction(true);
+            addImagesAction(true);
+            addFoldersAction(true);
+            recentlyAddedAction(true);
+            
+            $("#tabs").tabs("enable","tabs-1");
+            $("#status_window").html("");
+            $("#compression").spinner("enable")
+            $("#fps").spinner("enable")
+            $("#num_jobs").button("enable");
+            $("#render_export_btn").show();
+          });
+
+        } else {
+          output_string = out.replace(/\r\n|\r|\n/g, "<br />")
+          output = output_string.match(/\d+.\d+%/g);
+          //console.log(output[0]);
+          if (output != null) $("#current_progress").progressBar(parseFloat(output[0].slice(0, -1)));
+        }
+      }
+
+      function get_current_time_formatted() {
+        var date = new Date();
+        var time_formatted = date.getFullYear() + "-" + padNumber(date.getMonth()+1, 2) + "-" + padNumber(date.getDate(), 2) + " " + padNumber(date.getHours(), 2) + ":" + padNumber(date.getMinutes(), 2) + ":" + padNumber(date.getSeconds(), 2);
+        //console.log(time_formatted);
+        return time_formatted;
       }
 
       $(init);
@@ -903,10 +1395,6 @@
         });
       }
 
-      $(function() {
-        $("#tabs").tabs();
-      });
-
       // Prevent browser from loading dropped files as if it is a new page
       document.addEventListener("dragover", function(e) {
         e = e || event;
@@ -916,6 +1404,7 @@
         e = e || event;
         e.preventDefault();
       }, false);
+      
     </script>
   </head>
 
@@ -926,74 +1415,66 @@
           <a href="#tabs-1">Organize Images</a>
         </li>
         <li>
-          <a href="#tabs-2">Render and Export</a>
+          <a href="#tabs-2" onclick="checkData()">Render and Export</a>
         </li>
       </ul>
       <div id="tabs-1">
-        <div id="zoom" style="position:aboslute; margin-left: 200px; margin-top: 140px">
-          <div id="scale" style="position:aboslute; margin-left: -15px; margin-top: -25px; width: 200px; font-size: 12px;"></div>
+        <div id="zoom" style="position:absolute; margin-left: 200px; margin-top: 140px">
+          <div id="scale" style="position:absolute; margin-left: -15px; margin-top: -25px; width: 200px; font-size: 12px;"></div>
           <a href="javascript:void(0);" title="Zoom in" id="zoomin" onclick="zoomIn()"></a>
           <a href="javascript:void(0);" title="Zoom out" id="zoomout" onclick="zoomOut()"></a>
           <div id="zoomSlider" title="Click to zoom"></div>
         </div>
+        
+        <div id="filmstripControls" style="display: none; z-index: 400 !important; position:absolute; margin-left: 216px; margin-top: 128px">
+          <div style="width:250px">
+            <div id="btnPrevImage" style="float:left" class="ui-state-default ui-corner-all" title="Left" onclick="filmstripIndex--; refresh();"><span class="ui-icon ui-icon-circle-arrow-w" title="Previous Image"></span></div>
+            <div id="filstripTextContainer" style="width: 65%; margin:0px auto;">Image <input type="text" id="jumpToFrame" style="width:20px !important;" value="0"/>/<span style="font-size:12px;" id="filmstripText">0</span></div>
+            <div id="btnNextImage" style="position: absolute; margin: -20px 0px 0px 190px" class="ui-state-default ui-corner-all" title="Right" onclick="filmstripIndex++; refresh();"><span class="ui-icon ui-icon-circle-arrow-e" title="Next Image"></span></div>
+          </div>
+        </div>        
+        
         <div id="scroll" style="margin-top: 108px; width:100%; height: 100%; background:#eee; overflow-y:auto; margin-left: 20px;" onscroll="refresh()">
-          <div id="canvasdiv" style="background:#eee; position:absolute; height:100%; left:200px; right:20px; margin-left: 160px;">
-            <canvas id="canvas" style="background:#eee;height:100%"></canvas>
+          <div id="canvasdiv" style="background:#eee !important; position:absolute; height:100%; left:200px; right:20px; margin-left: 160px;">
+            <canvas id="canvas" style="background:#eee !important;height:100%"></canvas>
           </div>
           <!-- note: world is on top of canvas to capture mouse scrollwheel events,
           but is transparent to not block canvas -->
-          <div id="world" style="height:10000px; width:100%; opacity:0;"></div>
+          <div id="world" style="background:#eee; height:10000px; width:100%; opacity:0;"></div>
         </div>
 		
-		<!-- code from sam ************** -->
-		<div id="filmstripdiv" style="display:none; background:#eee; position:absolute; margin-left: 180px; margin-top: 108px; width:100%; height:100%;">
-		
-			<span id="filmstripText" style="position:absolute; left:150px; top:40px;"></span>
-			
-			<button id="btnJump" type="button" style="position:absolute; left:150px; top:60px; width:120px; height:30px;" onclick="jumpTo(); rescale(); refresh();" >Jump to frame: </button>
-			
-			<input type="text" id="jumpToFrame" style="position:absolute; left:280px; top:60px; width:60px; height:30px;" />
-			
-			<button id="btnPrevImage" type="button" style="position:absolute; left:10px; margin-top:-15px; top:35%; width:120px; height:30px;" onclick="filmstripIndex--; rescale(); refresh();" >Previous Image</button>
-			
-			<img id="filmstripImage" src="" style="position:absolute; top:100px; left:150px;"/>
-			
-			<button id="btnNextImage" type="button" style="position:absolute; right: 220px; top:35%; margin-top:-15px; width:120px; height:30px;" onclick="filmstripIndex++; rescale(); refresh();" >Next Image</button>
-		</div>
-		<!-- code from sam ++++++++++++++ -->
-		
-        <div id="top_area" style="position:absolute; height:100px; top:60px; left:200px;width:100%;">
+        <div id="top_area" style="position:absolute; height:100px; top:60px; left:200px;">
           <!-- Drag and drop files and folders -->
-          <div id="dropbox" style="border-style:dotted; border-width: 4px; background: #f5f5f5; padding: 20px; display: table; width: 50%; margin: 0px auto; text-align: center; height: 80px">
+          <div id="dropbox" style="border-style:dotted; border-width: 3px; background: #f5f5f5; padding: 20px; display: table; width: 50%; margin: 0px auto; text-align: center; height: 80px">
             Drop images or directories here
           </div>
 		  
-		  <!-- code from sam ************** -->
-		  <script>
-		  function toggleFilmstrip()
-		  {
-		    //$(),css('width',12)
-			$('#zoom').toggle();
-			$('#scroll').toggle();
-			$('#filmstripdiv').toggle();
-			if($("#btnToggle").html() == 'Timeline')
-			{
-				$("#btnToggle").html('Filmstrip');
-				filmstripMode = false;	
-			}
-			else
-			{
-				$("#btnToggle").html('Timeline');
-				filmstripMode = true;
-				filmstripIndex = 0;
-				updateActiveData();
-			}
-			rescale();
-			refresh();
-		  }
-		  </script>
-		  <button id="btnToggle" type="button" onclick="toggleFilmstrip()" style="position:absolute; top:20px;left:20px; width:80px; height:30px;">Filmstrip</button>
-		  <!-- code from sam ++++++++++++++ -->
+          <script>
+            function toggleFilmstrip() {
+              //$('#scroll').toggle();
+              
+              //$('#filmstripdiv').toggle();
+              if($("#btnToggle").html() == 'Timeline View') {
+                $("#btnToggle").html('Slideshow View');
+                $("#btnToggle").attr('title', 'Slideshow View');
+                filmstripMode = false;
+                $("#filmstripControls").hide();
+                $('#scroll').css({'overflow':'auto'});
+              } else {
+                $('#scroll').css({'overflow':'hidden'});
+                $("#zoom").hide();
+                $("#btnToggle").html('Timeline View');
+                $("#btnToggle").attr('title', 'Timeline View');
+                filmstripMode = true;
+                filmstripIndex = 0;
+                if (activeData.length == 0 || activeData["images"].length == 0 || activeData["images"][0].length == 0) return;
+                $("#filmstripControls").show();
+              }
+              rescale();
+              refresh();
+            }
+          </script>
+          <button id="btnToggle" type="button" onclick="toggleFilmstrip()" style="position:absolute; bottom:2px;left:2px;width:90px;">Slideshow View</button>
 		  
           <script>
             function zoomIn() {
@@ -1018,42 +1499,47 @@
               })
             }
 			
-			function addDroppedFiles() {
-				var droppedFiles = api.droppedFilesRecursive();
-				//$('#dropped').text(droppedFiles.join('\n'));
-				//console.log(droppedFiles);
-				var col = new Array();
-				var rowNum = 0;
-				for (i = 0; i < droppedFiles.length; i++) {
-				//var thumbnail;
-				if (droppedFiles[i].match(/\.jpg|.png$/i) == null) continue;
-				//if ((thumbnail = api.readThumbnail(droppedFiles[i])) == null) continue;
-				//var img = new Image;
-				var h = {};
-				//thumbnail.assignToHTMLImageElement(img);
+            function addDroppedFiles() {
+              $("#btnToggle").button("enable");
+              
+              if (filmstripMode) {
+                $("#filmstripControls").show();
+                $('#scroll').css({'overflow':'auto'});
+              } else {
+                $('#zoom').show();
+                $('#scroll').css({'overflow':'auto'});
+              }
 
-				h['filename'] = droppedFiles[i]; //droppedFiles[i].replace(/\\/g,'/').replace( /.*\//, '' );
-				//h['image'] = img;
-				h['time'] = api.exifTime(droppedFiles[i]);
-				h['row'] = rowNum++;
-				h['col'] = 0; // TODO: single camera support only at this time
-				h['deleted'] = false;
-				//console.log(h);
-				col.push(h);
-				}
+              projectModified = true;
+              var droppedFiles = api.droppedFilesRecursive();
 
-				data = new Array();
-				data.push(col);
-				$("#numFrames").text(data[0].length + " Frames")
-				//console.log(data);
-				//computeDeltas();
-				if (data[0].length > 0) {
-				updateActiveData();
-				rescale();
-				backUpData = jQuery.extend(true, {}, data);
-				refresh();
-				}
-			}
+              // TODO: single camera support only at this time
+              if (data.length <= 0) data.push(new Array());
+              
+              //col = new Array();
+              var rowNum = 0;
+              for (i = 0; i < droppedFiles.length; i++) {
+                if (droppedFiles[i].match(/\.jpg|.png$/i) == null) continue;
+                var h = {};
+                h['filename'] = droppedFiles[i]; //droppedFiles[i].replace(/\\/g,'/').replace( /.*\//, '' );
+                h['time'] = api.exifTime(droppedFiles[i]);
+                h['row'] = rowNum++;
+                h['col'] = 0;
+                h['deleted'] = false;
+                data[0].push(h);
+              }
+              //data.push(col);
+              data[0].sort(function(a,b){return a.time-b.time});
+              //console.log(data);
+              $("#numFrames").text(data[0].length + " Frames")
+
+              //computeDeltas();
+              if (data[0].length > 0) {
+               updateActiveData();
+               rescale();
+               refresh();
+              }
+            }
 
             function dropHandler(evt) {
               $("#dropbox").css({
@@ -1062,7 +1548,7 @@
               evt.stopPropagation();
               evt.preventDefault();
               
-			  addDroppedFiles();
+              addDroppedFiles();
             }
             var dropbox = document.getElementById("dropbox");
             dropbox.addEventListener("dragenter", noopHandler, false);
@@ -1070,13 +1556,23 @@
             dropbox.addEventListener("dragover", noopHandler, false);
             dropbox.addEventListener("drop", dropHandler, false);
             dropbox.addEventListener("dragleave", removeDropHighlight, false);
+            
+            function checkData() {
+                if (data.length == 0 || data[0].length == 0 || activeData["images"].length == 0 || activeData["images"][0].length == 0) $("#render_export_btn").button("disable");
+                else $("#render_export_btn").button("enable");
+            }
+            
+            function checkNumJobs(val) {
+                if ((val) <= 0 || !isNumber(val)) $("#num_jobs").val(2);
+            }
+            
           </script>
         </div>
 		
         <div id="controls" style="background:#fff; position:absolute; height:100%; top:60px; left:0px; width:200px">
           <p style="padding: 0px 0px 0px 10px">
             Format:
-            <button type="button" disabled="disabled">
+            <button type="button" id="tmFormat">
               Change
             </button>
             <br/>
@@ -1087,10 +1583,90 @@
           </p>
         </div>
       </div>
-      <div id="tabs-2">
-        <p>
-          Nothing to see here, move along.
-        </p>
+      <div id="tabs-2" style="height: 100%">
+     <table width="100%" height="100%">
+            <tr>
+              <td width="50%" valign="top">
+                <div id="render_settings">
+                  <h2>Settings</h2>
+                  <div style="float:left">Frames per second:</div><div style="margin: 0px 0px 0px 5px; float:left" id="fps_explanation" style="width: 16px" class="ui-state-default ui-corner-all" title="Explain"><span class="ui-icon ui-icon-info" title="Explain"></span></div><input style="margin: 0px 0px 0px 5px; float:left" type="text" id="fps" size="2" maxlength="2" value="25"/>
+                  <br/><br/>
+                  h.264 video (Chrome or Safari required)<br/>
+                  <div style="margin: 0px 0px 0px 20px"><div style="float:left">Compression:</div> <div style="margin: 0px 0px 0px 5px; float:left" id="compression_explanation" style="width: 16px" class="ui-state-default ui-corner-all" title="Explain"><span class="ui-icon ui-icon-info" title="Explain"></span></div> <input style="margin: 0px 0px 0px 5px;" type="text" id="compression" size="2" maxlength="23" value="28" /><br/>
+                  <font size="1px">Typical settings:</font>
+                    <div style="margin: 0px 0px 0px 10px">
+                        <font size="1px">Low compression <b>(higher quality; slow processing)</b>: 24<br/>
+                        Medium compression <b>(medium quality)</b>: 26<br/>
+                        High compression <b>(lower quality; fast processing)</b>: 28</font><br/><br/>
+                      </font>
+                    </div>
+                  </div>
+
+                  <div style="float:left">Parallel Jobs:<input type="text" style="float:right; margin: 0px 0px 0px 5px" id="num_jobs" size="2" maxlength="2" value="2" onclick="this.select();" onblur="checkNumJobs(this.value)"/><div id="jobs_explanation" style="float:right; width: 16px" class="ui-state-default ui-corner-all" title="Explain"><span class="ui-icon ui-icon-info" title="Explain"></span></div> <br/>
+                  
+                  <br/><br/>
+                  </div>
+
+                  <div id="compression-dialog-message" title="Frame rate explanation">
+                    <p>
+                        This setting controls the compression level of the output videos. <br/><br/> Higher compression means smaller videos sizes, but at the loss of quality. Lower compression means higher quality but results in larger file sizes. Going below a setting of 26 is not recommended if you plan to stream your Time Machine over the Internet. And going significantly above a setting of 32 will result in videos which are blocky and blurred. <br/><br/> At this time, encoding only in h264 is supported by this software.
+                    </p>
+                  </div>
+
+                  <div id="fps-dialog-message" title="Frame rate explanation">
+                    <p>
+                        This setting controls the speed at which the frames are played back -- typically from 3 to 25 frames per second. <br/><br/>You should experiment to see what speed works best for your data. If you have thousands of frames, and there is a relatively small change between frames, 25 FPS might be a good choice. If you have fewer frames, or there is a larger change between images, select a slower rate such as 6 or 12 FPS. Even lower, like 3 FPS tends to work well when there is a large change between successive images.
+                    </p>
+                  </div>
+
+                  <div id="jobs-dialog-message" title="Running tasks in parallel">
+                    <p>
+                        If you have a computer with multiple cores and plenty of RAM, you can compile significantly faster by increasing the number of tasks you want to run in parallel.  A good rule of thumb is to set a value equal to the number of cores you have. <br/><br/>Note that if your system has Hyper-threading, you effectively have twice the number of cores.
+                    </p>
+                  </div>
+                  
+                  <div id="dialog-confirm" title="Save Project?">
+                    <p>
+                      <span class="ui-icon ui-icon-alert" style="float:left; margin:0 7px 80px 0;"></span>
+                      You have made changes to your project which you have not saved. <br><br>Would you like to save these changes before you proceed?
+                    </p>
+                  </div>                  
+
+                  <div id="change-format" title="Set Capture Format">
+                 <table>
+                 <tr>
+                        <td width="1%" height="50" valign="top"><input type="radio" name="single" value="single" checked/></td><td width="40%" valign="top"> Frame-per-image</td><td valign="top"><i>Single, fixed camera capture.</i></td>
+                 </tr>
+                 <tr>
+                        <td width="1%" height="80" valign="top"><input type="radio" name="multi" value="multi" disabled="disabled"/></td><td width="40%" valign="top"> Multi-camera parallel</td><td valign="top"><i>Multiple, fixed cameras. Each takes a picture at the same time to comprise a video frame.</i> (Currently Unavailable)</td>
+                 </tr>
+                 <tr>
+                        <td width="1%" height="80" valign="top"><input type="radio" name="gigapan" value="gigapan" disabled="disabled"/></td><td width="40%" valign="top"> GigaPan</td><td valign="top"><i>GigaPan captures a complete panarama for each frame of the video. Typically captured by an Epic Pro running in timelapse mode.</i> (Currently Unavailable)</td>
+                 </tr>
+                 </table>
+                  </div>
+
+                </div>
+              </td>
+              <td width="50%" valign="top">
+                <div id="render_export" style="width: 100%; height: 100%; padding-left: 10px;">
+                  <h2>Render and Export Time Machine</h2>
+
+                  <br/>
+                  <button id="render_export_btn">Render and Export</button>
+
+                    <div id="status_window"></div>
+
+                    <div id="previous_tms">
+                      Previously rendered time machines:<br/><br/>
+                      <div id="previous_renders" style="border-width:1px;border-style:solid;border-color:#000;width:88%;height:60%; overflow:auto">
+                        <div id="previous_renders_content" style="height:200px"></div>
+                      </div>
+                    </div>
+                </div>
+              </td>
+            </tr>
+          </table>
       </div>
     </div>
   </body>

@@ -12,7 +12,7 @@
 
 #include "api.h"
 #include "apiprocess.h"
-#include "cpp-utils.h"
+#include "cpp_utils.h"
 #include "Exif.h"
 
 using namespace std;
@@ -37,72 +37,78 @@ bool API::closeApp() {
 	return v.toBool();
 }
 
+void API::doCloseApp() {
+        qApp->quit();
+}
+
 void API::openBrowser(QString url) {
 #if defined Q_WS_WIN
-	// search whether user has chrome installed
-	QSettings brwCH("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe",QSettings::NativeFormat);
-	QString brwPath = brwCH.value( "Default", "0" ).toString();
-	if(brwPath!="0") {
-		QProcess::startDetached(brwPath, QStringList() << url);
-		return;
-	}
-	
-	// search whether user has safari installed
-	QSettings brwSA("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\Safari.exe",QSettings::NativeFormat);
-	brwPath = brwSA.value( "Default", "0" ).toString();
-	if(brwPath!="0") {
-		QProcess::startDetached(brwPath, QStringList() << url);
-		return;
-	}
-	
-	// tell user that they don't have any compatible browser and exit
-	QMessageBox::critical(mainwindow,tr("No Browser"),tr("There is no compatible browser installed on this computer.\nYou need either Chrome or Safari in order to view this page."));
-	return;
-	
+        url = "file:///"+url;
+        // search whether user has chrome installed
+        QSettings brwCH("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe",QSettings::NativeFormat);
+        QString brwPath = brwCH.value( "Default", "0" ).toString();
+        if(brwPath!="0") {
+                QProcess::startDetached(brwPath, QStringList() << "--allow-file-access-from-files" << url);
+                return;
+        }
+        
+        // search whether user has safari installed
+        QSettings brwSA("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\Safari.exe",QSettings::NativeFormat);
+        brwPath = brwSA.value( "Default", "0" ).toString();
+        if(brwPath!="0") {
+                QProcess::startDetached(brwPath, QStringList() << url);
+                return;
+        }
+        
+        // tell user that they don't have any compatible browser and exit
+        QMessageBox::critical(mainwindow,tr("No Browser"),tr("There is no compatible browser installed on this computer.\nYou need either Chrome or Safari in order to view your time machine."));
+        return;
+        
 // TODO: must be tested on MAC
 #elif defined Q_WS_MAC
-	if(QFileInfo("/Applications/Google Chrome.app").exists())
-		QProcess::startDetached("/Applications/Google Chrome.app", QStringList() << url);
-	else if(QFileInfo("/Applications/Safari.app").exists())
-		QProcess::startDetached("/Applications/Safari.app", QStringList() << url);
-	else
-		QDesktopServices::openUrl(url);
+        url = "file://"+url;
+        if(QFileInfo("/Applications/Google Chrome.app").exists())
+                QProcess::startDetached("/Applications/Google Chrome.app", QStringList() << "--allow-file-access-from-files" << url);
+        else if(QFileInfo("/Applications/Safari.app").exists())
+                QProcess::startDetached("/Applications/Safari.app", QStringList() << url);
+        else
+                QDesktopServices::openUrl(url);
 
 // TODO: must be tested on Linux
 #else
-	QProcess process;
-    process.setReadChannel(QProcess::StandardOutput);
-    process.setReadChannelMode(QProcess::MergedChannels);
-	process.start("type -p chromium");
+        QProcess process;
+        process.setReadChannel(QProcess::StandardOutput);
+        process.setReadChannelMode(QProcess::MergedChannels);
+        process.start("type -p chromium");
 
-    process.waitForStarted(1000);
-    process.waitForFinished(1000);
+        process.waitForStarted(1000);
+        process.waitForFinished(1000);
 
-    QByteArray list = process.readAll();
-	
-	// if there is chromium installed
-	if(list.length()>0)
-	{
-		QProcess::startDetached(list, QStringList() << url);
-		return;
-    }
-	
-	process.start("type -p google-chrome");
+        QByteArray list = process.readAll();
 
-    process.waitForStarted(1000);
-    process.waitForFinished(1000);
+        // if there is chromium installed
+        if(list.length()>0)
+        {
+                QProcess::startDetached(list, QStringList() << url);
+                return;
+        }
 
-    list = process.readAll();
-	
-	// if there is google-chrome installed
-	if(list.length()>0)
-	{
-		QProcess::startDetached(list, QStringList() << url);
-		return;
-    }
-	
-	// go with the default browser
-	QDesktopServices::openUrl(url);
+        process.start("type -p google-chrome");
+
+        process.waitForStarted(1000);
+        process.waitForFinished(1000);
+
+        list = process.readAll();
+
+        // if there is google-chrome installed
+        if(list.length()>0)
+        {
+                QProcess::startDetached(list, QStringList() << url);
+                return;
+        }
+
+        // go with the default browser
+        QDesktopServices::openUrl(url);
 #endif
 }
 
@@ -135,7 +141,7 @@ void API::setAddFoldersMenu(bool state) {
 }
 
 void API::setRecentlyAddedMenu(bool state) {
-	mainwindow->setRecentlyAddedMenu(state);
+        mainwindow->setRecentlyAddedMenu(state);
 }
 
 int API::log() {
@@ -253,7 +259,7 @@ QStringList API::droppedFilesRecursive() {
   return ret;
 }
 
-// filter, e.g. "*.timemachinedefinition"
+// filter, e.g. "*.tmc"
 QString API::saveAsDialog(QString caption, QString startingDirectory, QString filter) {
   return QFileDialog::getSaveFileName(NULL, caption, startingDirectory, filter);
 }
@@ -277,14 +283,14 @@ QString API::readFileDialog(QString caption, QString startingDirectory, QString 
 
 QString API::readFile(QString path)
 {
-	if(path != "") {
-		QFile file(path);
-		if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return ""; // null would be better
-		openedProject = path;
-		mainwindow->setCurrentFile(path);
-		return QTextStream(&file).readAll();
-	}
-	return NULL;
+  if(path != "") {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return ""; // null would be better
+    openedProject = path;
+    mainwindow->setCurrentFile(path);
+    return QTextStream(&file).readAll();
+  }
+  return NULL;
 }
 
 QString API::getOpenedProjectPath()
@@ -295,6 +301,16 @@ QString API::getOpenedProjectPath()
 bool API::makeDirectory(QString path)
 {
   return QDir().mkdir(path);
+}
+
+bool API::makeFullDirectoryPath(QString path)
+{
+  return QDir().mkpath(path);
+}
+
+bool API::fileExists(QString path)
+{
+  return QDir().exists(path);
 }
 
 bool API::invokeRubySubprocess(QStringList args, int callback_id)

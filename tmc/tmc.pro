@@ -1,6 +1,6 @@
-SOURCES = main.cpp api.cpp apiprocess.cpp Exif.cpp ExifData.cpp mainwindow.cpp WebViewExt.cpp ../cpp-utils/cpp-utils.cpp
-INCLUDEPATH += ../cpp-utils
-HEADERS += mainwindow.h api.h apiprocess.h WebViewExt.h ../cpp-utils/cpp-utils.h
+SOURCES = main.cpp api.cpp apiprocess.cpp Exif.cpp ExifData.cpp mainwindow.cpp WebViewExt.cpp ../cpp_utils/cpp_utils.cpp
+INCLUDEPATH += ../cpp_utils
+HEADERS += mainwindow.h api.h apiprocess.h WebViewExt.h ../cpp_utils/cpp_utils.h
 CONFIG += console
 QT += webkit
 
