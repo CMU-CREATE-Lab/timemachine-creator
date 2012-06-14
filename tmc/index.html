@@ -476,10 +476,6 @@
           var canvas = document.getElementById('canvas');
           canvas.width = canvas.width;
           var context = canvas.getContext('2d');
-
-
-          
-
           context.fillStyle = 'black';
           context.textBaseline = 'top';
           context.font = '16px sans-serif';
@@ -536,14 +532,15 @@
 
           var canvas = document.getElementById("canvas");
           var context = canvas.getContext("2d");
-          //canvas.width = canvas.width
           var x = 0;
           var y = 55;
           var width = Awidth;
           var height = Aheight
 
           imageObj.onload = function() {
+            canvas.width = canvas.width
             context.drawImage(imageObj, x, y, width, height);
+            context.fillText(activeData["images"][0][filmstripIndex],x,height+y+8);
           };
 
           return;
