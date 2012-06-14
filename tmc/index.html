@@ -477,10 +477,13 @@
           canvas.width = canvas.width;
           var context = canvas.getContext('2d');
 
+
+          
+
           context.fillStyle = 'black';
           context.textBaseline = 'top';
           context.font = '16px sans-serif';
-          context.fillText("No images loaded.", 0, 100);
+          context.fillText("No images loaded.", ($("#canvas").width()/2 - 135), 100);
           $("#btnToggle").button("disable");
           $("#zoom").hide();
           return;
