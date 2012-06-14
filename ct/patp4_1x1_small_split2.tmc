@@ -1,0 +1,28 @@
+{
+  "source":{
+    "type":"images",
+    "images":["../../../datasets/patp4_1x1_small/patp0.jpg", 
+              "../../../datasets/patp4_1x1_small/patp1.jpg", 
+              "../../../datasets/patp4_1x1_small/patp2.jpg", 
+              "../../../datasets/patp4_1x1_small/patp3.jpg"],
+    "tilesize":256
+  },
+  "videosets":[
+	{
+	    "label": "Small",
+	    "type": "h.264",
+	    "size": "small",
+	    "quality": 26,
+	    "fps": 3,
+            "frames_per_fragment": 2
+	},
+	{
+	    "label": "Large",
+	    "type": "h.264",
+	    "size": "large",
+	    "quality": 26,
+	    "fps": 3,
+            "frames_per_fragment": 2
+	}
+    ]  
+}
