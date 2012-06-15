@@ -265,6 +265,17 @@
 
       // put the loading code here. it is called by menubar
       function openData(startDirectory) {
+
+        if (typeof startDirectory == 'undefined') {
+          file = api.readFileDialog('Open Time Machine Definition', '', '*.tmc');
+        } else {
+          file = api.readFile(startDirectory);
+        }
+
+        if (!file) return;
+        tmd = JSON.parse(file);
+        if (!tmd) return;
+
         $("#btnToggle").button("enable");
         
         if (filmstripMode) {
@@ -274,11 +285,6 @@
           $('#zoom').show();
           $('#scroll').css({'overflow':'auto'});
         }
-
-        if (typeof startDirectory == 'undefined')
-          tmd = JSON.parse(api.readFileDialog('Open Time Machine Definition', '', '*.tmc'));
-        else
-          tmd = JSON.parse(api.readFile(startDirectory));
 
         //load data
         data = new Array();
