@@ -26,7 +26,7 @@
       .ui-spinner-buttons {
         top: 0px !important;
       }
-  
+
       html {
         font-size: .8em;
         min-width: 640px;
@@ -73,6 +73,10 @@
 
       .ui-tabs .ui-tabs-panel {
         padding: 1em 1.48em;
+      }
+
+      #tabs-2 {
+        padding: 0em 1.48em !important;
       }
 
       #zoomSlider {
@@ -151,7 +155,7 @@
     <script>
       var definitionPath = '';
       var projectPath = '';
-      var projectName = ''
+      var projectName = '';
       var inProgress = false;
       var projectModified = false;
       var capture_time_parser_path = "../ct/extract_exif_capturetimes.rb";
@@ -161,11 +165,10 @@
         var startDirectory = '';
         var tmpPath = api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.tmc');
 
-        if (tmpPath == '') {
+        if (!tmpPath) {
           alert('Save canceled');
         } else {
-          projectModified = false;
-
+         
           var startIndex = tmpPath.lastIndexOf("/");
           var endIndex = tmpPath.lastIndexOf(".tmc");
           projectName = tmpPath.substring(startIndex+1,endIndex);
@@ -191,68 +194,69 @@
           outputData["videosets"] = []
 
           var videoSet = {}
-          videoSet["label"] = "Small"
-          videoSet["type"] = "h.264"
-          videoSet["size"] = "small"
+          videoSet["label"] = "Small";
+          videoSet["type"] = "h.264";
+          videoSet["size"] = "small";
           videoSet["quality"] = $("#compression").spinner("value");
           videoSet["fps"] = $("#fps").spinner("value");
 
           outputData["videosets"].push(videoSet);
 
-          videoSet = {}
-          videoSet["label"] = "Large"
-          videoSet["type"] = "h.264"
-          videoSet["size"] = "large"
+          videoSet = {};
+          videoSet["label"] = "Large";
+          videoSet["type"] = "h.264";
+          videoSet["size"] = "large";
           videoSet["quality"] = $("#compression").spinner("value");
           videoSet["fps"] = $("#fps").spinner("value");
 
           outputData["videosets"].push(videoSet);
-
+          projectModified = false;
+           
           if (!api.writeFile(definitionPath, JSON.stringify(outputData, undefined, 2))) {
             alert('Error creating ' + definitionPath);
             return;
           }
-          alert('Project Saved');
+          alert('Project created and saved.');
         }
       }
 
       function save() {
-        projectModified = false;
-        definitionPath = api.getOpenedProjectPath();
         
-          var outputData = {}
-          outputData["source"] = {}
-          outputData["source"]["type"] = "images";
-          outputData["source"]["images"] = activeData["images"];
-          outputData["source"]["capture_times"] = activeData["capture_times"];
-          outputData["source"]["capture_time_parser"] = capture_time_parser_path;
-          outputData["source"]["tilesize"] = 256;
+        //definitionPath = api.getOpenedProjectPath();
+        
+        var outputData = {};
+        outputData["source"] = {};
+        outputData["source"]["type"] = "images";
+        outputData["source"]["images"] = activeData["images"];
+        outputData["source"]["capture_times"] = activeData["capture_times"];
+        outputData["source"]["capture_time_parser"] = capture_time_parser_path;
+        outputData["source"]["tilesize"] = 256;
 
-          outputData["videosets"] = []
+        outputData["videosets"] = [];
 
-          var videoSet = {}
-          videoSet["label"] = "Small"
-          videoSet["type"] = "h.264"
-          videoSet["size"] = "small"
-          videoSet["quality"] = $("#compression").spinner("value");
-          videoSet["fps"] = $("#fps").spinner("value");
+        var videoSet = {};
+        videoSet["label"] = "Small";
+        videoSet["type"] = "h.264";
+        videoSet["size"] = "small";
+        videoSet["quality"] = $("#compression").spinner("value");
+        videoSet["fps"] = $("#fps").spinner("value");
 
-          outputData["videosets"].push(videoSet);
+        outputData["videosets"].push(videoSet);
 
-          videoSet = {}
-          videoSet["label"] = "Large"
-          videoSet["type"] = "h.264"
-          videoSet["size"] = "large"
-          videoSet["quality"] = $("#compression").spinner("value");
-          videoSet["fps"] = $("#fps").spinner("value");
+        videoSet = {};
+        videoSet["label"] = "Large";
+        videoSet["type"] = "h.264";
+        videoSet["size"] = "large";
+        videoSet["quality"] = $("#compression").spinner("value");
+        videoSet["fps"] = $("#fps").spinner("value");
 
-          outputData["videosets"].push(videoSet);        
+        outputData["videosets"].push(videoSet);        
+        projectModified = false;
         
         if(!definitionPath) {
           saveAs();
           return;
-        }
-        else if (!api.writeFile(definitionPath, JSON.stringify(outputData, undefined, 2))) {
+        }else if (!api.writeFile(definitionPath, JSON.stringify(outputData, undefined, 2))) {
           alert('Error creating ' + definitionPath);
           return;
         }
@@ -298,13 +302,13 @@
         }
 
         //load video settings
-        $("#compression").spinner("value", tmd["videosets"][0]["quality"])
-        $("#fps").spinner("value", tmd["videosets"][0]["fps"])
+        $("#compression").spinner("value", tmd["videosets"][0]["quality"]);
+        $("#fps").spinner("value", tmd["videosets"][0]["fps"]);
 
         updateActiveData();
         rescale();
         refresh();
-        $("#numFrames").text(data[0].length + " Frames")
+        $("#numFrames").text(data[0].length + " Frames");
 
         definitionPath = api.getOpenedProjectPath();
 
@@ -422,7 +426,7 @@
       var data = new Array();
       var scale = 64;
       var min = 0;
-      var view = "thumbnails"
+      var view = "thumbnails";
       var max;
       var selectedImages = new Array();
       var shiftAlreadyClicked = true;
@@ -516,7 +520,6 @@
 
           // Check if the current width is larger than the max
           if(Awidth > maxWidth){
-            //console.log("current width larger than the max");
             ratio = maxWidth / Awidth;   // get ratio for scaling image
             Aheight = Aheight * ratio;    // Reset height to match scaled image
             Awidth = Awidth * ratio;    // Reset width to match scaled image
@@ -524,7 +527,6 @@
 
           // Check if current height is larger than max
           if(Aheight > maxHeight){
-            //console.log("current height larger than max height");
             ratio = maxHeight / Aheight; // get ratio for scaling image
             Aheight = Aheight * ratio;    // Reset height to match scaled image
             Awidth = Awidth * ratio;    // Reset width to match scaled image
@@ -753,28 +755,45 @@
       }
 
       function rescale() {
+
+        $("#tabs").css({
+          "height": $("body").height()-6 + "px",
+          "width": $("body").width()-6 + "px",
+        });        
+        
+        $("#tabs-1").css({
+          "height": $("body").height()-70 + "px",
+          "width": $("body").width()-46 + "px",
+        });  
+        
+        $("#tabs-2").css({
+          "height": $("body").height()-56 + "px",
+          "width": $("body").width()-46 + "px",
+        });          
+        
         if (filmstripMode) {
-          $("#top_area").css({
-            "width": ($("#filmstripdiv").outerWidth(true) - 380) + "px"
+
+          $("#scroll").css({
+            "height": ($("#tabs").height() - $("#top_area").height() - 58) + "px"
           });
 
-          $("#filmstripImage").width($("#filmstripdiv").outerWidth(true) - 690);
-          
-        $("#scroll").css({
-          "height": ($("#controls").height() - $("#top_area").height() - 68) + "px"
-        });
 
-        $("#canvasdiv").css({
-          "height": ($("#controls").outerHeight(true) - $("#top_area").outerHeight(true)) + "px",
-          "left": "80px"
-        });
+          $("#controls").css({
+            "height": ($("#tabs").height() - 56) + "px"
+          });
 
-        $("#top_area").css({
-          "width": ($("#tabs").width() - 200) + "px"
-        });
+          $("#canvasdiv").css({
+            "height": ($("#scroll").height()) + "px",
 
-        $("#canvas").attr("width", $("#canvasdiv").width());
-        $("#canvas").attr("height", $("#canvasdiv").height());        
+            "left": "80px"
+          });
+
+          $("#top_area").css({
+            "width": ($("#tabs").width() - 197) + "px"
+          });
+
+          $("#canvas").attr("width", $("#canvasdiv").width());
+          $("#canvas").attr("height", $("#canvasdiv").height());        
           
           return;
         }
@@ -792,19 +811,23 @@
           }
 
         }
-        
+
         $("#world").height((max - min) * scale + 200); // Height of a thumnail (160) + height of filename text (8) + extra padding (32)
         $("#scroll").css({
-          "height": ($("#controls").height() - $("#top_area").height() - 68) + "px"
+          "height": ($("#tabs").height() - $("#top_area").height() - 58) + "px"
         });
+        
+        $("#controls").css({
+          "height": ($("#tabs").height() - 56) + "px"
+        });    
 
         $("#canvasdiv").css({
-          "height": ($("#controls").outerHeight(true) - $("#top_area").outerHeight(true)) + "px",
+          "height": ($("#controls").outerHeight(true) - $("#top_area").outerHeight(true)-3) + "px",
           "left": "200px"
         });
 
         $("#top_area").css({
-          "width": ($("#tabs").width() - 200) + "px"
+          "width": ($("#tabs").width() - 197) + "px"
         });
 
         $("#canvas").attr("width", $("#canvasdiv").width());
@@ -825,6 +848,7 @@
 
         if (scale < 64) view = "lines"
         else view = "thumbnails"
+
 
       }
 
@@ -862,6 +886,7 @@
           // delete
           if (data.length > 0 && data[0].length > 0) {
             projectModified = true;
+            saveAction(true);
             for (i = 0; i < selectedImages.length; i++) {
               // Mark as deleted, but do not actually delete. Useful for undo feature
               data[selectedImages[i].col][selectedImages[i].row].deleted = true;
@@ -951,7 +976,7 @@
           inProgress = true;
           
           // Call save dialog window if the current project has not been saved
-          if (definitionPath == "") saveAs();
+          if (!definitionPath) saveAs();
           else if (projectModified) save();
           
           $("#tabs").tabs("disable","tabs-1");
@@ -1141,10 +1166,12 @@
         
         $('#compression').spinner().change(function(){
           projectModified = true;
+          saveAction(true);
         });
         
         $('#fps').spinner().change(function(){
           projectModified = true;
+          saveAction(true);
         });        
 
         $("body").keypress(keypress);
@@ -1338,8 +1365,13 @@
           inProgress = false;
           $("#cancel_render_btn").hide();
           $("#status_window").append("Ended: " + get_current_time_formatted() + "<br/>");
-          $("#status_window").append("<br/><a href='javascript:void(0);' onclick='openInBrowser(\""+projectPath+"/"+projectName+".timemachine/view.html\""+")'"+">View Time Machine</a><br/>");
+          $("#status_window").append("<br/><button id='view_timemachine'>View Time Machine</button><br/>");
           $("#status_window").append("<br/><button id='change_settings_btn'>Change settings for new render/export</button><br/>");
+
+          $("#view_timemachine").button().click(function () {
+            openInBrowser(projectPath+"/"+projectName+".timemachine/view.html");
+          });
+          
           $("#change_settings_btn").button().click(function () {
             
             openProjectAction(true);
@@ -1409,7 +1441,7 @@
   </head>
 
   <body style="margin:0" onresize="rescale(); refresh()">
-    <div id="tabs" style="height: 100%;">
+    <div id="tabs" style="height:100%">
       <ul>
         <li>
           <a href="#tabs-1">Organize Images</a>
@@ -1418,7 +1450,7 @@
           <a href="#tabs-2" onclick="checkData()">Render and Export</a>
         </li>
       </ul>
-      <div id="tabs-1">
+      <div id="tabs-1" style="height:100%">
         <div id="zoom" style="position:absolute; margin-left: 200px; margin-top: 140px">
           <div id="scale" style="position:absolute; margin-left: -15px; margin-top: -25px; width: 200px; font-size: 12px;"></div>
           <a href="javascript:void(0);" title="Zoom in" id="zoomin" onclick="zoomIn()"></a>
@@ -1434,7 +1466,7 @@
           </div>
         </div>        
         
-        <div id="scroll" style="margin-top: 108px; width:100%; height: 100%; background:#eee; overflow-y:auto; margin-left: 20px;" onscroll="refresh()">
+        <div id="scroll" style="margin-top: 108px; width:100%; height: 100%; background:#eee; overflow-y:auto; margin-left: 22px;" onscroll="refresh()">
           <div id="canvasdiv" style="background:#eee !important; position:absolute; height:100%; left:200px; right:20px; margin-left: 160px;">
             <canvas id="canvas" style="background:#eee !important;height:100%"></canvas>
           </div>
@@ -1511,6 +1543,7 @@
               }
 
               projectModified = true;
+              saveAction(true);
               var droppedFiles = api.droppedFilesRecursive();
 
               // TODO: single camera support only at this time
@@ -1587,14 +1620,14 @@
             <br/>
             Single, fixed camera capture.
           </p>
-          <p id="numFrames" style="padding: 0px 0px 0px 10px;bottom: 80px;position: absolute;">
+          <p id="numFrames" style="padding: 0px 0px 0px 10px;bottom: 10px;position: absolute;">
           </p>
         </div>
       </div>
-      <div id="tabs-2" style="height: 100%">
+      <div id="tabs-2" style="height:100%">
      <table width="100%" height="100%">
             <tr>
-              <td width="50%" valign="top">
+              <td width="46%" height="100%" style="min-width: 352px;" valign="top">
                 <div id="render_settings">
                   <h2>Settings</h2>
                   <div style="float:left">Frames per second:</div><div style="margin: 0px 0px 0px 5px; float:left" id="fps_explanation" style="width: 16px" class="ui-state-default ui-corner-all" title="Explain"><span class="ui-icon ui-icon-info" title="Explain"></span></div><input style="margin: 0px 0px 0px 5px; float:left" type="text" id="fps" size="2" maxlength="2" value="25"/>
@@ -1656,7 +1689,7 @@
 
                 </div>
               </td>
-              <td width="50%" valign="top">
+              <td width="54%" height="100%" valign="top">
                 <div id="render_export" style="width: 100%; height: 100%; padding-left: 10px;">
                   <h2>Render and Export Time Machine</h2>
 

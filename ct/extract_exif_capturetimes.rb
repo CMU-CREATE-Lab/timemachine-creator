@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
-require "rubygems"
+$LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__)))
+
 require "rexml/document"
 require "date"
 require "exifr"
