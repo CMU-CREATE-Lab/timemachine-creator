@@ -191,19 +191,32 @@ def without_extension(filename)
   filename[0..-File.extname(filename).size-1]
 end
 
+class TemporalFragment
+  attr_reader :start_frame, :end_frame, :fragment_seq
+  # start_frame and end_frame are both INCLUSIVE
+  def initialize(start_frame, end_frame, fragment_seq = nil)
+    @start_frame = start_frame
+    @end_frame = end_frame
+    @fragment_seq = fragment_seq
+  end
+end  
+
 class VideoTile
-  attr_accessor :c, :r, :level, :x, :y, :subsample
-  def initialize(c, r, level, x, y, subsample)
+  attr_reader :c, :r, :level, :x, :y, :subsample, :fragment
+  def initialize(c, r, level, x, y, subsample, fragment)
     @c = c
     @r = r
     @level = level
     @x = x
     @y = y
     @subsample = subsample
+    @fragment = fragment
   end
 
   def path
-    "#{@level}/#{@r}/#{@c}"
+    ret = "#{@level}/#{@r}/#{@c}"
+    @fragment.fragment_seq and ret += "_#{@fragment.fragment_seq}"
+    ret
   end
 
   def to_s
@@ -212,6 +225,10 @@ class VideoTile
 
   def source_bounds(vid_width, vid_height)
     {'xmin' => @x, 'ymin' => @y, 'width' => vid_width * @subsample, 'height' => vid_height * @subsample}
+  end
+
+  def frames
+    {'start' => @fragment.start_frame, 'end' => @fragment.end_frame}
   end
 end
 
@@ -309,7 +326,9 @@ class VideosetCompiler
 
     @show_frameno = settings["show_frameno"]
 
-    @use_leaders = @parent.source.framenames.size > 30
+    @frames_per_fragment = settings["frames_per_fragment"]
+
+    @use_leaders = nframes > 30
     if @use_leaders
       @@leaders.member?("crf#{@quality}") || raise("Video quality must be one of [#{@@leaders.keys.join(", ")}]")
       @leader = @@leaders["crf#{@quality}"][size]
@@ -325,6 +344,10 @@ class VideosetCompiler
     @leader && tokens << "l#{@leader}"
     tokens << "#{@vid_width}x#{@vid_height}"
     @id = tokens.join('-')
+  end
+
+  def nframes
+    @parent.source.framenames.size
   end
 
   def initialize_videotiles
@@ -349,6 +372,16 @@ class VideosetCompiler
       levels[level][:level] = level
     end
 
+    if @frames_per_fragment
+      @temporal_fragments = (nframes / @frames_per_fragment).floor.times.map do |i|
+        TemporalFragment.new(i * @frames_per_fragment, 
+                             [(i + 1) * @frames_per_fragment, nframes].min - 1,
+                             i)
+      end
+    else
+      @temporal_fragments = [TemporalFragment.new(0, nframes - 1)]
+    end
+    
     @videotiles = []
 
     levels.each do |level|
@@ -362,7 +395,9 @@ class VideosetCompiler
         y = r * @overlap_y * level[:subsample]
         level_cols.times do |c|
           x = c * @overlap_x * level[:subsample]
-          @videotiles << VideoTile.new(c, r, level[:level], x, y, level[:subsample])
+          @temporal_fragments.each do |fragment|
+            @videotiles << VideoTile.new(c, r, level[:level], x, y, level[:subsample], fragment)
+          end
         end
       end
     end
@@ -377,7 +412,7 @@ class VideosetCompiler
    
       cmd << '--path2stack'
       cmd += [@vid_width, @vid_height]
-      frames = {'frames' => {'start' => 0, 'end' => @parent.source.framenames.size - 1}, 
+      frames = {'frames' => vt.frames,
                 'bounds' => vt.source_bounds(@vid_width, @vid_height)};
       cmd << JSON.generate(frames)
       cmd << @parent.tilestack_dir
@@ -392,11 +427,11 @@ class VideosetCompiler
   end
 
   def info
-    {
+    ret = {
       "level_info"   => @levelinfo,
       "nlevels"      => @levelinfo.size,
       "level_scale"  => 2,
-      "frames"       => @parent.source.framenames.size,
+      "frames"       => nframes,
       "fps"          => @fps,
       "leader"       => @leader || 0,
       "tile_width"   => @overlap_x,
@@ -406,6 +441,8 @@ class VideosetCompiler
       "width"        => parent.source.width,
       "height"       => parent.source.height
     }
+    @frames_per_fragment and ret['frames_per_fragment']=@frames_per_fragment
+    ret
   end
 
   def write_json

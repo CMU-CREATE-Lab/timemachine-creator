@@ -12,19 +12,21 @@ small: selftest patp4_1x1_small pitt4_2x1_dpp_small
 
 medium: patp10_1x1
 
+split: patp4_1x1_small_split2 patp10_1x1_split4
+
 # These rules require copying or linking the definition file, but not the source images
 
 selftest:
 	$(RUBY) ./ct.rb --selftest
 
-patp4_1x1_small carnival4_2x2_listed_small:
+patp4_1x1_small carnival4_2x2_listed_small patp4_1x1_small_split2: 
 	$(call MKDIR_P,testresults/$@.tmc)
 	$(call CP,$@.tmc,testresults/$@.tmc/definition.tmc)
 	$(RUBY) ./ct.rb testresults/$@.tmc testresults/$@.timemachine
 
 # Same as above, but larger job with more concurrency
 
-patp10_1x1:
+patp10_1x1 patp10_1x1_split4:
 	$(call MKDIR_P,testresults/$@.tmc)
 	$(call CP,$@.tmc,testresults/$@.tmc/definition.tmc)
 	$(RUBY) ./ct.rb -j 8 testresults/$@.tmc testresults/$@.timemachine
