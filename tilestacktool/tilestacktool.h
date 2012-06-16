@@ -65,6 +65,9 @@ public:
     stack.pop_back();
     return std::auto_ptr<T>(ret);
   }
+  int size() { 
+    return stack.size(); 
+  }
 };
 
 extern AutoPtrStack<Tilestack> tilestackstack;

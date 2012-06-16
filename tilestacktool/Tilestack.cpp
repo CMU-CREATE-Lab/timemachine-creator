@@ -5,7 +5,7 @@ ResidentTilestack::ResidentTilestack(unsigned int nframes, unsigned int tile_wid
                                      unsigned int bits_per_band, unsigned int pixel_format,
                                      unsigned int compression_format)
 {
-  this->nframes = nframes;
+  set_nframes(nframes);
   this->tile_width = tile_width;
   this->tile_height = tile_height;
   this->bands_per_pixel = bands_per_pixel;
@@ -14,8 +14,6 @@ ResidentTilestack::ResidentTilestack(unsigned int nframes, unsigned int tile_wid
   this->compression_format = compression_format;
   tile_size =  tile_width * tile_height * bands_per_pixel * bits_per_band / 8;
   all_pixels.resize(tile_size * nframes);
-  pixels.resize(nframes);
-  toc.resize(nframes);
   for (unsigned i = 0; i < nframes; i++) {
     pixels[i] = &all_pixels[tile_size * i];
   }

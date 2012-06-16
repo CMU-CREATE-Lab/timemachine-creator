@@ -8,6 +8,7 @@ ifeq ($(OS),windows)
 TILESTACKTOOL = tilestacktool.exe
 else
 TILESTACKTOOL = tilestacktool
+OPTIMIZATION = -O3
 endif
 
 ifeq ($(OS),osx)
@@ -146,7 +147,7 @@ tilestacktool.exe: $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG)
 	cl /EHsc /Ox /MT /Ijsoncpp /I$(LIBJPEG_DIR) /I$(LIBPNG_DIR) /I../cpp_utils /Fetilestacktool.exe $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG) /link /NODEFAULTLIB:LIBCMT
 
 tilestacktool: $(SOURCES) $(LIBPNG) $(ZLIB) $(LIBJPEG)
-	g++ $(PLATFORM_CXX_FLAGS) -O3 -g -Ijsoncpp -I$(LIBJPEG_DIR) -I$(LIBPNG_DIR) -I$(CPP_UTILS_DIR) -Wall $^ -o $@
+	g++ $(PLATFORM_CXX_FLAGS) $(OPTIMIZATION) -g -Ijsoncpp -I$(LIBJPEG_DIR) -I$(LIBPNG_DIR) -I$(CPP_UTILS_DIR) -Wall $^ -o $@
 
 clean: zlib-clean libpng-clean libjpeg-clean
 	$(call RM_R,testresults)

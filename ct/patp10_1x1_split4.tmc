@@ -20,7 +20,7 @@
 	    "size": "small",
 	    "quality": 26,
 	    "fps": 3,
-            "frames_per_fragment": 2
+            "frames_per_fragment": 4
 	},
 	{
 	    "label": "Large",
@@ -28,7 +28,7 @@
 	    "size": "large",
 	    "quality": 26,
 	    "fps": 3,
-            "frames_per_fragment": 2
+            "frames_per_fragment": 4
 	}
     ]  
 }

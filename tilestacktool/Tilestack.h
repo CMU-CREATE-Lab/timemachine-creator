@@ -22,7 +22,7 @@ struct PixelInfo {
   unsigned int bands_per_pixel;
   unsigned int bits_per_band;
   unsigned int pixel_format; // 0=unsigned integer, 1=floating point,
-  int bytes_per_pixel() { return bands_per_pixel * bits_per_band / 8; }
+  int bytes_per_pixel() const { return bands_per_pixel * bits_per_band / 8; }
 
   double get_pixel_ch(const unsigned char *pixel, unsigned ch) const {
     switch ((bits_per_band << 1) | pixel_format) {
@@ -70,6 +70,7 @@ struct TilestackInfo : public PixelInfo {
   unsigned int tile_width;
   unsigned int tile_height;
   unsigned int compression_format;
+  int bytes_per_frame() const { return bytes_per_pixel() * tile_width * tile_height; }
 };
 
 class Tilestack : public TilestackInfo {
@@ -90,6 +91,11 @@ public:
     assert(frame < nframes);
     if (!pixels[frame]) instantiate_pixels(frame);
     return pixels[frame];
+  }
+  void set_nframes(unsigned nframes) {
+    this->nframes = nframes;
+    toc.resize(nframes);
+    pixels.resize(nframes);
   }
   unsigned char *frame_pixel(unsigned frame, unsigned x, unsigned y) {
     return frame_pixels(frame) + bytes_per_pixel() * (x + y * tile_width);
