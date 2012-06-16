@@ -41,6 +41,7 @@ patp4_1x1_small: $(TILESTACKTOOL)
 	$(call CP,testresults/$@/patp0.data/tiles/r.json,testresults/$@/transpose/r.json)
 	./tilestacktool --path2stack 256 256 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":0, "ymin":0, "width":512, "height":512}}' testresults/$@/transpose --save testresults/$@/transpose/r.ts2
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --writevideo testresults/$@/testvid.mp4 1 24
+	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --prependleader 10 --writevideo testresults/$@/testvid-with-leader.mp4 1 24
 	./tilestacktool --path2stack 1088 624 '{"frames":{"start":0,"end":3},"bounds":{"xmin":0,"ymin":0,"width":1088,"height":624}}' testresults/$@/transpose
 
 units:
@@ -52,6 +53,38 @@ test-modis: tilestacktool
 	./tilestacktool --load modis/r12.ts2 --viz 0 3000 1 --save modis/r12.8.ts2
 	./tilestacktool --load modis/r12.8.ts2 --writehtml modis/r12.8.html
 	./tilestacktool --load modis/r12.8.ts2 --writevideo modis/r12.8.mp4 1 26
+
+LEADERDEST = testresults/leaders
+
+LEADERS=$(LEADERDEST)/leader_1088x624_24_60.mp4 \
+        $(LEADERDEST)/leader_768x432_24_120.mp4 \
+        $(LEADERDEST)/leader_1088x624_26_70.mp4 \
+	$(LEADERDEST)/leader_768x432_26_140.mp4 \
+        $(LEADERDEST)/leader_1088x624_28_80.mp4 \
+        $(LEADERDEST)/leader_768x432_28_160.mp4 \
+        $(LEADERDEST)/leader_1088x624_30_90.mp4 \
+        $(LEADERDEST)/leader_768x432_30_180.mp4
+
+leaders: $(LEADERS)
+	ls -l $(LEADERDEST)
+
+leaders.clean:
+	rm -rf $(LEADERDEST)
+
+leaders.rebuild:
+	$(MAKE) leaders.clean
+	$(MAKE) leaders
+
+leader_dims = $(word 2,$(subst _, ,$(basename $(1))))
+leader_compression = $(word 3,$(subst _, ,$(basename $(1))))
+leader_nframes = $(word 4,$(subst _, ,$(basename $(1))))
+
+leader_width = $(word 1,$(subst x, ,$(call leader_dims,$(1))))
+leader_height = $(word 2,$(subst x, ,$(call leader_dims,$(1))))
+
+leader_%.mp4: $(TILESTACKTOOL)
+	mkdir -p $(LEADERDEST)
+	./tilestacktool --blackstack 1 $(call leader_width,$@) $(call leader_height,$@) 3 8 --prependleader $(call leader_nframes,$@) --writevideo $@ 10 $(call leader_compression,$@)
 
 SOURCES = tilestacktool.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp qt-faststart.cpp $(COMMANDS)
 

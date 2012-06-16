@@ -31,7 +31,6 @@ unsigned int tilesize = 512;
 bool create_parent_directories = false;
 bool delete_source_tiles = false;
 std::vector<std::string> source_tiles_to_delete;
-bool duplicate_video_start_and_end_frames = false;
 
 void usage(const char *fmt, ...);
 
@@ -53,6 +52,7 @@ public:
   virtual void create(unsigned frame) {
     while (lru.size() > lru_size) delete_lru();
     lru.push_front(frame);
+    pixels[frame] = new unsigned char[bytes_per_frame()];
   }
 
   virtual ~LRUTilestack() {
@@ -70,7 +70,6 @@ public:
   virtual void instantiate_pixels(unsigned frame) {
     assert(!pixels[frame]);
     create(frame);
-    pixels[frame] = new unsigned char[toc[frame].length];
     reader->read(pixels[frame], toc[frame].address, toc[frame].length);
   }
 
@@ -344,6 +343,95 @@ public:
   }
 };
 
+// Adapted from George Marsaglia's Multiply With Carry, http://www.cse.yorku.ca/~oz/marsaglia-rng.html
+
+struct MWC {
+  unsigned int z; // 32 bits
+  unsigned int w; // 32 bits
+  MWC(int z_seed, int w_seed) : z(z_seed), w(w_seed) {
+    assert(z && w);
+  }
+  unsigned int get() {
+    z = 36969 * (z & 65535) + (z >> 16);
+    w = 18000 * (w & 65535) + (w >> 16);
+    return (z << 16) + w;
+  }
+  unsigned char get_byte() {
+    return (unsigned char) (get() >> 12);
+  }
+};
+
+class PrependLeaderTilestack : public LRUTilestack {
+  std::auto_ptr<Tilestack> source;
+  unsigned leader_nframes;
+
+public:
+  PrependLeaderTilestack(std::auto_ptr<Tilestack> source, int leader_nframes)  
+    : source(source), leader_nframes(leader_nframes) {
+    (*(TilestackInfo*)this) = (*(TilestackInfo*)this->source.get());
+    set_nframes(leader_nframes + this->source->nframes);
+  }
+  
+  virtual void instantiate_pixels(unsigned frame) {
+    assert(!pixels[frame]);
+    create(frame);
+    
+    if (frame >= leader_nframes) {
+      // Beyond leader -- use source frame
+      memcpy(pixels[frame], source->frame_pixels(frame - leader_nframes), bytes_per_frame());
+    } else if (frame >= leader_nframes - 2) {
+      // Last two frames of leader -- use first frame of source
+      memcpy(pixels[frame], source->frame_pixels(0), bytes_per_frame());
+    } else if (frame == 0) {
+      // First frame of leader -- use black
+      memset(pixels[frame], 0, bytes_per_frame());
+    } else {
+      // Generate leader frame
+      MWC random((frame + 1) * 4294967291,
+                 (frame + 1) * 3537812053);
+      int frame_size = bytes_per_frame();
+      for (int i = 0; i < frame_size;) {
+        unsigned char c = random.get_byte() / 4 + 96;
+        for (int j = 0; j < 8; j++) {
+          if (i < frame_size) {
+            for (int k = 0; k < bytes_per_pixel(); k++) {
+              pixels[frame][i++] = c;
+            }
+          }
+        }
+      }
+    }
+  }
+};
+
+void prepend_leader(int leader_nframes)
+{
+  std::auto_ptr<Tilestack> src(tilestackstack.pop());
+  std::auto_ptr<Tilestack> result(new PrependLeaderTilestack(src, leader_nframes));
+  tilestackstack.push(result);
+}
+
+class BlackTilestack : public LRUTilestack {
+
+public:
+  BlackTilestack(int nframes, int width, int height, int bands_per_pixel, int bits_per_band) {
+    set_nframes(nframes);
+    tile_width = width;
+    tile_height = height;
+    this->bands_per_pixel = bands_per_pixel;
+    this->bits_per_band = bits_per_band;
+    pixel_format = 0;
+    compression_format = 0;
+  }
+  
+  virtual void instantiate_pixels(unsigned frame) {
+    assert(!pixels[frame]);
+    create(frame);
+    
+    memset(pixels[frame], 0, bytes_per_frame());
+  }
+};
+
 void write_video(std::string dest, double fps, double compression)
 {
   std::auto_ptr<Tilestack> src(tilestackstack.pop());
@@ -359,13 +447,8 @@ void write_video(std::string dest, double fps, double compression)
   assert(src->bands_per_pixel >= 3 && src->bits_per_band == 8);
   std::vector<unsigned char> destframe(src->tile_width * src->tile_height * 3);
 
-  std::vector<int> frames;
-  if (duplicate_video_start_and_end_frames) frames.push_back(0);
-  for (unsigned i = 0;i < src->nframes; i++) frames.push_back(i);
-  if (duplicate_video_start_and_end_frames) frames.push_back(src->nframes-1);
-
-  for (unsigned i = 0; i < frames.size(); i++) {
-    unsigned char *srcptr = src->frame_pixels(frames[i]);
+  for (unsigned frame = 0; frame < src->nframes; frame++) {
+    unsigned char *srcptr = src->frame_pixels(frame);
     unsigned char *destptr = &destframe[0];
     for (unsigned y = 0; y < src->tile_height; y++) {
       for (unsigned x = 0; x < src->tile_width; x++) {
@@ -403,16 +486,15 @@ void image2tiles(std::string dest, std::string format, std::string src)
   std::vector<unsigned char> tile(reader->bytes_per_pixel() * tilesize * tilesize);
 
   int max_level = compute_tile_nlevels(reader->width(), reader->height(), tilesize, tilesize);
-  std::string temp_dest = temporary_path(dest);
 
-  make_directory_and_parents(temp_dest);
+  make_directory_and_parents(dest);
 
   {
     Json::Value r;
     r["width"] = reader->width();
     r["height"] = reader->height();
     r["tile_width"] = r["tile_height"] = tilesize;
-    std::string jsonfile = temp_dest + "/r.json";
+    std::string jsonfile = dest + "/r.json";
     std::ofstream jsonout(jsonfile.c_str());
     if (!jsonout.good()) throw_error("Error opening %s for writing", jsonfile.c_str());
     jsonout << r;
@@ -431,16 +513,18 @@ void image2tiles(std::string dest, std::string format, std::string src)
                ncols * reader->bytes_per_pixel());
       }
 
-      std::string path = temp_dest + "/" + GPTileIdx(max_level - 1, left/tilesize, top/tilesize).path() + "." + format;
+      std::string path = dest + "/" + GPTileIdx(max_level - 1, left/tilesize, top/tilesize).path() + "." + format;
       std::string directory = filename_directory(path);
       make_directory_and_parents(directory);
 
-      ImageWriter::write(path, tilesize, tilesize, reader->bands_per_pixel(), reader->bits_per_band(),
+      std::string temp_path = temporary_path(path);
+
+      ImageWriter::write(temp_path, tilesize, tilesize, reader->bands_per_pixel(), reader->bits_per_band(),
                          &tile[0]);
+      
+      rename_file(temp_path, path);
     }
   }
-
-  rename_file(temp_dest, dest);
 }
 
 void load_tiles(const std::vector<std::string> &srcs)
@@ -700,7 +784,6 @@ public:
   virtual void instantiate_pixels(unsigned frame) {
     assert(!pixels[frame]);
     create(frame);
-    pixels[frame] = new unsigned char[bytes_per_frame()];
     Image image(*this, tile_width, tile_height, pixels[frame]);
     stackset.render_image(image, frames[frame]);
   }
@@ -767,7 +850,6 @@ int main(int argc, char **argv)
     Arglist args(argv+1, argv+argc);
     while (!args.empty()) {
       std::string arg = args.shift();
-      fprintf(stderr, "PARSING ARGS: %s, stacksize = %d\n", arg.c_str(), tilestackstack.size());
       if (arg == "--load") {
         std::string src = args.shift();
         if (filename_suffix(src) != "ts2") {
@@ -791,6 +873,19 @@ int main(int argc, char **argv)
       else if (arg == "--writehtml") {
         std::string dest = args.shift();
         write_html(dest);
+      }
+      else if (arg == "--prependleader") {
+        int leader_nframes = args.shift_int();
+        prepend_leader(leader_nframes);
+      }
+      else if (arg == "--blackstack") {
+        int nframes = args.shift_int();
+        int width = args.shift_int();
+        int height = args.shift_int();
+        int bands_per_pixel = args.shift_int();
+        int bits_per_band = args.shift_int();
+        tilestackstack.push(std::auto_ptr<Tilestack>(new BlackTilestack(nframes, width, height, 
+                                                                        bands_per_pixel, bits_per_band)));
       }
       else if (arg == "--writevideo") {
         std::string dest = args.shift();
@@ -825,9 +920,6 @@ int main(int argc, char **argv)
       }
       else if (arg == "--create-parent-directories") {
         create_parent_directories = true;
-      }
-      else if (arg == "--duplicate-video-start-and-end-frames") {
-        duplicate_video_start_and_end_frames = true;
       }
       else if (arg == "--path2stack") {
         int stack_width = args.shift_int();

@@ -12,14 +12,14 @@
 	    "label": "Small",
 	    "type": "h.264",
 	    "size": "small",
-	    "quality": 26,
+	    "compression": 26,
 	    "fps": 3
 	},
 	{
 	    "label": "Large",
 	    "type": "h.264",
 	    "size": "large",
-	    "quality": 26,
+	    "compression": 26,
 	    "fps": 3
 	}
     ]  

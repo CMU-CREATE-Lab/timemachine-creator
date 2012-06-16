@@ -289,7 +289,7 @@ class Rule
 end
 
 class VideosetCompiler
-  attr_reader :videotype, :vid_width, :vid_height, :overlap_x, :overlap_y, :quality, :label, :fps, :show_frameno, :parent
+  attr_reader :videotype, :vid_width, :vid_height, :overlap_x, :overlap_y, :compression, :label, :fps, :show_frameno, :parent
   attr_reader :id
   @@sizes={
     "large"=>{:vid_size=>[1088,624], :overlap=>[1088/4, 624/4]},
@@ -298,10 +298,12 @@ class VideosetCompiler
   @@videotypes={
     "h.264"=>{}
   }
-  @@leaders={
-  	"crf32" => {"small"=>"360", "large"=>"180"},
-  	"crf28" => {"small"=>"160", "large"=>"80"},
-  	"crf24" => {"small"=>"60", "large"=>"30"}
+
+  @@leader_bytes_per_pixel={
+    30 => 2701656.0 / (1088 * 624 * 90),
+    28 => 2738868.0 / (1088 * 624 * 80),
+    26 => 2676000.0 / (1088 * 624 * 70),
+    24 => 2556606.0 / (1088 * 624 * 60)
   }
   
   def initialize(parent, settings)
@@ -316,9 +318,9 @@ class VideosetCompiler
     (@vid_width, @vid_height) = @@sizes[size][:vid_size]
     (@overlap_x, @overlap_y) = @@sizes[size][:overlap]
 
-    @quality = settings["quality"] || raise("Video settings must include quality")
-    @quality = @quality.to_i
-    @quality > 0 || raise("Video quality must be > 0")
+    (@compression = settings["compression"] || settings["quality"]) or raise "Video settings must include compression"
+    @compression = @compression.to_i
+    @compression > 0 || raise("Video compression must be > 0")
 
     @fps = settings["fps"] || raise("Video settings must include fps")
     @fps = @fps.to_f
@@ -328,20 +330,39 @@ class VideosetCompiler
 
     @frames_per_fragment = settings["frames_per_fragment"]
 
-    @use_leaders = nframes > 30
-    if @use_leaders
-      @@leaders.member?("crf#{@quality}") || raise("Video quality must be one of [#{@@leaders.keys.join(", ")}]")
-      @leader = @@leaders["crf#{@quality}"][size]
-    end
+    @leader = @frames_per_fragment ? 0 : compute_leader_length
 
     initialize_videotiles
-
     initialize_id
   end
 
+  def compute_leader_length
+    if not @@leader_bytes_per_pixel.member?(@compression)
+      raise "Video compression must be one of [#{@@leader_bytes_per_pixel.keys.join(", ")}]"
+    end
+
+    bytes_per_frame = @vid_width * @vid_height * @@leader_bytes_per_pixel[@compression]
+
+    leader_threshold = 1200000
+    estimated_video_size = bytes_per_frame * nframes
+    if estimated_video_size < leader_threshold
+      # No leader needed
+      return 0
+    end
+      
+    minimum_leader_length = 2500000
+    leader_nframes = minimum_leader_length / bytes_per_frame
+
+    # Round up to nearest multiple of frames per keyframe
+    frames_per_keyframe = 10
+    leader_nframes = (leader_nframes / frames_per_keyframe).ceil * frames_per_keyframe
+
+    return leader_nframes
+  end
+
   def initialize_id
-    tokens = ["crf#{@quality}", "#{@fps.round}fps"]
-    @leader && tokens << "l#{@leader}"
+    tokens = ["crf#{@compression}", "#{@fps.round}fps"]
+    (@leader > 0) && tokens << "l#{@leader}"
     tokens << "#{@vid_width}x#{@vid_height}"
     @id = tokens.join('-')
   end
@@ -419,9 +440,10 @@ class VideosetCompiler
 
       cmd += @parent.video_filter || []
 
-      cmd += ['--writevideo', target, @fps, @quality]
-      # TODO: leader!
-      # @leader && cmd += ["--leader", @leader]
+      @leader > 0 and cmd += ["--prependleader", @leader]
+
+      cmd += ['--writevideo', target, @fps, @compression]
+
       Rule.add(target, dependencies, [cmd])
     end
   end
@@ -433,7 +455,7 @@ class VideosetCompiler
       "level_scale"  => 2,
       "frames"       => nframes,
       "fps"          => @fps,
-      "leader"       => @leader || 0,
+      "leader"       => @leader,
       "tile_width"   => @overlap_x,
       "tile_height"  => @overlap_y,
       "video_width"  => @vid_width,
