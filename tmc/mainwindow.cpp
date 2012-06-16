@@ -220,7 +220,7 @@ void MainWindow::addImages()
 {
 	QFileDialog dialog(this);
 	dialog.setFileMode(QFileDialog::ExistingFiles);
-	dialog.setNameFilter("Image files (*.jpg *.jpeg *.png)");
+	dialog.setNameFilter("Image files (*.jpg *.jpeg)");
 	dialog.setViewMode(QFileDialog::Detail);
 	if (dialog.exec()) {
 		QStringList selectedFiles = dialog.selectedFiles();

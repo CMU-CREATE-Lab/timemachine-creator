@@ -17,6 +17,8 @@
 
 using namespace std;
 
+APIProcess *process;
+
 API::API(const std::string &rootdir) : rootdir(rootdir) {
 }
 
@@ -320,7 +322,7 @@ bool API::invokeRubySubprocess(QStringList args, int callback_id)
     fprintf(stderr, " %s", args[i].toUtf8().constData());
   }
   fprintf(stderr, "\n");
-  APIProcess *process = new APIProcess(this, callback_id);
+  process = new APIProcess(this, callback_id);
 
   // Ruby path
   std::string ruby_path;
@@ -333,5 +335,10 @@ bool API::invokeRubySubprocess(QStringList args, int callback_id)
 
   fprintf(stderr, "Invoking ruby with path '%s'\n", ruby_path.c_str());
   process->process.start(ruby_path.c_str(), args, QIODevice::ReadOnly);
+  return true;
+}
+
+bool API::killSubprocess() {
+  process->process.kill();
   return true;
 }

@@ -1046,7 +1046,7 @@ class Compiler
   end
 
   def compute_rules
-    Filesystem.cached_exists?(@@global_parent.source.capture_time_parser) ? capture_times_rule : videoset_rules
+    @@global_parent.source.capture_time_parser && Filesystem.cached_exists?(@@global_parent.source.capture_time_parser) ? capture_times_rule : videoset_rules
   end
 
   def info
