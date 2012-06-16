@@ -5,7 +5,7 @@ api = {}
 api._callbacks = [];
 
 api._callback = function(id, arr) {
-  console.log("callback " + id + " | " + arr);
+  //console.log("callback " + id + " | " + arr);
   api._callbacks[id].apply(null, arr);
 }
 
@@ -19,6 +19,8 @@ $(function(){window._api.callback.connect(api._callback);});
 api.invokeRubySubprocess = function(args, callback) {
   return window._api.invokeRubySubprocess(args, api._register_callback(callback));
 }
+
+api.killSubprocess = window._api.killSubprocess;
 
 api.readThumbnail = window._api.readThumbnail;
 

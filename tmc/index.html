@@ -1010,7 +1010,8 @@
           $("#status_window").append("<br/><button style='margin-top: 10px' id='cancel_render_btn'>Cancel</button>");
           
           $("#cancel_render_btn").button().click(function () {
-            alert('cancel render!');
+            //alert('cancel render!');
+            api.killSubprocess();
           });
           $("#current_progress").progressBar({ barImage: 'assets/images/progressbg_black.gif'} );
           run_ct();
@@ -1365,34 +1366,42 @@
         }
       }
 
+      function reactivateUI() {
+        openProjectAction(true);
+        saveAsAction(true);
+        addImagesAction(true);
+        addFoldersAction(true);
+        recentlyAddedAction(true);
+
+        $("#tabs").tabs("enable","tabs-1");
+        $("#status_window").html("");
+        $("#compression").spinner("enable")
+        $("#fps").spinner("enable")
+        $("#num_jobs").button("enable");
+        $("#render_export_btn").show();
+      }
+
       function ct_out(out) {
         //console.log("In ct_out, out=" + out);
         if (typeof out === 'number') {
           inProgress = false;
           $("#cancel_render_btn").hide();
           $("#status_window").append("Ended: " + get_current_time_formatted() + "<br/>");
-          $("#status_window").append("<br/><button id='view_timemachine'>View Time Machine</button><br/>");
           $("#status_window").append("<br/><button id='change_settings_btn'>Change settings for new render/export</button><br/>");
-
-          $("#view_timemachine").button().click(function () {
-            openInBrowser(projectPath+"/"+projectName+".timemachine/view.html");
-          });
-          
           $("#change_settings_btn").button().click(function () {
-            
-            openProjectAction(true);
-            saveAsAction(true);
-            addImagesAction(true);
-            addFoldersAction(true);
-            recentlyAddedAction(true);
-            
-            $("#tabs").tabs("enable","tabs-1");
-            $("#status_window").html("");
-            $("#compression").spinner("enable")
-            $("#fps").spinner("enable")
-            $("#num_jobs").button("enable");
-            $("#render_export_btn").show();
+           reactivateUI();
           });
+
+          if (out == 0) { //success
+            $("#status_window").append("<br/><button id='view_timemachine'><b>View Time Machine</b></button><br/>");
+            $("#view_timemachine").button().click(function () {
+              openInBrowser(projectPath+"/"+projectName+".timemachine/view.html");
+            });
+          } else if (out == 1) { //error
+            $("#status_window").append("<p><font color='red'>An error was encountered.</font></p><br/>");
+          } else { //canceled (62097?)
+            $("#status_window").append("<p><font color='red'>Process canceled.</font></p><br/>");
+          }
 
         } else {
           output_string = out.replace(/\r\n|\r|\n/g, "<br />")
@@ -1639,7 +1648,7 @@
                   <div style="float:left">Frames per second:</div><div style="margin: 0px 0px 0px 5px; float:left" id="fps_explanation" style="width: 16px" class="ui-state-default ui-corner-all" title="Explain"><span class="ui-icon ui-icon-info" title="Explain"></span></div><input style="margin: 0px 0px 0px 5px; float:left" type="text" id="fps" size="2" maxlength="2" value="25"/>
                   <br/><br/>
                   h.264 video (Chrome or Safari required)<br/>
-                  <div style="margin: 0px 0px 0px 20px"><div style="float:left">Compression:</div> <div style="margin: 0px 0px 0px 5px; float:left" id="compression_explanation" style="width: 16px" class="ui-state-default ui-corner-all" title="Explain"><span class="ui-icon ui-icon-info" title="Explain"></span></div> <input style="margin: 0px 0px 0px 5px;" type="text" id="compression" size="2" maxlength="23" value="28" /><br/>
+                  <div style="margin: 0px 0px 0px 20px"><div style="float:left">Compression:</div> <div style="margin: 0px 0px 0px 5px; float:left" id="compression_explanation" style="width: 16px" class="ui-state-default ui-corner-all" title="Explain"><span class="ui-icon ui-icon-info" title="Explain"></span></div> <input style="margin: 0px 0px 0px 5px;" type="text" id="compression" size="2" maxlength="23" value="26" /><br/>
                   <font size="1px">Typical settings:</font>
                     <div style="margin: 0px 0px 0px 10px">
                         <font size="1px">Low compression <b>(higher quality; slow processing)</b>: 24<br/>
