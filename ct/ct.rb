@@ -301,6 +301,7 @@ class VideosetCompiler
   @@leaders={
   	"crf32" => {"small"=>"360", "large"=>"180"},
   	"crf28" => {"small"=>"160", "large"=>"80"},
+  	"crf26" => {"small"=>"110", "large"=>"55"}, # UNTESTED, TODO(RS): test this
   	"crf24" => {"small"=>"60", "large"=>"30"}
   }
   
@@ -1023,7 +1024,7 @@ class Compiler
   end
 
   def compute_rules
-    Filesystem.cached_exists?(@@global_parent.source.capture_time_parser) ? capture_times_rule : videoset_rules
+    @@global_parent.source.capture_time_parser && Filesystem.cached_exists?(@@global_parent.source.capture_time_parser) ? capture_times_rule : videoset_rules
   end
 
   def info
