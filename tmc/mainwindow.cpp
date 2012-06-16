@@ -146,7 +146,7 @@ void MainWindow::openRecentFile()
 			files.removeAll(action->data().toString());
 			settings.setValue("recentFileList", files);
 			updateRecentFileActions();
-			QMessageBox::critical(this,tr("File Does Not Exist."),tr("This file does not exist."));
+			QMessageBox::critical(this,tr("File Does Not Exist"),tr("This file does not exist."));
 		}
 	}
 }

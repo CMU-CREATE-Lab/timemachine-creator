@@ -35,35 +35,53 @@ bool duplicate_video_start_and_end_frames = false;
 
 void usage(const char *fmt, ...);
 
-class TilestackReader : public Tilestack {
+class LRUTilestack : public Tilestack {
+  unsigned int lru_size;
+  std::list<int> lru;
+
+public:
+  LRUTilestack() : lru_size(5) {}
+  
+  // Not really deleting the LRU, but rather the least recently created
+  // (to avoid the overhead of recording use)
+  void delete_lru() {
+    delete[] pixels[lru.back()];
+    pixels[lru.back()] = 0;
+    lru.pop_back();
+  }
+
+  virtual void create(unsigned frame) {
+    while (lru.size() > lru_size) delete_lru();
+    lru.push_front(frame);
+  }
+
+  virtual ~LRUTilestack() {
+    while (!lru.empty()) delete_lru();
+  }
+};
+
+class TilestackReader : public LRUTilestack {
 public:
   std::auto_ptr<Reader> reader;
   TilestackReader(std::auto_ptr<Reader> reader) : reader(reader) {
     read();
-    pixels.resize(nframes);
   }
 
   virtual void instantiate_pixels(unsigned frame) {
-    // TODO: if this runs out of RAM, consider LRU implementation
     assert(!pixels[frame]);
+    create(frame);
     pixels[frame] = new unsigned char[toc[frame].length];
     reader->read(pixels[frame], toc[frame].address, toc[frame].length);
   }
-  virtual ~TilestackReader() {
-    for (unsigned i = 0; i < nframes; i++) {
-      if (pixels[i]) {
-        delete[] pixels[i];
-        pixels[i] = 0;
-      }
-    }
-  }
+
+  virtual ~TilestackReader() {}
 
   protected:
   void read() {
     size_t footer_size = 48;
     size_t filelen = reader->length();
     std::vector<unsigned char> footer = reader->read(filelen - footer_size, footer_size);
-    nframes =      (unsigned int) read_u64(&footer[ 0]);
+    set_nframes(   (unsigned int) read_u64(&footer[ 0]));
     tile_width =   (unsigned int) read_u64(&footer[ 8]);
     tile_height =  (unsigned int) read_u64(&footer[16]);
     bands_per_pixel =             read_u32(&footer[24]);
@@ -79,7 +97,6 @@ public:
     size_t tocentry_size = 24;
     size_t toclen = tocentry_size * nframes;
     std::vector<unsigned char> tocdata = reader->read(filelen - footer_size - toclen, toclen);
-    toc.resize(nframes);
     for (unsigned i = 0; i < nframes; i++) {
       toc[i].timestamp = read_double_64(&tocdata[i*tocentry_size +  0]);
       toc[i].address =   read_u64      (&tocdata[i*tocentry_size +  8]);
@@ -127,6 +144,22 @@ void viz(double min, double max, double gamma) {
   tilestackstack.push(dest);
 }
 
+void ensure_resident() {
+  std::auto_ptr<Tilestack> src(tilestackstack.pop());
+  if (dynamic_cast<ResidentTilestack*>(src.get())) {
+    // Already resident
+    tilestackstack.push(src);
+  } else {
+    std::auto_ptr<Tilestack> copy(
+              new ResidentTilestack(src->nframes, src->tile_width, src->tile_height,
+                                    src->bands_per_pixel, src->bits_per_band, src->pixel_format, 0));
+    for (unsigned frame = 0; frame < src->nframes; frame++) {
+      memcpy(copy->frame_pixels(frame), src->frame_pixels(frame), src->bytes_per_frame());
+    }
+    tilestackstack.push(copy);
+  }
+}
+
 void write_html(std::string dest)
 {
   std::auto_ptr<Tilestack> src(tilestackstack.pop());
@@ -164,9 +197,10 @@ void write_html(std::string dest)
 
 void save(std::string dest)
 {
+  ensure_resident();
   std::auto_ptr<Tilestack> tmp(tilestackstack.pop());
   ResidentTilestack *src = dynamic_cast<ResidentTilestack*>(tmp.get());
-  if (!src) throw_error("Can only save type ResidentTilestack (do an operation after reading before writing)");
+  assert(src);
 
   if (create_parent_directories) make_directory_and_parents(filename_directory(dest));
 
@@ -632,17 +666,48 @@ void parse_path(std::vector<Frame> &frames, Json::Value path) {
   }
 }
 
-void path2stack(int stack_width, int stack_height, Json::Value path, const std::string &stackset_path) {
-  Stackset stackset(stackset_path);
+//void path2stack(int stack_width, int stack_height, Json::Value path, const std::string &stackset_path) {
+//  Stackset stackset(stackset_path);
+//  std::vector<Frame> frames;
+//  parse_path(frames, path);
+//  std::auto_ptr<Tilestack> out(new ResidentTilestack(frames.size(), stack_width, stack_height,
+//                                                stackset.bands_per_pixel, stackset.bits_per_band,
+//                                                stackset.pixel_format, 0));
+//  for (unsigned i = 0; i < frames.size(); i++) {
+//    Image image(stackset, stack_width, stack_height, out->frame_pixels(i));
+//    stackset.render_image(image, frames[i]);
+//  }
+//  tilestackstack.push(out);
+//}
+
+class TilestackFromPath : public LRUTilestack {
+  Stackset stackset;
   std::vector<Frame> frames;
-  parse_path(frames, path);
-  std::auto_ptr<Tilestack> out(new ResidentTilestack(frames.size(), stack_width, stack_height,
-                                                stackset.bands_per_pixel, stackset.bits_per_band,
-                                                stackset.pixel_format, 0));
-  for (unsigned i = 0; i < frames.size(); i++) {
-    Image image(stackset, stack_width, stack_height, out->frame_pixels(i));
-    stackset.render_image(image, frames[i]);
+
+public:
+  TilestackFromPath(int stack_width, int stack_height, Json::Value path, const std::string &stackset_path) :
+    stackset(stackset_path) {
+    parse_path(frames, path);
+    set_nframes(frames.size());
+    tile_width = stack_width;
+    tile_height = stack_height;
+    bands_per_pixel = stackset.bands_per_pixel;
+    bits_per_band = stackset.bits_per_band;
+    pixel_format = stackset.pixel_format;
+    compression_format = 0;
   }
+
+  virtual void instantiate_pixels(unsigned frame) {
+    assert(!pixels[frame]);
+    create(frame);
+    pixels[frame] = new unsigned char[bytes_per_frame()];
+    Image image(*this, tile_width, tile_height, pixels[frame]);
+    stackset.render_image(image, frames[frame]);
+  }
+};
+
+void path2stack(int stack_width, int stack_height, Json::Value path, const std::string &stackset_path) {
+  std::auto_ptr<Tilestack> out(new TilestackFromPath(stack_width, stack_height, path, stackset_path));
   tilestackstack.push(out);
 }
 
@@ -702,6 +767,7 @@ int main(int argc, char **argv)
     Arglist args(argv+1, argv+argc);
     while (!args.empty()) {
       std::string arg = args.shift();
+      fprintf(stderr, "PARSING ARGS: %s, stacksize = %d\n", arg.c_str(), tilestackstack.size());
       if (arg == "--load") {
         std::string src = args.shift();
         if (filename_suffix(src) != "ts2") {
