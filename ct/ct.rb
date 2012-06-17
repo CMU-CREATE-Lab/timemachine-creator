@@ -19,8 +19,8 @@ require 'tile'
 require 'tileset'
 require 'xmlsimple'
 
-profile = "ct.profile.11.txt"
-# profile = false
+# profile = "ct.profile.11.txt"
+profile = false
 debug = false
 
 if profile
