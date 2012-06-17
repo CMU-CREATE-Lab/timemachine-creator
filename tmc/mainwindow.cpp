@@ -213,21 +213,25 @@ void MainWindow::setApi(API *api)
 
 void MainWindow::open()
 {
+        QApplication::setOverrideCursor(Qt::WaitCursor);
 	api->evaluateJavaScript("openData(); null");
+        QApplication::restoreOverrideCursor();
 }
 
 void MainWindow::addImages()
 {
+  
 	QFileDialog dialog(this);
 	dialog.setFileMode(QFileDialog::ExistingFiles);
 	dialog.setNameFilter("Image files (*.jpg *.jpeg)");
 	dialog.setViewMode(QFileDialog::Detail);
 	if (dialog.exec()) {
+                QApplication::setOverrideCursor(Qt::WaitCursor);
 		QStringList selectedFiles = dialog.selectedFiles();
 		api->dropPaths(selectedFiles);
 		api->evaluateJavaScript("imagesDropped(); null");
 	}
-	
+        QApplication::restoreOverrideCursor();
 	return;
 }
 
@@ -237,11 +241,12 @@ void MainWindow::addFolders()
 	dialog.setFileMode(QFileDialog::Directory);
 	dialog.setViewMode(QFileDialog::Detail);
 	if (dialog.exec()) {
+                QApplication::setOverrideCursor(Qt::WaitCursor);
 		QStringList selectedFiles = dialog.selectedFiles();
 		api->dropPaths(selectedFiles);
 		api->evaluateJavaScript("imagesDropped(); null");
 	}
-	
+        QApplication::restoreOverrideCursor();
 	return;
 }
 
