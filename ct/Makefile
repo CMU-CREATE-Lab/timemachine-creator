@@ -33,6 +33,11 @@ patp10_1x1 patp100_1x1_medium patp10_1x1_split4:
 	$(call CP,$@.tmc,testresults/$@.tmc/definition.tmc)
 	$(RUBY) ./ct.rb -j 8 testresults/$@.tmc testresults/$@.timemachine
 
+ruletest_%:
+	$(call MKDIR_P,testresults/$@.tmc)
+	$(call CP,$@.tmc,testresults/$@.tmc/definition.tmc)
+	$(RUBY) ./ct.rb -r 10 --dry-run testresults/$@.tmc testresults/$@.timemachine
+
 # These rules require copying/linking the definition file and also the source images
 
 pitt4_2x1_dpp_small carnival4_2x2_small:

@@ -1,0 +1,28 @@
+{
+  "source": {
+    "type": "images",
+    "width": 10000,
+    "height": 1000,
+    "images": [
+        "dry-run-fake-000.raw",
+        "dry-run-fake-001.raw",
+        "dry-run-fake-002.raw",
+        "dry-run-fake-003.raw",
+        "dry-run-fake-004.raw",
+        "dry-run-fake-005.raw",
+        "dry-run-fake-006.raw",
+        "dry-run-fake-007.raw",
+        "dry-run-fake-008.raw",
+        "dry-run-fake-009.raw"
+    ]
+  },
+  "videosets": [
+    {
+      "label": "Large",
+      "type": "h.264",
+      "size": "large",
+      "quality": 28,
+      "fps": 25
+    }
+  ]
+}

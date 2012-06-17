@@ -1,5 +1,5 @@
 class Tile
-  attr_accessor :x, :y, :level
+  attr_reader :x, :y, :level
   def initialize(x, y, level)
     @x = x
     @y = y
@@ -7,6 +7,10 @@ class Tile
   end
 
   def name
+    @name ||= compute_name
+  end
+
+  def compute_name
     ret = "r"
     (level-1).downto(0) do |i| 
       ret += (['0', '1', '2', '3'])[((@x >> i) & 1) + ((@y >> i) & 1)*2]
@@ -15,6 +19,10 @@ class Tile
   end
 
   def path
+    @path ||= compute_path
+  end
+
+  def compute_path
     ret = ""
     n = name
     0.step(n.size-4,3) {|i| ret += n[i ... i+3] + "/"}

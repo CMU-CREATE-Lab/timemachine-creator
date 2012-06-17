@@ -19,8 +19,25 @@ require 'tile'
 require 'tileset'
 require 'xmlsimple'
 
+profile = "ct.profile.11.txt"
+# profile = false
+debug = false
+
+if profile
+  require 'rubygems'
+  require 'ruby-prof'
+  RubyProf.start
+end
+
+start_time = Time.new
+
+if debug
+  require 'ruby-debug'
+end
+
 $run_remotely = nil
 $run_remotely_json = false
+$dry_run = false
 
 if RUBY_VERSION < '1.8.5' || RUBY_VERSION > '1.9.'
   raise "Ruby version is #{RUBY_VERSION}, but must be >= 1.8.6, and must be < 1.9 because of threading bugs in 1.9"
@@ -161,10 +178,6 @@ end
 $verbose = false
 @@global_parent = nil
 
-# require 'ruby-debug'
-# require 'ruby-prof'
-# RubyProf.start
-
 #
 # DOCUMENTATION IS IN README_CT.TXT
 #
@@ -264,7 +277,7 @@ class Rule
     @dependencies = dependencies
     @commands = commands
     @@all << self
-    @@all_targets += targets
+    targets.each { |target| @@all_targets << target }
   end
   
   def self.add(targets, dependencies, commands, options={})
@@ -934,7 +947,7 @@ class Compiler
 
   def initialize_tiles
     tileset = Tileset.new(@source.width, @source.height, @source.tilesize)
-    @all_tiles = tileset.enumerate
+    @all_tiles = Set.new tileset.enumerate
     @max_level = tileset.max_level
     @base_tiles = tileset.enumerate_max_level
     @subsampled_tiles = tileset.enumerate_subsampled_levels
@@ -956,7 +969,7 @@ class Compiler
     if Rule.has_target?(tile)
       return dependencies
     end
-    children = tile.children & @all_tiles
+    children = tile.children.select {|t| @all_tiles.member? t}
     if children.size > 0
       subsampled_tilestack_rule(tile, children, dependencies)
     else
@@ -1141,6 +1154,8 @@ class Maker
   def target_exists?(target)
     if @targets.member?(target)
       @targets[target]
+    elsif File.basename(target) =~ /^dry-run-fake/
+      @targets[target] = true
     else
       @targets[target] = Filesystem.cached_exists?(target)
     end
@@ -1276,7 +1291,11 @@ class Maker
               @status[rule]=:executing
             end
             STDERR.write "#{date} Job #{job_no} executing #{to_run.size} rules #{to_run[0]}...\n"
-            Thread.new { execute_rules(job_no, to_run, response) }
+            if $dry_run
+              response.push([job_no, to_run, nil])
+            else
+              Thread.new { execute_rules(job_no, to_run, response) }
+            end
             jobs_executing += 1
             rules_executing += to_run.size
           end
@@ -1290,9 +1309,8 @@ class Maker
         STDERR.write "#{date}: Don't know how to build targets, aborting"
         exit 1
       end
-      print_status(rules_executing, jobs_executing)
       (job_no, rules, thread) = response.pop
-      thread.join
+      $dry_run || thread.join
       jobs_executing -= 1
       rules_executing -= rules.size
       rules.each {|rule| rule_completed(rule)}
@@ -1410,6 +1428,8 @@ destination = nil
 njobs = 1
 rules_per_job = 1
 
+cmdline = "ct.rb #{ARGV.join(' ')}"
+
 while !ARGV.empty?
   arg = ARGV.shift
   if arg == '-j'
@@ -1428,6 +1448,8 @@ while !ARGV.empty?
     @@jsonfile = File.basename(arg) == 'definition.tmc' ? arg : "#{arg}/definition.tmc"
   elsif File.extname(arg) == '.timemachine'
     destination = File.expand_path(arg)
+  elsif arg == '-n' || arg == '--dry-run'
+    $dry_run = true
   elsif arg == '--selftest'
     exit self_test ? 0 : 1
   elsif arg == '--selftest-no-stitch'
@@ -1485,7 +1507,18 @@ compiler.urls['track'] and STDERR.puts "and update tracking page #{compiler.urls
     
 STDERR.puts "View at file://#{destination}/view.html"
 
-# result = RubyProf.stop
-# printer = RubyProf::GraphPrinter.new(result)
-# printer.print(open("5.txt","w"),{})
-# exit 0
+end_time = Time.new
+STDERR.puts "Executiontook #{end_time-start_time} seconds"
+
+if profile
+  result = RubyProf.stop
+  printer = RubyProf::GraphPrinter.new(result)
+  STDERR.puts "Writing profile to #{profile}"
+  open(profile, "w") do |out| 
+    out.puts "Profile #{Time.new}"
+    out.puts cmdline
+    out.puts "Execution took #{end_time-start_time} seconds"
+    out.puts
+    printer.print(out, {})
+  end
+end
