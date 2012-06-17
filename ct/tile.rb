@@ -45,7 +45,7 @@ class Tile
   end
 
   def eql?(rhs)
-    @x == rhs.x && @y == rhs.y && @level == rhs.level
+    rhs.class == Tile && @x == rhs.x && @y == rhs.y && @level == rhs.level
   end
 
   def hash

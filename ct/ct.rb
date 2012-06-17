@@ -19,7 +19,7 @@ require 'tile'
 require 'tileset'
 require 'xmlsimple'
 
-# profile = "ct.profile.11.txt"
+# profile = "ct.profile.12.txt"
 profile = false
 debug = false
 
@@ -1204,7 +1204,13 @@ class Maker
         if $run_remotely_json
           json_file = "job_#{job_no}_#{Process.pid}.json"
           open(json_file, "w") do |json|
-            json.puts JSON.pretty_generate rules.flat_map &:commands
+            json.puts "["
+            commands = rules.flat_map(&:commands)
+            commands.size.times do |i|
+              i > 0 and json.puts ","
+              json.write JSON.fast_generate commands[i]
+            end
+            json.puts "\n]"
           end
           command = "#{$run_remotely} --jobs @#{json_file}"
         else
