@@ -263,6 +263,12 @@
         }
         //alert('Project Saved');
       }
+	  
+	  // put the new project code here. it is called by menubar
+	  function newProject() {
+		alert("new project");
+		//newProjectAction(false); // for test
+	  }
 
       // put the loading code here. it is called by menubar
       function openData(startDirectory) {
@@ -368,6 +374,11 @@
         $('body').css( 'cursor', 'wait' );
         addDroppedFiles();
       }
+	  
+	  // enable or disable new project menu
+	  function newProjectAction(state) {
+		api.setNewProjectMenu(state);
+	  }
 
       // enable or disable open project menu
       function openProjectAction(state) {

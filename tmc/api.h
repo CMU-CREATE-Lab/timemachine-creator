@@ -39,6 +39,7 @@ public:
   Q_INVOKABLE void setUndoMenu(bool state);
   Q_INVOKABLE void setRedoMenu(bool state);
   Q_INVOKABLE QString getOpenedProjectPath();
+  Q_INVOKABLE void setNewProjectMenu(bool state);
   Q_INVOKABLE void setOpenProjectMenu(bool state);
   Q_INVOKABLE void setSaveMenu(bool state);
   Q_INVOKABLE void setSaveAsMenu(bool state);

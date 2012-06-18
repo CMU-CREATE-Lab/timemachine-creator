@@ -122,6 +122,10 @@ void API::setRedoMenu(bool state) {
 	mainwindow->setRedoMenu(state);
 }
 
+void API::setNewProjectMenu(bool state) {
+	mainwindow->setNewProjectMenu(state);
+}
+
 void API::setOpenProjectMenu(bool state) {
 	mainwindow->setOpenProjectMenu(state);
 }
