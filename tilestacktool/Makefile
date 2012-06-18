@@ -43,14 +43,18 @@ patp4_1x1_small: $(TILESTACKTOOL)
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --writevideo testresults/$@/testvid.mp4 1 24
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --prependleader 10 --writevideo testresults/$@/testvid-with-leader.mp4 1 24
 	./tilestacktool --path2stack 1088 624 '{"frames":{"start":0,"end":3},"bounds":{"xmin":0,"ymin":0,"width":1088,"height":624}}' testresults/$@/transpose
+	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --viz '{"scale":0.3}' --writevideo testresults/$@/testvid_scale_0.3.mp4 1 24
+	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --viz '{"scale":[1,0,0]}' --writevideo testresults/$@/testvid_scale_1_0_0.mp4 1 24
+	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --viz '{"gamma":2}' --writevideo testresults/$@/testvid_gamma_2.mp4 1 24
+	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --viz '{"gamma":[1,2,1]}' --writevideo testresults/$@/testvid_gamma_1_2_1.mp4 1 24
 
 units:
 	g++ -g -I /opt/local/include -I . -Wall unit_tests/test_GPTileIdx.cpp GPTileIdx.cpp -o unit_tests/test_GPTileIdx
 	unit_tests/test_GPTileIdx
 
 test-modis: tilestacktool
-	./tilestacktool --load modis/r12.ts2 --viz 0 3000 1 --writehtml r12.html
-	./tilestacktool --load modis/r12.ts2 --viz 0 3000 1 --save modis/r12.8.ts2
+	./tilestacktool --load modis/r12.ts2 --viz '{"scale":0.0853}' --writehtml r12.html
+	./tilestacktool --load modis/r12.ts2 --viz '{"scale":0.0853}' --save modis/r12.8.ts2
 	./tilestacktool --load modis/r12.8.ts2 --writehtml modis/r12.8.html
 	./tilestacktool --load modis/r12.8.ts2 --writevideo modis/r12.8.mp4 1 26
 

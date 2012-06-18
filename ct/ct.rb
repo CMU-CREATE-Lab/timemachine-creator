@@ -55,6 +55,10 @@ if $os == 'windows'
   require 'win32/registry'
 end
 
+def temp_file_unique_fragment
+  "tmp-#{Process.pid}-#{Thread.current.object_id}-#{Time.new.to_i}"
+end
+
 def self_test(stitch = true)
   success = true
   STDERR.puts "Testing tilestacktool...\n"
@@ -270,7 +274,7 @@ class Rule
     if targets.class == String
       targets = [targets]
     end
-    commands = commands.map {|cmd| cmd.map &:to_s}
+    commands = commands.map {|cmd| cmd.map {|x| x.class == Hash ? JSON.generate(x) : x.to_s} }
     array_of_strings?(targets) or raise "targets must be an array of pathnames"
     array_of_strings?(dependencies) or raise "dependencies must be an array of pathnames"
     @targets = targets
@@ -827,7 +831,7 @@ class StitchSource
         cmd += ["--load-camera-response-curve", @camera_response_curve]
       end
       
-      suffix = "tmp-#{Process.pid}-#{Thread.current.object_id}-#{Time.new.to_i}"
+      suffix = "tmp-#{temp_file_unique_fragment}"
 
       cmd += ["--save-as", "#{target_prefix}-#{suffix}.gigapan"]
       # Only get files with extensions.  Organizer creates a subdir called "cache",
@@ -937,7 +941,7 @@ class Compiler
       end
     end
     if not Filesystem.cached_exists? @videosets_dir
-      videosets_tmp = @videosets_dir + ".tmp"
+      videosets_tmp = "#{@videosets_dir}.#{temp_file_unique_fragment}"
       Filesystem.mkdir_p videosets_tmp
       Filesystem.cp_r ['css', 'images', 'js', 'player_template.html', 'time_warp_composer.html'].map{|path|"#{$explorer_source_dir}/#{path}"}, videosets_tmp
       Filesystem.cp "#{$explorer_source_dir}/integrated-viewer.html", "#{videosets_tmp}/view.html"
@@ -1467,12 +1471,22 @@ while !ARGV.empty?
 end
 
 if !@@jsonfile 
-  usage "Must specify source.tmc"
+  usage "Must give path to description.tmc"
 end
 
 if !destination
   usage "Must specify destination.timemachine"
 end
+
+# store is where all the intermediate files are created (0[123]00-xxx)
+# store must be an absolute path
+#
+# Normally, the definition file is in a path foo.tmc/definition.tmc.  In this case,
+# the store is foo.tmc
+#
+# If no description is 
+#
+# The store directory can be overridden in the .tmc file itself, using the "store" field
 
 store = nil
 
@@ -1480,30 +1494,28 @@ if @@jsonfile
   if File.extname(File.dirname(@@jsonfile)) == ".tmc"
     store = File.dirname(@@jsonfile)
   end
-else
-  if Filesystem.exists?('definition.tmc')
-    @@jsonfile = 'definition.tmc'
-  elsif Filesystem.exists?('default.json')
-    @@jsonfile = 'default.json'
-  else
-    raise "Can't find definition.tmc"
-  end
-  store = Dir.getwd
 end
-
-Filesystem.cache_directory store
-Filesystem.cache_directory destination
 
 STDERR.puts "Reading #{@@jsonfile}"
 definition = JSON.parse(Filesystem.read_file(@@jsonfile))
 definition['destination'] = destination
-definition['store'] ||= store
+# .tmc "store" field overrides
+store = definition['store'] || store
+
+store or raise "No store specified.  Please place your definition.tmc inside a directory name.tmc and that will be your store"
+
+store = File.expand_path store
+definition['store'] = store   # For passing to the compiler.  Not ideal
+
+Filesystem.cache_directory store
+Filesystem.cache_directory destination
+
 
 while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
   compiler = Compiler.new(definition)
   compiler.write_json
   compiler.compute_rules # Creates rules, which will be accessible from Rule.all
-  compiler.write_rules
+  # compiler.write_rules
   Maker.new(Rule.all).make(njobs, rules_per_job)
   retry_attempts += 1
 end
