@@ -223,6 +223,7 @@ void MainWindow::setApi(API *api)
 
 void MainWindow::newProject()
 {
+        this->setWindowTitle("Time Machine Creator");
 	api->evaluateJavaScript("newProject(); null");
 }
 

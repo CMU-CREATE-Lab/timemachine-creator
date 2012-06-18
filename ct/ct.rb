@@ -1046,7 +1046,7 @@ class Compiler
   def videoset_rules
     # dependencies=tilestack_cleanup_rule.targets
     dependencies = all_tilestacks_rule
-    @videoset_compilers.flat_map {|vc| vc.rules(dependencies)}
+    Rule.touch("#{@videosets_dir}/COMPLETE", @videoset_compilers.flat_map {|vc| vc.rules(dependencies)})
   end
 
   # def capture_times_rule

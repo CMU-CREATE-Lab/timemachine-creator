@@ -1,0 +1,140 @@
+.ui-selectmenu {
+  font-size: .8em !important;
+}
+
+.ui-state-default {
+  cursor: pointer;
+}
+
+.ui-icon-triangle-1-n {
+  margin-left: -.07em !important;
+}
+
+.ui-spinner-buttons {
+  top: 0px !important;
+}
+
+html {
+  font-size: .8em;
+  min-width: 640px;
+  min-height: 480px;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  overflow:hidden;
+  height:100%;
+}
+
+body {
+  height: 100%;
+}
+
+a:hover{ text-decoration:none; }
+a { outline: none; }
+a.heading:hover{ text-decoration:underline !important; }
+
+#render_export {
+  border-left-width:1px;
+  border-left-style:solid;
+  border-left-color:#000;
+}
+
+#top_area {
+  border-bottom-width:1px;
+  border-bottom-style:solid;
+  border-bottom-color:#000;
+  border-left-width:1px;
+  border-left-style:solid;
+  border-left-color:#000;
+  background-color: #fff;
+}
+
+#controls {
+  border-right-width:1px;
+  border-right-style:solid;
+  border-right-color:#000;
+}
+
+.ui-tabs .ui-tabs-panel {
+  padding: 1em 1.48em;
+}
+
+#tabs-2 {
+  padding: 0em 1.48em !important;
+}
+
+#zoomSlider {
+  background: #cccccc !important;
+}
+
+#zoomSlider .ui-widget-header {
+  background: none;
+}
+
+#zoom {
+  display:block;
+  width:40px;
+  height:212px;
+  position:absolute;
+  margin: 15px 0px 0px 20px;
+  z-index:4;
+}
+
+a#zoomin {
+  display:block;
+  height:29px;
+  width:28px;
+  background-repeat:no-repeat;
+  background-position:center;
+  background-image:url(../images/zoom/zoom_in.png);
+  position:absolute;
+  top:0px;
+  left:0px;
+  z-index:4;
+}
+
+a#zoomin:hover{ background-image:url(../images/zoom/zoom_in_hover.png); }
+a#zoomin:active{ background-image:url(../images/zoom/zoom_in_down.png); }
+
+a#zoomout {
+  display:block;
+  height:29px;
+  width:28px;
+  background-repeat:no-repeat;
+  background-position:center;
+  background-image:url(../images/zoom/zoom_out.png);
+  z-index:4;
+  position:absolute;
+  top:137px;
+  left:0px;
+  z-index:4;
+}
+
+a#zoomout:hover{ background-image:url(../images/zoom/zoom_out_hover.png); }
+a#zoomout:active{ background-image:url(../images/zoom/zoom_out_down.png); }
+
+#zoomSlider {
+  width:8px;
+  height:110px;
+  background:#969DA1;
+  border:1px solid #555555;
+  position:absolute;
+  top:27px;
+  left:9px;
+}
+
+#zoomSlider .ui-slider-handle {
+  width:28px;
+  height:11px;
+  background:url(../images/zoom/zoom_handle.png) no-repeat; overflow: hidden;
+  border-style:none;
+  border:none;
+  left:-10px;
+  z-index: 10;
+}
+
+#zoomSlider .ui-slider-handle:hover{background-image:url(../images/zoom/zoom_handle_hover.png);}
+#zoomSlider .ui-slider-handle:active{background-image:url(../images/zoom/zoom_handle_down.png);}
