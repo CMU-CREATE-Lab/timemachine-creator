@@ -6,9 +6,10 @@
     <script src="assets/javascripts/api.js"></script>
     <script type="text/javascript" src="assets/javascripts/ui.spinner.min.js"></script>
     <script type="text/javascript" src="assets/javascripts/jquery.progressbar.min.js"></script>
+    <script type="text/javascript" src="assets/javascripts/jquery.ui-slider-x.js"></script>
     <link rel="stylesheet" type="text/css" href="assets/stylesheets/smoothness/jquery-ui.css" />
     <link rel="stylesheet" type="text/css" href="assets/stylesheets/ui.spinner.css" />
-
+    <link rel="stylesheet" type="text/css" href="assets/stylesheets/jquery.ui-slider-x.css" />
     <style type="text/css">
 
       .ui-selectmenu {
@@ -197,7 +198,7 @@
           videoSet["label"] = "Small";
           videoSet["type"] = "h.264";
           videoSet["size"] = "small";
-          videoSet["quality"] = $("#compression").spinner("value");
+          videoSet["compression"] = $("#compression").slider_x("value");
           videoSet["fps"] = $("#fps").spinner("value");
 
           outputData["videosets"].push(videoSet);
@@ -206,7 +207,7 @@
           videoSet["label"] = "Large";
           videoSet["type"] = "h.264";
           videoSet["size"] = "large";
-          videoSet["quality"] = $("#compression").spinner("value");
+          videoSet["compression"] = $("#compression").slider_x("value");
           videoSet["fps"] = $("#fps").spinner("value");
 
           outputData["videosets"].push(videoSet);
@@ -238,7 +239,7 @@
         videoSet["label"] = "Small";
         videoSet["type"] = "h.264";
         videoSet["size"] = "small";
-        videoSet["quality"] = $("#compression").spinner("value");
+        videoSet["compression"] = $("#compression").slider_x("value");
         videoSet["fps"] = $("#fps").spinner("value");
 
         outputData["videosets"].push(videoSet);
@@ -247,7 +248,7 @@
         videoSet["label"] = "Large";
         videoSet["type"] = "h.264";
         videoSet["size"] = "large";
-        videoSet["quality"] = $("#compression").spinner("value");
+        videoSet["compression"] = $("#compression").slider_x("value");
         videoSet["fps"] = $("#fps").spinner("value");
 
         outputData["videosets"].push(videoSet);        
@@ -308,7 +309,8 @@
         }
 
         //load video settings
-        $("#compression").spinner("value", tmd["videosets"][0]["quality"]);
+
+        $("#compression").slider_x("value", tmd["videosets"][0]["compression"]);
         $("#fps").spinner("value", tmd["videosets"][0]["fps"]);
 
         updateActiveData();
@@ -363,6 +365,7 @@
 
       // put the images dropped code here.
       function imagesDropped() {
+        $('body').css( 'cursor', 'wait' );
         addDroppedFiles();
       }
 
@@ -986,7 +989,7 @@
           else if (projectModified) save();
           
           $("#tabs").tabs("disable","tabs-1");
-          $("#compression").spinner("disable")
+          $("#compression").slider_x("disable");
           $("#fps").spinner("disable")
           $("#num_jobs").button("disable");
           openProjectAction(false);
@@ -1054,11 +1057,15 @@
           max: 99,
           increment: 'fast'
         });
-      
-        $('#compression').spinner({
-          min: 18,
-          max: 32,
-          increment: 'fast'
+
+        $('#compression').slider_x({
+          min: 24,
+          max: 30,
+          step: 2,
+          value: 26,
+          tickLabelsCount: 3,
+          tickMarksCount: 3,
+          handleLabels: false
         });
 
         $("#change-format").dialog({
@@ -1170,10 +1177,12 @@
         $("#compression_explanation").click(function () {
           $("#compression-dialog-message").dialog("open");
         });
-        
-        $('#compression').spinner().change(function(){
-          projectModified = true;
-          saveAction(true);
+
+        $("#compression").slider_x({
+           change: function(event, ui) {
+             projectModified = true;
+             saveAction(true);
+           }
         });
         
         $('#fps').spinner().change(function(){
@@ -1375,7 +1384,7 @@
 
         $("#tabs").tabs("enable","tabs-1");
         $("#status_window").html("");
-        $("#compression").spinner("enable")
+        $("#compression").slider_x("enable")
         $("#fps").spinner("enable")
         $("#num_jobs").button("enable");
         $("#render_export_btn").show();
@@ -1476,7 +1485,7 @@
         <div id="filmstripControls" style="display: none; z-index: 400 !important; position:absolute; margin-left: 216px; margin-top: 128px">
           <div style="width:250px">
             <div id="btnPrevImage" style="float:left" class="ui-state-default ui-corner-all" title="Left" onclick="filmstripIndex--; refresh();"><span class="ui-icon ui-icon-circle-arrow-w" title="Previous Image"></span></div>
-            <div id="filstripTextContainer" style="width: 65%; margin:0px auto;">Image <input type="text" id="jumpToFrame" style="width:20px !important;" value="0"/>/<span style="font-size:12px;" id="filmstripText">0</span></div>
+            <div id="filstripTextContainer" style="width: 65%; margin:0px auto;">Image <input type="text" id="jumpToFrame" onclick="this.select();" style="padding: .4em .6em; width:27px !important;" value="0"/>/<span style="font-size:12px;" id="filmstripText">0</span></div>
             <div id="btnNextImage" style="position: absolute; margin: -20px 0px 0px 190px" class="ui-state-default ui-corner-all" title="Right" onclick="filmstripIndex++; refresh();"><span class="ui-icon ui-icon-circle-arrow-e" title="Next Image"></span></div>
           </div>
         </div>        
@@ -1547,6 +1556,8 @@
             }
 			
             function addDroppedFiles() {
+              $('body').css( 'cursor', 'wait' );
+
               $("#btnToggle").button("enable");
               
               if (filmstripMode) {
@@ -1595,6 +1606,7 @@
                rescale();
                refresh();
               }
+              $('body').css( 'cursor', 'default' );
             }
 
             function dropHandler(evt) {
@@ -1647,9 +1659,10 @@
                   <h2>Settings</h2>
                   <div style="float:left">Frames per second:</div><div style="margin: 0px 0px 0px 5px; float:left" id="fps_explanation" style="width: 16px" class="ui-state-default ui-corner-all" title="Explain"><span class="ui-icon ui-icon-info" title="Explain"></span></div><input style="margin: 0px 0px 0px 5px; float:left" type="text" id="fps" size="2" maxlength="2" value="25"/>
                   <br/><br/>
+                  
                   h.264 video (Chrome or Safari required)<br/>
-                  <div style="margin: 0px 0px 0px 20px"><div style="float:left">Compression:</div> <div style="margin: 0px 0px 0px 5px; float:left" id="compression_explanation" style="width: 16px" class="ui-state-default ui-corner-all" title="Explain"><span class="ui-icon ui-icon-info" title="Explain"></span></div> <input style="margin: 0px 0px 0px 5px;" type="text" id="compression" size="2" maxlength="23" value="26" /><br/>
-                  <font size="1px">Typical settings:</font>
+                  <div style="margin: 0px 0px 0px 20px"><div style="float:left">Compression:</div> <div style="margin: 0px 0px 0px 5px; float:left" id="compression_explanation" style="width: 16px" class="ui-state-default ui-corner-all" title="Explain"><span class="ui-icon ui-icon-info" title="Explain"></span></div> <div style="background: LightGray; font-size: 10px; margin: 3px 0px 0px 10px; float: left; width: 150px;" id="compression"></div><br/>
+                    <font style="margin: -120px" size="1px">Typical settings:</font>
                     <div style="margin: 0px 0px 0px 10px">
                         <font size="1px">Low compression <b>(higher quality; slow processing)</b>: 24<br/>
                         Medium compression <b>(medium quality)</b>: 26<br/>
@@ -1665,7 +1678,7 @@
 
                   <div id="compression-dialog-message" title="Frame rate explanation">
                     <p>
-                        This setting controls the compression level of the output videos. <br/><br/> Higher compression means smaller videos sizes, but at the loss of quality. Lower compression means higher quality but results in larger file sizes. Going below a setting of 26 is not recommended if you plan to stream your Time Machine over the Internet. And going significantly above a setting of 32 will result in videos which are blocky and blurred. <br/><br/> At this time, encoding only in h264 is supported by this software.
+                        This setting controls the compression level of the output videos. <br/><br/> Higher compression means smaller videos sizes, but at the loss of quality. Lower compression means higher quality but results in larger file sizes. Going below a setting of 26 is not recommended if you plan to stream your Time Machine over the Internet. And going significantly above a setting of 30 will result in videos which are blocky and blurred. <br/><br/> At this time, encoding only in h264 is supported by this software.
                     </p>
                   </div>
 

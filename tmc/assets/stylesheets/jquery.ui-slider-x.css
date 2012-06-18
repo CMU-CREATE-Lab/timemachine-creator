@@ -1,0 +1,80 @@
+.ui-slider-handle-input {
+	position: absolute;
+	top: -1.5em;
+	width: 4em;
+	padding: 0;
+}
+
+.ui-slider-handle-input-0 {
+	left: 0;
+}
+
+.ui-slider-handle-input-1 {
+	right: 0;
+}
+
+.ui-slider-horizontal-handle-labels {
+	margin-top: 1.25em;
+}
+
+.ui-slider-vertical-handle-labels {
+	margin-left: 1.25em;
+}
+
+.ui-slider-horizontal-ticks-labels {
+	margin-bottom: 2em;
+}
+
+.ui-slider-vertical-ticks-labels {
+	margin-right: 2em;
+}
+
+.ui-slider .ui-slider-handle-label {
+    position: absolute;
+    display: inline;
+
+	font-size: 1.0em;
+	font-weight: bold;
+
+    z-index: 3;
+}
+
+.ui-slider-horizontal .ui-slider-handle-label {
+    top: -1.5em;
+}
+
+.ui-slider-vertical .ui-slider-handle-label {
+    right: 1.5em;
+}
+
+.ui-slider .ui-slider-ticks-mark {
+    position: absolute;
+    z-index: 1;
+
+    background: #000000;
+}
+
+.ui-slider-horizontal .ui-slider-ticks-mark {
+    width: 1px;
+    height: 0.8em;
+}
+
+.ui-slider-vertical .ui-slider-ticks-mark {
+    width: 0.8em;
+    height: 1px;
+}
+
+
+.ui-slider-horizontal .ticks-labels {
+    margin-top: 1.0em;
+}
+
+.ui-slider-vertical .ticks-labels {
+	margin-left: 1em;
+}
+
+
+.ui-slider .ticks-label {
+    position: absolute;
+    z-index: 3;
+}
