@@ -346,3 +346,8 @@ bool API::killSubprocess() {
   process->process.kill();
   return true;
 }
+
+QString API::getRootAppPath()
+{
+        return QString::fromStdString(rootdir);
+}

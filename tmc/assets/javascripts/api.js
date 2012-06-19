@@ -65,3 +65,5 @@ api.makeFullDirectoryPath = window._api.makeFullDirectoryPath;
 api.fileExists = window._api.fileExists;
 
 api.closeApp = window._api.doCloseApp;
+
+api.getRootAppPath = window._api.getRootAppPath;
