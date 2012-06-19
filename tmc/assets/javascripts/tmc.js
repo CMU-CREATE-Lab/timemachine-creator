@@ -477,8 +477,10 @@ function refresh() {
       canvas.width = canvas.width
       context.drawImage(imageObj, x, y, width, height);
       context.fillText(activeData["images"][0][filmstripIndex],x,height+y+8);
+      var date = new Date(1000 * activeData["capture_times"][0][filmstripIndex]);
+      var text = date.toLocaleDateString() + " " + date.toLocaleTimeString(); 
+      context.fillText(text,x,y-2);
     };
-
     return;
   }
 
@@ -887,6 +889,7 @@ function init() {
   $(document).bind('keydown',function(e){
       if (filmstripMode) {
         if (e.which==37 || e.which==39) {
+            if ($(e.target).is('input') ) { return; }
             e.preventDefault();
             if (e.which==37) {
               filmstripIndex--; 
