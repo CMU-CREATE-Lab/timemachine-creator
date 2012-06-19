@@ -3,7 +3,7 @@ var projectPath = '';
 var projectName = '';
 var inProgress = false;
 var projectModified = false;
-var capture_time_parser_path = "../ct/extract_exif_capturetimes.rb";
+var capture_time_parser_path = api.getRootAppPath()+"/ct/extract_exif_capturetimes.rb";
 var undoArray = new Array();
 var redoArray = new Array();
 var filmstripIndex = 0;
@@ -1233,7 +1233,7 @@ function padNumber(number, length) {
 
 function run_ct() {
   //console.log(projectPath+"/"+projectName+".timemachine/view.html");
-  if (!api.invokeRubySubprocess(['../ct/ct.rb', '-j', $("#num_jobs").val().toString(), definitionPath, projectPath+"/"+projectName+".timemachine"], ct_out)) {
+  if (!api.invokeRubySubprocess([api.getRootAppPath()+'/ct/ct.rb', '-j', $("#num_jobs").val().toString(), definitionPath, projectPath+"/"+projectName+".timemachine"], ct_out)) {
     alert('There was an error starting the process.');
   }
 }

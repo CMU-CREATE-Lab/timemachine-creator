@@ -50,6 +50,7 @@ public:
   Q_INVOKABLE bool makeFullDirectoryPath(QString path);
   Q_INVOKABLE bool fileExists(QString path);
   Q_INVOKABLE void doCloseApp();
+  Q_INVOKABLE QString getRootAppPath();
   
 signals:
   void callback(int id, QVariantList args);
