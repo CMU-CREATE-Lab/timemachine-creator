@@ -70,9 +70,9 @@ void API::openBrowser(QString url) {
 #elif defined Q_WS_MAC
         url = "file://"+url;
         if(QFileInfo("/Applications/Google Chrome.app").exists())
-                QProcess::startDetached("/Applications/Google Chrome.app", QStringList() << "--allow-file-access-from-files" << url);
+                QProcess::startDetached("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", QStringList() << "--allow-file-access-from-files" << url);
         else if(QFileInfo("/Applications/Safari.app").exists())
-                QProcess::startDetached("/Applications/Safari.app", QStringList() << url);
+                QProcess::startDetached("/Applications/Safari.app/Contents/MacOS/Safari", QStringList() << url);
         else
                 QDesktopServices::openUrl(url);
 
