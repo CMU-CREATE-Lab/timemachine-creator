@@ -146,6 +146,8 @@ function clearProjectData() {
   api.setUndoMenu(false);
   api.setRedoMenu(false);
   saveAction(false);  
+
+  reactivateUI();
   
   rescale();
   refresh();
