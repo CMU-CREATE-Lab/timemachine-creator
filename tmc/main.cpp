@@ -30,11 +30,13 @@
 
 int main(int argc, char *argv[])
 {
-#ifdef _WIN32
-  AllocConsole();
-  freopen("CONOUT$", "w", stderr);
-  freopen("CONOUT$", "w", stdout);
-#endif
+  #ifndef QT_NO_DEBUG
+    #ifdef _WIN32
+      AllocConsole();
+      freopen("CONOUT$", "w", stderr);
+      freopen("CONOUT$", "w", stdout);
+    #endif
+  #endif
 
   QApplication a(argc, argv);
   
@@ -102,7 +104,7 @@ int main(int argc, char *argv[])
   layout->addWidget(&view);
   windowMenu->centralWidget()->setLayout(layout);
   windowMenu->centralWidget()->setSizePolicy(QSizePolicy::Minimum,QSizePolicy::Minimum);
-  
+
   //view.setGeometry(QRect(0,0,1875,210));
 
   //const QRect rect = QApplication::desktop()->rect();
@@ -126,7 +128,9 @@ int main(int argc, char *argv[])
   fprintf(stderr, "Loading '%s'\n", url.c_str());
   view.load(QUrl(url.c_str()));
   
-
+  #ifdef QT_NO_DEBUG
+    view.setContextMenuPolicy(Qt::NoContextMenu);
+  #endif
   //view.show();
   windowMenu->show();
   
