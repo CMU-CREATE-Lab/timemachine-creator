@@ -27,9 +27,9 @@ function saveAs() {
 
     var startIndex = tmpPath.lastIndexOf("/");
     var endIndex = tmpPath.lastIndexOf(".tmc");
+    if (endIndex == -1) endIndex = tmpPath.length;
     projectName = tmpPath.substring(startIndex+1,endIndex);
     projectPath = tmpPath.substring(0,endIndex);
-
     var tmcPath = projectPath.substring(0,startIndex)+"/"+projectName+"/"+projectName+".tmc";
 
     if (!api.makeFullDirectoryPath(tmcPath)) {
