@@ -772,8 +772,9 @@ function keypress(e) {
     // minus sign
     zoom(0.5);
     break;
-  case 127:
-  case 46:
+  case 127: // numpad delete?
+  case 8: // backsapce key
+  case 46: // delete key
     // delete
     if (data.length > 0 && data[0].length > 0) {
       projectModified = true;
@@ -791,8 +792,8 @@ function keypress(e) {
       $("#numFrames").text(activeData["images"][0].length + " Frames");
       rescale();
       refresh();
-      break;
     }
+    break;
   default:
     //console.log("key " + e.which);
   }
