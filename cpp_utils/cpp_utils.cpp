@@ -389,10 +389,13 @@ std::string home_directory() {
 std::string application_user_state_directory(const std::string &application_name) {
   return home_directory() + "/Application Data/" + application_name;
 }
-
 #elif defined(__APPLE__)
 std::string application_user_state_directory(const std::string &application_name) {
   return home_directory() + "/Library/Application Support/" + application_name;
+}
+#else
+std::string application_user_state_directory(const std::string &application_name) {
+  return home_directory() + "/usr/local" + application_name;
 }
 #endif
 
