@@ -94,6 +94,20 @@ void API::openBrowser(QString url) {
                 QProcess::startDetached(list, QStringList() << url);
                 return;
         }
+		
+		process.start("type -p chromium-browser");
+
+        process.waitForStarted(1000);
+        process.waitForFinished(1000);
+
+        list = process.readAll();
+
+        // if there is chromium-browser installed
+        if(list.length()>0)
+        {
+                QProcess::startDetached(list, QStringList() << url);
+                return;
+        }
 
         process.start("type -p google-chrome");
 
