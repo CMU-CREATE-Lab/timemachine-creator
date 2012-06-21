@@ -863,6 +863,7 @@ void usage(const char *fmt, ...) {
           "              Be sure to set tilesize earlier in the commandline\n"
           "--tilesize N\n"
           "--loadtiles src_image0 src_image1 ... src_imageN\n"
+          "--loadtiles-from-json path.json\n"
           "--delete-source-tiles\n"
           "--create-parent-directories\n"
           "--path2stack width height [frame1, ... frameN] stackset\n"
@@ -959,7 +960,32 @@ int main(int argc, char **argv)
       else if (arg == "--selftest") {
         exit(!self_test());
       }
-      else if (arg == "--loadtiles") {
+      else if (arg == "--loadtiles-from-json") {
+        std::vector<std::string> srcs;
+
+        std::string json_path = args.shift();
+        std::string json = read_file(json_path);
+        if (json == "") {
+          throw_error("Can't open %s for reading, or is empty", json_path.c_str());
+        }
+
+        Json::Value tileList;
+        Json::Reader json_reader;
+        if (!json_reader.parse(json, tileList)) {
+          throw_error("Can't parse %s as JSON", json_path.c_str());
+        }
+
+        for (int i = 0; i < tileList["tiles"].size(); i++) {
+          srcs.push_back(tileList["tiles"][i].asString());
+        }
+
+        if (srcs.empty()) {
+          usage("--loadtiles-from-json must have at least one tile defined in the json");
+        }
+
+        delete_file(json_path.c_str());
+        load_tiles(srcs);
+      }else if (arg == "--loadtiles") {
         std::vector<std::string> srcs;
         while (!args.empty() && args.front().substr(0,1) != "-") {
           srcs.push_back(args.shift());

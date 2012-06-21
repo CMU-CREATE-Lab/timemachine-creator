@@ -204,6 +204,7 @@ std::string read_file(const std::string &filename) {
     if (nread <= 0) break;
     ret.append(&buf[0], nread);
   }
+  fclose(in);
   return ret;
 }
 
