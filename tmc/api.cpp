@@ -70,9 +70,9 @@ void API::openBrowser(QString url) {
 #elif defined Q_WS_MAC
         url = "file://"+url;
         if(QFileInfo("/Applications/Google Chrome.app").exists())
-                QProcess::startDetached("/Applications/Google Chrome.app", QStringList() << "--allow-file-access-from-files" << url);
+                QProcess::startDetached("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", QStringList() << "--allow-file-access-from-files" << url);
         else if(QFileInfo("/Applications/Safari.app").exists())
-                QProcess::startDetached("/Applications/Safari.app", QStringList() << url);
+                QProcess::startDetached("/Applications/Safari.app/Contents/MacOS/Safari", QStringList() << url);
         else
                 QDesktopServices::openUrl(url);
 
@@ -89,6 +89,20 @@ void API::openBrowser(QString url) {
         QByteArray list = process.readAll();
 
         // if there is chromium installed
+        if(list.length()>0)
+        {
+                QProcess::startDetached(list, QStringList() << url);
+                return;
+        }
+		
+		process.start("type -p chromium-browser");
+
+        process.waitForStarted(1000);
+        process.waitForFinished(1000);
+
+        list = process.readAll();
+
+        // if there is chromium-browser installed
         if(list.length()>0)
         {
                 QProcess::startDetached(list, QStringList() << url);
@@ -120,6 +134,10 @@ void API::setUndoMenu(bool state) {
 
 void API::setRedoMenu(bool state) {
 	mainwindow->setRedoMenu(state);
+}
+
+void API::setNewProjectMenu(bool state) {
+	mainwindow->setNewProjectMenu(state);
 }
 
 void API::setOpenProjectMenu(bool state) {
@@ -341,4 +359,9 @@ bool API::invokeRubySubprocess(QStringList args, int callback_id)
 bool API::killSubprocess() {
   process->process.kill();
   return true;
+}
+
+QString API::getRootAppPath()
+{
+        return QString::fromStdString(rootdir);
 }

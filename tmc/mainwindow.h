@@ -18,6 +18,7 @@ public:
 	void setApi(API *api);
 	void setUndoMenu(bool state);
 	void setRedoMenu(bool state);
+	void setNewProjectMenu(bool state);
 	void setOpenProjectMenu(bool state);
 	void setSaveMenu(bool state);
 	void setSaveAsMenu(bool state);
@@ -30,6 +31,7 @@ protected:
     void closeEvent(QCloseEvent *event);
 	
 private slots:
+	void newProject();
 	void open();
 	void save();
 	void saveAs();
@@ -45,6 +47,7 @@ private slots:
 private:
 	QMenu *fileMenu;
 	
+	QAction *newAction;
 	QAction *openAction;
 	QAction *addImagesAction;
 	QAction *addFoldersAction;

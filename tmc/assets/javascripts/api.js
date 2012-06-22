@@ -44,6 +44,8 @@ api.setRedoMenu = window._api.setRedoMenu;
 
 api.getOpenedProjectPath = window._api.getOpenedProjectPath;
 
+api.setNewProjectMenu = window._api.setNewProjectMenu;
+
 api.setOpenProjectMenu = window._api.setOpenProjectMenu;
 
 api.setSaveMenu = window._api.setSaveMenu;
@@ -63,3 +65,5 @@ api.makeFullDirectoryPath = window._api.makeFullDirectoryPath;
 api.fileExists = window._api.fileExists;
 
 api.closeApp = window._api.doCloseApp;
+
+api.getRootAppPath = window._api.getRootAppPath;

@@ -205,6 +205,11 @@ class Filesystem
   def self.mv(src, dest)
     FileUtils.mv src, dest
   end
+
+  def self.rm(path)
+    FileUtils.rm_rf Dir.glob("#{path}")
+  end
+
 end
 
 def write_json_and_js(path, prefix, obj)
@@ -955,6 +960,9 @@ class Compiler
     source_info = settings["source"] || raise("Time Machine must have source")
     initialize_source(source_info)
 
+    # remove any old tmp json files which are passed to tilestacktool
+    Filesystem.rm("#{@tiles_dir}/tiles-*.json")
+
     initialize_tilestack
 
     destination_info = settings["destination"]
@@ -1077,10 +1085,16 @@ class Compiler
 
   def raw_base_tilestack_rule(target, dependencies)
     inputs = @source.framenames.map {|frame| "#{@tiles_dir}/#{frame}.data/tiles/#{target.path}.#{@source.tileformat}"}
+
+    Filesystem.mkdir_p @tiles_dir
+    json = {"tiles" => inputs}
+    path = "#{@tiles_dir}/tiles-#{Process.pid}-#{Time.now.to_f}-#{rand(101010)}.json"
+    Filesystem.write_file(path, JSON.fast_generate(json))
+
     target = raw_tilestack_path(target)
     cmd = tilestacktool_cmd # , "--delete-source-tiles"]
       cmd << "--create-parent-directories"
-    cmd += ["--loadtiles"] + inputs
+    cmd += ["--loadtiles-from-json"] + path.to_a
     cmd += ["--save", target]
     Rule.add(target, dependencies, [cmd])
   end
@@ -1117,7 +1131,7 @@ class Compiler
   def videoset_rules
     # dependencies=tilestack_cleanup_rule.targets
     dependencies = all_tilestacks_rule
-    @videoset_compilers.flat_map {|vc| vc.rules(dependencies)}
+    Rule.touch("#{@videosets_dir}/COMPLETE", @videoset_compilers.flat_map {|vc| vc.rules(dependencies)})
   end
 
   # def capture_times_rule
@@ -1602,6 +1616,9 @@ while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
   Maker.new(Rule.all).make(njobs, rules_per_job)
   retry_attempts += 1
 end
+
+# remove any old tmp json files which are passed to tilestacktool
+Filesystem.rm("#{@@global_parent.tiles_dir}/tiles-*.json")
 
 STDERR.puts "If you're authoring a mediawiki page at timemachine.gigapan.org, you can add this to #{compiler.urls['view'] || "your page"} to see the result: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{compiler.versioned_id}|timelapse_dataset=1}}"
 compiler.urls['track'] and STDERR.puts "and update tracking page #{compiler.urls['track']}"

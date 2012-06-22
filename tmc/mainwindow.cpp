@@ -10,9 +10,12 @@ MainWindow::MainWindow()
 	createStatusBar();
 	
 	// creating actions
+	newAction = new QAction(tr("&New Project"), this);
+	newAction->setShortcuts(QKeySequence::New);
+	newAction->setStatusTip(tr("Create a new time machine project"));
 	openAction = new QAction(tr("&Open Project"), this);
 	openAction->setShortcuts(QKeySequence::Open);
-	openAction->setStatusTip(tr("Open a new time machine project"));
+	openAction->setStatusTip(tr("Open a time machine project"));
 	saveAction = new QAction(tr("&Save"), this);
 	saveAction->setShortcuts(QKeySequence::Save);
 	saveAction->setStatusTip(tr("Save your time machine project"));
@@ -21,10 +24,10 @@ MainWindow::MainWindow()
 	saveAsAction->setStatusTip(tr("Save as your time machine project"));
 	addImagesAction = new QAction(tr("Add &Images"), this);
 	addImagesAction->setShortcut(Qt::ControlModifier + Qt::ShiftModifier + Qt::Key_I);
-	addImagesAction->setStatusTip(tr("Create a new project by adding your image files"));
+	addImagesAction->setStatusTip(tr("Add your image files"));
 	addFoldersAction = new QAction(tr("Add Fo&lders"), this);
 	addFoldersAction->setShortcut(Qt::ControlModifier + Qt::ShiftModifier + Qt::Key_F);
-	addFoldersAction->setStatusTip(tr("Create a new project by adding folders containing your image files"));
+	addFoldersAction->setStatusTip(tr("Add folders containing your image files"));
 	
 	for (int i = 0; i < MaxRecentFiles; ++i) {
         recentFileActs[i] = new QAction(this);
@@ -49,6 +52,7 @@ MainWindow::MainWindow()
 	aboutAction->setStatusTip(tr("About time machine creator software"));
 	
 	// creating connections
+	connect(newAction, SIGNAL(triggered()), this, SLOT(newProject()));
 	connect(openAction, SIGNAL(triggered()), this, SLOT(open()));
 	connect(saveAction, SIGNAL(triggered()), this, SLOT(save()));
 	connect(saveAsAction, SIGNAL(triggered()), this, SLOT(saveAs()));
@@ -63,6 +67,7 @@ MainWindow::MainWindow()
 	
 	// creating the menu bar
 	fileMenu = menuBar()->addMenu(tr("&File"));
+	fileMenu->addAction(newAction);
 	fileMenu->addAction(openAction);
 	fileMenu->addAction(saveAction);
 	fileMenu->addAction(saveAsAction);
@@ -175,6 +180,11 @@ void MainWindow::setRedoMenu(bool state)
 	redoAction->setEnabled(state);
 }
 
+void MainWindow::setNewProjectMenu(bool state)
+{
+	newAction->setEnabled(state);
+}
+
 void MainWindow::setOpenProjectMenu(bool state)
 {
 	openAction->setEnabled(state);
@@ -209,6 +219,12 @@ void MainWindow::setRecentlyAddedMenu(bool state)
 void MainWindow::setApi(API *api)
 {
 	this->api = api;
+}
+
+void MainWindow::newProject()
+{
+        this->setWindowTitle("Time Machine Creator");
+	api->evaluateJavaScript("newProject(); null");
 }
 
 void MainWindow::open()

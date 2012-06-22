@@ -5,11 +5,11 @@ make
 rm -rf installer
 mkdir installer
 cp -a tmc.app installer/tmc.app
-mkdir -p installer/tmc.app/Contents/{tmc,ct,tilestacktool,tilestacktool/ffmpeg/osx}
-cp -a index.html test.html js assets installer/tmc.app/Contents/tmc
-cp -a ../ct/{*.rb,backports,json} installer/tmc.app/Contents/ct
+mkdir -p installer/tmc.app/Contents/{tmc,ct,tilestacktool,tilestacktool/ffmpeg/osx,time-machine-explorer}
+cp -a index.html test.html assets installer/tmc.app/Contents/tmc
+cp -a ../ct/{*.rb,backports,json,exifr} installer/tmc.app/Contents/ct
 cp -a ../tilestacktool/tilestacktool installer/tmc.app/Contents/tilestacktool
 cp -a ../tilestacktool/ffmpeg/osx/ffmpeg installer/tmc.app/Contents/tilestacktool/ffmpeg/osx
+cp -a ../time-machine-explorer/* installer/tmc.app/Contents/time-machine-explorer
 (cd installer; macdeployqt tmc.app -dmg -no-strip)
 mv installer/tmc.dmg .
-
