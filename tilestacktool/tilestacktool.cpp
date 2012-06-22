@@ -34,6 +34,8 @@ std::vector<std::string> source_tiles_to_delete;
 
 void usage(const char *fmt, ...);
 
+const char *version() { return "0.2.1"; }
+
 class LRUTilestack : public Tilestack {
   unsigned int lru_size;
   std::list<int> lru;
@@ -111,36 +113,82 @@ void load(std::string filename)
   tilestackstack.push(std::auto_ptr<Tilestack>(new TilestackReader(std::auto_ptr<Reader>(FileReader::open(filename)))));
 }
 
-u8 viz_channel(u16 in, double min, double max, double gamma) {
-  double tmp = (in - min) / (max - min);
-  if (tmp < 0) tmp = 0;
-  // gamma > 1 brightens midtones; < 1 darkens midtones
-  int ret = (int) floor(256 * pow(tmp, 1.0/gamma));
-  if (ret > 255) ret = 255;
-  return (u8)ret;
-}
+// gamma > 1 brightens midtones; < 1 darkens midtones
 
-void viz(double min, double max, double gamma) {
-  std::auto_ptr<Tilestack> src(tilestackstack.pop());
-  std::auto_ptr<Tilestack> dest(
-    new ResidentTilestack(src->nframes, src->tile_width, src->tile_height,
-                          src->bands_per_pixel, 8, 0, 0));
-  assert(src->bands_per_pixel == 4);
-  assert(src->bits_per_band == 16);
-  for (unsigned frame = 0; frame < src->nframes; frame++) {
-    dest->toc[frame].timestamp = src->toc[frame].timestamp;
-    RGBA<u16> *srcptr = (RGBA<u16>*) src->frame_pixels(frame);
-    RGBA<u8> *destptr = (RGBA<u8>*) dest->frame_pixels(frame);
-    for (unsigned y = 0; y < src->tile_height; y++) {
-      for (unsigned x = 0; x < src->tile_width; x++, srcptr++, destptr++) {
-        destptr->r = viz_channel(srcptr->r, min, max, gamma);
-        destptr->g = viz_channel(srcptr->g, min, max, gamma);
-        destptr->b = viz_channel(srcptr->b, min, max, gamma);
-        destptr->a = viz_channel(srcptr->a, 0, 65535, 1);
+class VizBand {
+  double one_over_gamma;
+  double maxval;
+  double scale_over_maxval;
+
+public:
+  VizBand(Json::Value params, unsigned int band) {
+    double gamma = get_param(params, "gamma", band, 1);
+    one_over_gamma = 1.0 / gamma;
+    double scale = get_param(params, "gain", band, 1);
+    // To get full and correct dynamic range, maxval should be 256 for 8-bit values (not 255)
+    maxval = get_param(params, "maxval", band, 256);
+    scale_over_maxval = scale / maxval;
+  }
+
+  double get_param(Json::Value params, const char *name, unsigned int band, double default_val) {
+    Json::Value param = params[name];
+    if (param.isNull()) {
+      return default_val;
+    } else if (param.isArray()) {
+      if (band >= param.size()) {
+        throw_error("Too few values to viz:%s (must have at least the number of image bands)", name);
+      }
+      return param[band].asDouble();
+    } else {
+      return param.asDouble();
+    }
+  }
+
+  double apply(double val) {
+    return maxval * pow(std::max(0.0, val * scale_over_maxval), one_over_gamma);
+  }
+};
+
+class VizTilestack : public LRUTilestack {
+  std::auto_ptr<Tilestack> src;
+  std::vector<VizBand> viz_bands;
+
+public:
+  VizTilestack(std::auto_ptr<Tilestack> src, Json::Value params) : src(src) {
+    
+    (*(TilestackInfo*)this) = (*(TilestackInfo*)this->src.get());
+    for (unsigned i = 0; i < bands_per_pixel; i++) {
+      viz_bands.push_back(VizBand(params, i));
+    }
+    set_nframes(this->src->nframes);
+  }
+  
+  virtual void instantiate_pixels(unsigned frame) {
+    assert(!pixels[frame]);
+    create(frame);
+    
+    toc[frame].timestamp = src->toc[frame].timestamp;
+
+    unsigned char *srcptr = src->frame_pixels(frame);
+    int src_bytes_per_pixel = src->bytes_per_pixel();
+    unsigned char *destptr = pixels[frame];
+    int dest_bytes_per_pixel = bytes_per_pixel();
+    
+    for (unsigned y = 0; y < tile_height; y++) {
+      for (unsigned x = 0; x < tile_width; x++) {
+        for (unsigned band = 0; band < bands_per_pixel; band++) {
+          set_pixel_band(destptr, band, viz_bands[band].apply(src->get_pixel_band(srcptr, band)));
+        }
+        srcptr += src_bytes_per_pixel;
+        destptr += dest_bytes_per_pixel;
       }
     }
   }
-  tilestackstack.push(dest);
+};
+
+void viz(Json::Value params) {
+  std::auto_ptr<Tilestack> src(tilestackstack.pop());
+  tilestackstack.push(std::auto_ptr<Tilestack>(new VizTilestack(src, params)));
 }
 
 void ensure_resident() {
@@ -432,6 +480,9 @@ public:
   }
 };
 
+// Video encoding uses 3 bands (more, e.g. alpha, will be ignored)
+// and uses values 0-255 (values outside this range will be clamped)
+
 void write_video(std::string dest, double fps, double compression)
 {
   std::auto_ptr<Tilestack> src(tilestackstack.pop());
@@ -444,18 +495,19 @@ void write_video(std::string dest, double fps, double compression)
 
   fprintf(stderr, "Encoding video to %s\n", temp_dest.c_str());
   FfmpegEncoder encoder(temp_dest, src->tile_width, src->tile_height, fps, compression);
-  assert(src->bands_per_pixel >= 3 && src->bits_per_band == 8);
+  assert(src->bands_per_pixel >= 3);
   std::vector<unsigned char> destframe(src->tile_width * src->tile_height * 3);
 
   for (unsigned frame = 0; frame < src->nframes; frame++) {
     unsigned char *srcptr = src->frame_pixels(frame);
+    int src_bytes_per_pixel = src->bytes_per_pixel();
     unsigned char *destptr = &destframe[0];
     for (unsigned y = 0; y < src->tile_height; y++) {
       for (unsigned x = 0; x < src->tile_width; x++) {
-        *destptr++ = srcptr[0];
-        *destptr++ = srcptr[1];
-        *destptr++ = srcptr[2];
-        srcptr += src->bands_per_pixel;
+        *destptr++ = (unsigned char) std::min(255u, (unsigned int)src->get_pixel_band(srcptr, 0));
+        *destptr++ = (unsigned char) std::min(255u, (unsigned int)src->get_pixel_band(srcptr, 1));
+        *destptr++ = (unsigned char) std::min(255u, (unsigned int)src->get_pixel_band(srcptr, 2));
+        srcptr += src_bytes_per_pixel;
       }
     }
     encoder.write_pixels(&destframe[0], destframe.size());
@@ -685,12 +737,12 @@ public:
     get_pixel(p10, frame, level, x0+1, y0+0);
     get_pixel(p11, frame, level, x0+1, y0+1);
 
-    for (unsigned ch = 0; ch < bands_per_pixel; ch++) {
-      set_pixel_ch(dest, ch, bilinearly_interpolate(get_pixel_ch(p00, ch),
-                                                    get_pixel_ch(p01, ch),
-                                                    get_pixel_ch(p10, ch),
-                                                    get_pixel_ch(p11, ch),
-                                                    x - x0, y - y0));
+    for (unsigned band = 0; band < bands_per_pixel; band++) {
+      set_pixel_band(dest, band, bilinearly_interpolate(get_pixel_band(p00, band),
+                                                      get_pixel_band(p01, band),
+                                                      get_pixel_band(p10, band),
+                                                      get_pixel_band(p11, band),
+                                                      x - x0, y - y0));
     }
   }
 
@@ -811,6 +863,7 @@ void usage(const char *fmt, ...) {
           "              Be sure to set tilesize earlier in the commandline\n"
           "--tilesize N\n"
           "--loadtiles src_image0 src_image1 ... src_imageN\n"
+          "--loadtiles-from-json path.json\n"
           "--delete-source-tiles\n"
           "--create-parent-directories\n"
           "--path2stack width height [frame1, ... frameN] stackset\n"
@@ -857,6 +910,10 @@ int main(int argc, char **argv)
         }
         load(src);
       }
+      else if (arg == "--version") {
+        printf("%s\n", version());
+        return 0;
+      }
       else if (arg == "--save") {
         std::string dest = args.shift();
         if (filename_suffix(dest) != "ts2") {
@@ -865,10 +922,8 @@ int main(int argc, char **argv)
         save(dest);
       }
       else if (arg == "--viz") {
-        double min = args.shift_double();
-        double max = args.shift_double();
-        double gamma = args.shift_double();
-        viz(min, max, gamma);
+        Json::Value params = args.shift_json();
+        viz(params);
       }
       else if (arg == "--writehtml") {
         std::string dest = args.shift();
@@ -905,7 +960,32 @@ int main(int argc, char **argv)
       else if (arg == "--selftest") {
         exit(!self_test());
       }
-      else if (arg == "--loadtiles") {
+      else if (arg == "--loadtiles-from-json") {
+        std::vector<std::string> srcs;
+
+        std::string json_path = args.shift();
+        std::string json = read_file(json_path);
+        if (json == "") {
+          throw_error("Can't open %s for reading, or is empty", json_path.c_str());
+        }
+
+        Json::Value tileList;
+        Json::Reader json_reader;
+        if (!json_reader.parse(json, tileList)) {
+          throw_error("Can't parse %s as JSON", json_path.c_str());
+        }
+
+        for (int i = 0; i < tileList["tiles"].size(); i++) {
+          srcs.push_back(tileList["tiles"][i].asString());
+        }
+
+        if (srcs.empty()) {
+          usage("--loadtiles-from-json must have at least one tile defined in the json");
+        }
+
+        delete_file(json_path.c_str());
+        load_tiles(srcs);
+      }else if (arg == "--loadtiles") {
         std::vector<std::string> srcs;
         while (!args.empty() && args.front().substr(0,1) != "-") {
           srcs.push_back(args.shift());

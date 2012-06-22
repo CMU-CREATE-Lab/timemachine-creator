@@ -204,6 +204,7 @@ std::string read_file(const std::string &filename) {
     if (nread <= 0) break;
     ret.append(&buf[0], nread);
   }
+  fclose(in);
   return ret;
 }
 
@@ -389,10 +390,13 @@ std::string home_directory() {
 std::string application_user_state_directory(const std::string &application_name) {
   return home_directory() + "/Application Data/" + application_name;
 }
-
 #elif defined(__APPLE__)
 std::string application_user_state_directory(const std::string &application_name) {
   return home_directory() + "/Library/Application Support/" + application_name;
+}
+#else
+std::string application_user_state_directory(const std::string &application_name) {
+  return home_directory() + "/usr/local" + application_name;
 }
 #endif
 

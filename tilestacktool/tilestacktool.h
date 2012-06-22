@@ -12,6 +12,8 @@
 
 void usage(const char *fmt, ...);
 
+void ensure_resident();
+
 class Arglist : public std::list<std::string> {
 public:
   Arglist(char **begin, char **end) {

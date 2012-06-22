@@ -39,6 +39,7 @@ public:
   Q_INVOKABLE void setUndoMenu(bool state);
   Q_INVOKABLE void setRedoMenu(bool state);
   Q_INVOKABLE QString getOpenedProjectPath();
+  Q_INVOKABLE void setNewProjectMenu(bool state);
   Q_INVOKABLE void setOpenProjectMenu(bool state);
   Q_INVOKABLE void setSaveMenu(bool state);
   Q_INVOKABLE void setSaveAsMenu(bool state);
@@ -49,6 +50,7 @@ public:
   Q_INVOKABLE bool makeFullDirectoryPath(QString path);
   Q_INVOKABLE bool fileExists(QString path);
   Q_INVOKABLE void doCloseApp();
+  Q_INVOKABLE QString getRootAppPath();
   
 signals:
   void callback(int id, QVariantList args);

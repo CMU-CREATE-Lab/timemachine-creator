@@ -24,39 +24,39 @@ struct PixelInfo {
   unsigned int pixel_format; // 0=unsigned integer, 1=floating point,
   int bytes_per_pixel() const { return bands_per_pixel * bits_per_band / 8; }
 
-  double get_pixel_ch(const unsigned char *pixel, unsigned ch) const {
+  double get_pixel_band(const unsigned char *pixel, unsigned band) const {
     switch ((bits_per_band << 1) | pixel_format) {
     case ((8 << 1) | 0):
-      return ((unsigned char *)pixel)[ch];
+      return ((unsigned char *)pixel)[band];
     case ((16 << 1) | 0):
-      return ((unsigned short *)pixel)[ch];
+      return ((unsigned short *)pixel)[band];
     case ((32 << 1) | 0):
-      return ((unsigned int *)pixel)[ch];
+      return ((unsigned int *)pixel)[band];
     case ((32 << 1) | 1):
-      return ((float *)pixel)[ch];
+      return ((float *)pixel)[band];
     case ((64 << 1) | 1):
-      return ((double *)pixel)[ch];
+      return ((double *)pixel)[band];
     default:
       throw_error("Can't read pixel type %d:%d", bits_per_band, pixel_format);
     }
   }
 
-  void set_pixel_ch(unsigned char *pixel, unsigned ch, double val) const {
+  void set_pixel_band(unsigned char *pixel, unsigned band, double val) const {
     switch ((bits_per_band << 1) | pixel_format) {
     case ((8 << 1) | 0):
-      ((unsigned char *)pixel)[ch] = (unsigned char)iround(limit(val, (double)0x00, (double)0xff));
+      ((unsigned char *)pixel)[band] = (unsigned char)iround(limit(val, (double)0x00, (double)0xff));
       break;
     case ((16 << 1) | 0):
-      ((unsigned short *)pixel)[ch] = (unsigned short)iround(limit(val, (double)0x0000, (double)0xffff));
+      ((unsigned short *)pixel)[band] = (unsigned short)iround(limit(val, (double)0x0000, (double)0xffff));
       break;
     case ((32 << 1) | 0):
-      ((unsigned int *)pixel)[ch] = (unsigned int)iround(limit(val, (double)0x00000000, (double)0xffffffff));
+      ((unsigned int *)pixel)[band] = (unsigned int)iround(limit(val, (double)0x00000000, (double)0xffffffff));
       break;
     case ((32 << 1) | 1):
-      ((float *)pixel)[ch] = (float)val;
+      ((float *)pixel)[band] = (float)val;
       break;
     case ((64 << 1) | 1):
-      ((double *)pixel)[ch] = val;
+      ((double *)pixel)[band] = val;
       break;
     default:
       throw_error("Can't write pixel type %d:%d", bits_per_band, pixel_format);
