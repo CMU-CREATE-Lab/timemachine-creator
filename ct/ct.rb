@@ -19,13 +19,14 @@ require 'tile'
 require 'tileset'
 require 'xmlsimple'
 
-# profile = "ct.profile.12.txt"
+#profile = "ct.profile.13n.txt"
 profile = false
 debug = false
 
 if profile
   require 'rubygems'
   require 'ruby-prof'
+  # RubyProf.measure_mode = RubyProf::MEMORY
   RubyProf.start
 end
 
@@ -448,7 +449,7 @@ class VideosetCompiler
       cmd += [@vid_width, @vid_height]
       frames = {'frames' => vt.frames,
                 'bounds' => vt.source_bounds(@vid_width, @vid_height)};
-      cmd << JSON.generate(frames)
+      cmd << JSON.fast_generate(frames)
       cmd << @parent.tilestack_dir
 
       cmd += @parent.video_filter || []
@@ -1503,7 +1504,7 @@ while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
   compiler = Compiler.new(definition)
   compiler.write_json
   compiler.compute_rules # Creates rules, which will be accessible from Rule.all
-  compiler.write_rules
+  # compiler.write_rules
   Maker.new(Rule.all).make(njobs, rules_per_job)
   retry_attempts += 1
 end
