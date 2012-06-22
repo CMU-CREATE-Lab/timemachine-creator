@@ -22,11 +22,60 @@ require 'xmlsimple'
 # profile = "ct.profile.12.txt"
 profile = false
 debug = false
+$check_mem = true
+
+class Partial
+  def initialize(n, total)
+    @n = n
+    @total = total
+  end
+
+  def self.none
+    Partial.new(0,1)
+  end
+
+  def self.all
+    Partial.new(1,1)
+  end
+
+  def none?
+    @n == 0
+  end
+
+  def all?
+    @total == 1 && !none?
+  end
+
+  def apply(seq)
+    none? and return []
+    seq = seq.map
+    len = seq.size
+    start = len * (@n - 1) / @total
+    finish = len * @n / @total
+    start...finish
+  end
+  def to_s
+    if none?
+      "Skip all"
+    elsif all?
+      "All"
+    else
+      "Part #{@n} of #{@total}"
+    end
+  end
+end
+
+$compute_tilestacks = Partial.all
+$compute_videos = Partial.all
 
 if profile
   require 'rubygems'
   require 'ruby-prof'
   RubyProf.start
+end
+
+if $check_mem 
+  require 'check-mem'
 end
 
 start_time = Time.new
@@ -54,6 +103,7 @@ end
 if $os == 'windows'
   require 'win32/registry'
 end
+
 
 def temp_file_unique_fragment
   "tmp-#{Process.pid}-#{Thread.current.object_id}-#{Time.new.to_i}"
@@ -253,6 +303,7 @@ class Rule
   attr_reader :targets, :dependencies, :commands, :local
   @@all = []
   @@all_targets = Set.new
+  @@n = 0
   
   def self.clear_all
     @@all = []
@@ -271,6 +322,13 @@ class Rule
   end
 
   def initialize(targets, dependencies, commands, options={})
+    if $check_mem
+      @@n += 1
+      if @@n % 10000 == 0
+        CheckMem.logvm("Created #{@@n} rules")
+      end
+    end
+    
     if targets.class == String
       targets = [targets]
     end
@@ -389,6 +447,7 @@ class VideosetCompiler
   end
 
   def initialize_videotiles
+    $compute_videos or return
     # Compute levels
     levels = []
     @levelinfo = []
@@ -429,7 +488,9 @@ class VideosetCompiler
       level_cols = [1,level_cols].max
       @levelinfo << {"rows" => level_rows, "cols" => level_cols}
       #puts "** level=#{level[:level]} subsample=#{level[:subsample]} #{level_cols}x#{level_rows}=#{level_cols*level_rows} videos input_width=#{level[:input_width]} input_height=#{level[:input_height]}"
-      level_rows.times do |r|
+
+      rows_to_compute = $compute_videos.apply(0...level_rows)
+      rows_to_compute.each do |r|
         y = r * @overlap_y * level[:subsample]
         level_cols.times do |c|
           x = c * @overlap_x * level[:subsample]
@@ -442,29 +503,34 @@ class VideosetCompiler
   end
   
   def rules(dependencies)
-    STDERR.puts "#{id}: #{@videotiles.size} videos"
-    @videotiles.flat_map do |vt|
-      target = "#{@parent.videosets_dir}/#{id}/#{vt.path}.mp4"
-      cmd = tilestacktool_cmd
-      cmd << "--create-parent-directories"
-   
-      cmd << '--path2stack'
-      cmd += [@vid_width, @vid_height]
-      frames = {'frames' => vt.frames,
-                'bounds' => vt.source_bounds(@vid_width, @vid_height)};
-      cmd << JSON.generate(frames)
-      cmd << @parent.tilestack_dir
-
-      cmd += @parent.video_filter || []
-
-      @leader > 0 and cmd += ["--prependleader", @leader]
-
-      cmd += ['--writevideo', target, @fps, @compression]
-
-      Rule.add(target, dependencies, [cmd])
+    if not $compute_videos
+      STDERR.puts "#{id}: skipping video creation"
+      dependencies
+    else
+      STDERR.puts "#{id}: #{@videotiles.size} videos (#{$compute_videos})"
+      @videotiles.flat_map do |vt|
+        target = "#{@parent.videosets_dir}/#{id}/#{vt.path}.mp4"
+        cmd = tilestacktool_cmd
+        cmd << "--create-parent-directories"
+        
+        cmd << '--path2stack'
+        cmd += [@vid_width, @vid_height]
+        frames = {'frames' => vt.frames,
+          'bounds' => vt.source_bounds(@vid_width, @vid_height)};
+        cmd << JSON.generate(frames)
+        cmd << @parent.tilestack_dir
+        
+        cmd += @parent.video_filter || []
+        
+        @leader > 0 and cmd += ["--prependleader", @leader]
+        
+        cmd += ['--writevideo', target, @fps, @compression]
+        
+        Rule.add(target, dependencies, [cmd])
+      end
     end
   end
-
+    
   def info
     ret = {
       "level_info"   => @levelinfo,
@@ -1020,15 +1086,20 @@ class Compiler
   end
 
   def all_tilestacks_rule
-    STDERR.puts "   #{@base_tiles.size} base tiles per input frame (#{@source.tilesize}x#{@source.tilesize} px)"
-    if @source.respond_to?(:tilestack_rules)
-      targets = @source.tilestack_rules
-      targets = Rule.touch("#{@raw_tilestack_dir}/SOURCE_COMPLETE", targets)
+    if $compute_tilestacks.none?
+      STDERR.puts "   Skipping tilestack creation"
+      []
     else
-      targets = all_tiles_rule
+      STDERR.puts "   #{@base_tiles.size} base tiles per input frame (#{@source.tilesize}x#{@source.tilesize} px)"
+      if @source.respond_to?(:tilestack_rules)
+        targets = @source.tilestack_rules
+        targets = Rule.touch("#{@raw_tilestack_dir}/SOURCE_COMPLETE", targets)
+      else
+        targets = all_tiles_rule
+      end
+      targets = tilestack_rule(Tile.new(0,0,0), targets)
+      Rule.touch("#{@tilestack_dir}/COMPLETE", targets)
     end
-    targets = tilestack_rule(Tile.new(0,0,0), targets)
-    Rule.touch("#{@tilestack_dir}/COMPLETE", targets)
   end
     
   # def tilestack_cleanup_rule
@@ -1190,6 +1261,8 @@ class Maker
   def execute_rules(job_no, rules, response)
     begin
       counter = 1;
+
+      $check_mem and CheckMem.logvm "Constructing job #{job_no}"
 
       if !$run_remotely || rules.all?(&:local)
         result = rules.flat_map(&:commands).all? do |command|
@@ -1446,6 +1519,14 @@ while !ARGV.empty?
     njobs = ARGV.shift.to_i
   elsif arg == '-r'
     rules_per_job  = ARGV.shift.to_i
+  elsif arg == '--skip-tilestacks'
+    $compute_tilestacks = Partial.none
+  elsif arg == '--partial-tilestacks'
+    $compute_tilestacks = Partial.new(ARGV.shift.to_i, ARGV.shift.to_i)
+  elsif arg == '--skip-videos'
+    $compute_videos = Partial.none
+  elsif arg == '--partial-videos'
+    $compute_videos = Partial.new(ARGV.shift.to_i, ARGV.shift.to_i)
   elsif arg == '-v'
     $verbose = true
   elsif arg == '--remote'
@@ -1469,6 +1550,8 @@ while !ARGV.empty?
     usage
   end
 end
+
+$partial_vidoes = Partial.new(1, 10)
 
 if !@@jsonfile 
   usage "Must give path to description.tmc"
@@ -1510,11 +1593,11 @@ definition['store'] = store   # For passing to the compiler.  Not ideal
 Filesystem.cache_directory store
 Filesystem.cache_directory destination
 
-
 while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
   compiler = Compiler.new(definition)
   compiler.write_json
   compiler.compute_rules # Creates rules, which will be accessible from Rule.all
+  $check_mem and CheckMem.logvm "All rules created"
   # compiler.write_rules
   Maker.new(Rule.all).make(njobs, rules_per_job)
   retry_attempts += 1
