@@ -105,7 +105,6 @@ if $os == 'windows'
   require 'win32/registry'
 end
 
-
 def temp_file_unique_fragment
   "tmp-#{Process.pid}-#{Thread.current.object_id}-#{Time.new.to_i}"
 end
@@ -182,6 +181,10 @@ class Filesystem
 
   def self.write_file(path, data)
     open(path, 'w') { |fh| fh.write data }
+  end
+
+  def self.append_file(path, data)
+    open(path, 'a') { |fh| fh.write data }
   end
 
   def self.cache_directory(root)
@@ -558,6 +561,7 @@ class VideosetCompiler
 
   def write_json
     write_json_and_js("#{@parent.videosets_dir}/#{id}/r", 'org.cmucreatelab.loadVideoset', info)
+    Filesystem.append_file("#{@parent.videosets_dir}/json_includes.js", "cached_ajax['./#{id}/r.json']=" + JSON(info) + "\n")
   end
 end
 
@@ -980,6 +984,16 @@ class Compiler
     #initialize_original_images
     @videoset_compilers = settings["videosets"].map {|json| VideosetCompiler.new(self, json)}
     initialize_tiles
+
+    # add time machine viewer templates to the json_includes file
+    Filesystem.write_file("#{@videosets_dir}/json_includes.js", "cached_ajax={}"+"\n")
+    player_template = Filesystem.read_file("#{$explorer_source_dir}/player_template.html")
+    Filesystem.append_file("#{@videosets_dir}/json_includes.js", "cached_ajax['player_template.html']='" + player_template.gsub(/(\r)?\n/,"") + "'\n")
+    time_warp_composer_template = Filesystem.read_file("#{$explorer_source_dir}/time_warp_composer.html")
+    Filesystem.append_file("#{@videosets_dir}/json_includes.js", "cached_ajax['time_warp_composer.html']='" + time_warp_composer_template.gsub(/(\r)?\n/,"") + "'\n")
+    browser_not_supported_template = Filesystem.read_file("#{$explorer_source_dir}/browser_not_supported_template.html")
+    Filesystem.append_file("#{@videosets_dir}/json_includes.js", "cached_ajax['browser_not_supported_template.html']='" + browser_not_supported_template.gsub(/(\r)?\n/,"") + "'\n")
+
   end
 
   def initialize_source(source_info)
@@ -1018,7 +1032,7 @@ class Compiler
     if not Filesystem.cached_exists? @videosets_dir
       videosets_tmp = "#{@videosets_dir}.#{temp_file_unique_fragment}"
       Filesystem.mkdir_p videosets_tmp
-      Filesystem.cp_r ['css', 'images', 'js', 'player_template.html', 'time_warp_composer.html'].map{|path|"#{$explorer_source_dir}/#{path}"}, videosets_tmp
+      Filesystem.cp_r ['css', 'images', 'js', 'player_template.html', 'time_warp_composer.html', 'save_snaplapse.html', 'load_snaplapse.html', 'browser_not_supported_template.html'].map{|path|"#{$explorer_source_dir}/#{path}"}, videosets_tmp
       Filesystem.cp "#{$explorer_source_dir}/integrated-viewer.html", "#{videosets_tmp}/view.html"
       Filesystem.mv videosets_tmp, @videosets_dir
     end
@@ -1170,6 +1184,7 @@ class Compiler
 
   def write_json
     write_json_and_js("#{@videosets_dir}/tm", 'org.cmucreatelab.loadTimeMachine', info)
+    Filesystem.append_file("#{@videosets_dir}/json_includes.js", "cached_ajax['./tm.json']=" + JSON(info) + "\n")
     @videoset_compilers.each { |vc| vc.write_json }
   end
 
@@ -1361,7 +1376,7 @@ class Maker
     initial_ndone = @@ndone
 
     print_status(rules_executing, nil)
-    
+
     while @@ndone < @rules.size
     	# Restart the process if we are stitching from source and we have not gotten dimensions from the first gigapan
       if @@global_parent.source.class.to_s == "StitchSource" && @@ndone > 0 && @@global_parent.source.width == 1 && @@global_parent.source.height == 1
@@ -1621,9 +1636,14 @@ end
 # remove any old tmp json files which are passed to tilestacktool
 Filesystem.rm("#{@@global_parent.tiles_dir}/tiles-*.json")
 
+# append tm.json to json_includes.js again to include the addition of capture times
+# it will be in that file twice, but the last one is the one javascript will use
+tm_json = Filesystem.read_file("#{@@global_parent.videosets_dir}/tm.json")
+Filesystem.append_file("#{@@global_parent.videosets_dir}/json_includes.js", "cached_ajax['./tm.json']=" + tm_json.gsub(/(\r)?\n/,"") + "\n")
+
 STDERR.puts "If you're authoring a mediawiki page at timemachine.gigapan.org, you can add this to #{compiler.urls['view'] || "your page"} to see the result: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{compiler.versioned_id}|timelapse_dataset=1}}"
 compiler.urls['track'] and STDERR.puts "and update tracking page #{compiler.urls['track']}"
-    
+
 STDERR.puts "View at file://#{destination}/view.html"
 
 end_time = Time.new

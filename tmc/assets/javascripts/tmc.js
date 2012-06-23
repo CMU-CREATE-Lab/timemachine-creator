@@ -1312,9 +1312,9 @@ function setupSliderHandlers() {
 
   $(".ui-slider").bind({
     slide: function() {
-      this.style.cursor = 'url("assets/stylesheets/cursors/closehand.png") 10 10, move';
+      this.style.cursor = 'url("assets/stylesheets/cursors/closedhand.png") 10 10, move';
       $(".ui-slider-handle").bind("mousemove", function() {
-        this.style.cursor = 'url("assets/stylesheets/cursors/closehand.png") 10 10, move';
+        this.style.cursor = 'url("assets/stylesheets/cursors/closedhand.png") 10 10, move';
       });
     }, slidestop: function() {
       $(".ui-slider-handle").bind("mousemove", function() {
