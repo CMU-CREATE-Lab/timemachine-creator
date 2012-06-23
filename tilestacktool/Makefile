@@ -48,10 +48,6 @@ patp4_1x1_small: $(TILESTACKTOOL)
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --viz '{"gamma":2}' --writevideo testresults/$@/testvid_gamma_2.mp4 1 24
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --viz '{"gamma":[1,2,1]}' --writevideo testresults/$@/testvid_gamma_1_2_1.mp4 1 24
 
-units:
-	g++ -g -I /opt/local/include -I . -Wall unit_tests/test_GPTileIdx.cpp GPTileIdx.cpp -o unit_tests/test_GPTileIdx
-	unit_tests/test_GPTileIdx
-
 test-modis: tilestacktool
 	./tilestacktool --load modis/r12.ts2 --viz '{"scale":0.0853}' --writehtml r12.html
 	./tilestacktool --load modis/r12.ts2 --viz '{"scale":0.0853}' --save modis/r12.8.ts2
@@ -90,7 +86,7 @@ leader_%.mp4: $(TILESTACKTOOL)
 	mkdir -p $(LEADERDEST)
 	./tilestacktool --blackstack 1 $(call leader_width,$@) $(call leader_height,$@) 3 8 --prependleader $(call leader_nframes,$@) --writevideo $@ 10 $(call leader_compression,$@)
 
-SOURCES = tilestacktool.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp qt-faststart.cpp $(COMMANDS)
+SOURCES = tilestacktool.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp qt-faststart.cpp SimpleZlib.cpp $(COMMANDS)
 
 ZLIB_DIR = dependencies/zlib
 
@@ -185,6 +181,12 @@ tilestacktool.exe: $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG)
 
 tilestacktool: $(SOURCES) $(LIBPNG) $(ZLIB) $(LIBJPEG)
 	g++ $(PLATFORM_CXX_FLAGS) $(OPTIMIZATION) -g -Ijsoncpp -I$(LIBJPEG_DIR) -I$(LIBPNG_DIR) -I$(CPP_UTILS_DIR) -Wall $^ -o $@
+
+units: test_GPTileIdx test_SimpleZlib
+
+test_%: unit_tests/test_%.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp SimpleZlib.cpp GPTileIdx.cpp $(LIBPNG) $(ZLIB) $(LIBJPEG) 
+	g++ $(PLATFORM_CXX_FLAGS) -g -Ijsoncpp -I. -I$(LIBJPEG_DIR) -I$(LIBPNG_DIR) -I$(CPP_UTILS_DIR) -Wall $^ -o unit_tests/$@
+	unit_tests/$@
 
 clean: zlib-clean libpng-clean libjpeg-clean
 	$(call RM_R,testresults)

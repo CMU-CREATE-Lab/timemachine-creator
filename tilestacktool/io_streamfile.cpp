@@ -11,10 +11,10 @@ void StreamFileReader::read(unsigned char *dest, size_t pos, size_t length) {
   f.read((char*)dest, length);
   if (f.fail()) {
 #ifdef _WIN32
-      throw_error("Error reading %Id bytes from file %s at position %Id\n",
+      throw_error("Error reading %Id bytes from file %s at position %Id",
                   length, filename.c_str(), pos);
 #else
-      throw_error("Error reading %zd bytes from file %s at position %zd\n",
+      throw_error("Error reading %zd bytes from file %s at position %zd",
                   length, filename.c_str(), pos);
 #endif
   }
@@ -44,9 +44,9 @@ void StreamFileWriter::write(const unsigned char *src, size_t length) {
   f.write((char*)src, length);
   if (f.fail()) {
 #ifdef _WIN32
-      throw_error("Error writing %Id bytes to file %s\n", length, filename.c_str());
+      throw_error("Error writing %Id bytes to file %s", length, filename.c_str());
 #else
-      throw_error("Error writing %zd bytes to file %s\n", length, filename.c_str());
+      throw_error("Error writing %zd bytes to file %s", length, filename.c_str());
 #endif
   }
 }

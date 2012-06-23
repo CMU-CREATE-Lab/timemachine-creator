@@ -22,6 +22,8 @@
 
 #include "io.h"
 
+#include "mwc.h"
+#include "SimpleZlib.h"
 #include "Tilestack.h"
 #include "tilestacktool.h"
 
@@ -38,20 +40,20 @@ const char *version() { return "0.2.1"; }
 
 class LRUTilestack : public Tilestack {
   unsigned int lru_size;
-  std::list<int> lru;
+  mutable std::list<int> lru;
 
 public:
   LRUTilestack() : lru_size(5) {}
   
   // Not really deleting the LRU, but rather the least recently created
   // (to avoid the overhead of recording use)
-  void delete_lru() {
+  void delete_lru() const {
     delete[] pixels[lru.back()];
     pixels[lru.back()] = 0;
     lru.pop_back();
   }
 
-  virtual void create(unsigned frame) {
+  virtual void create(unsigned frame) const {
     while (lru.size() > lru_size) delete_lru();
     lru.push_front(frame);
     pixels[frame] = new unsigned char[bytes_per_frame()];
@@ -65,19 +67,43 @@ public:
 class TilestackReader : public LRUTilestack {
 public:
   std::auto_ptr<Reader> reader;
+
   TilestackReader(std::auto_ptr<Reader> reader) : reader(reader) {
     read();
   }
 
-  virtual void instantiate_pixels(unsigned frame) {
-    assert(!pixels[frame]);
-    create(frame);
-    reader->read(pixels[frame], toc[frame].address, toc[frame].length);
-  }
-
   virtual ~TilestackReader() {}
 
-  protected:
+protected:
+  virtual void instantiate_pixels(unsigned frame) const {
+    assert(!pixels[frame]);
+    create(frame);
+    switch (compression_format) {
+    case NO_COMPRESSION:
+      if (toc[frame].length != bytes_per_frame()) {
+        throw_error("TilestackReader: Frame %d has %d bytes, but should have %d bytes",
+                    frame, (int) toc[frame].length, (int)bytes_per_frame());
+      }
+      reader->read(pixels[frame], toc[frame].address, toc[frame].length);
+      break;
+    case ZLIB_COMPRESSION:
+      {
+        std::vector<unsigned char> compressed_frame = reader->read(toc[frame].address, toc[frame].length);
+        std::vector<unsigned char> uncompressed_frame;
+        Zlib::uncompress(uncompressed_frame, &compressed_frame[0], compressed_frame.size());
+        if (uncompressed_frame.size() != bytes_per_frame()) {
+          throw_error("TilestackReader: Frame %d has %d bytes, but should have %d bytes",
+                      frame, (int) uncompressed_frame.size(), (int)bytes_per_frame());
+        }
+        std::copy(uncompressed_frame.begin(), uncompressed_frame.end(), pixels[frame]);
+      }
+      break;
+    default:
+      throw_error("Unknown compression type in tilestack: %d", compression_format);
+      break;
+    }
+  }
+
   void read() {
     size_t footer_size = 48;
     size_t filelen = reader->length();
@@ -144,7 +170,7 @@ public:
     }
   }
 
-  double apply(double val) {
+  double apply(double val) const {
     return maxval * pow(std::max(0.0, val * scale_over_maxval), one_over_gamma);
   }
 };
@@ -163,7 +189,7 @@ public:
     set_nframes(this->src->nframes);
   }
   
-  virtual void instantiate_pixels(unsigned frame) {
+  virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
     
@@ -242,12 +268,32 @@ void write_html(std::string dest)
   fprintf(stderr, "Created %s\n", html_filename.c_str());
 }
 
+// Old:  uncompressed frames
+//
+// void save(std::string dest)
+// {
+//   ensure_resident();
+//   std::auto_ptr<Tilestack> tmp(tilestackstack.pop());
+//   ResidentTilestack *src = dynamic_cast<ResidentTilestack*>(tmp.get());
+//   assert(src);
+// 
+//   if (create_parent_directories) make_directory_and_parents(filename_directory(dest));
+// 
+//   std::string temp_dest = temporary_path(dest);
+// 
+//   {
+//     std::auto_ptr<FileWriter> out(FileWriter::open(temp_dest));
+//     src->write(out.get());
+//   }
+// 
+//   rename_file(temp_dest, dest);
+// 
+//   fprintf(stderr, "Created %s\n", dest.c_str());
+// }
+
 void save(std::string dest)
 {
-  ensure_resident();
-  std::auto_ptr<Tilestack> tmp(tilestackstack.pop());
-  ResidentTilestack *src = dynamic_cast<ResidentTilestack*>(tmp.get());
-  assert(src);
+  std::auto_ptr<Tilestack> src(tilestackstack.pop());
 
   if (create_parent_directories) make_directory_and_parents(filename_directory(dest));
 
@@ -391,24 +437,6 @@ public:
   }
 };
 
-// Adapted from George Marsaglia's Multiply With Carry, http://www.cse.yorku.ca/~oz/marsaglia-rng.html
-
-struct MWC {
-  unsigned int z; // 32 bits
-  unsigned int w; // 32 bits
-  MWC(int z_seed, int w_seed) : z(z_seed), w(w_seed) {
-    assert(z && w);
-  }
-  unsigned int get() {
-    z = 36969 * (z & 65535) + (z >> 16);
-    w = 18000 * (w & 65535) + (w >> 16);
-    return (z << 16) + w;
-  }
-  unsigned char get_byte() {
-    return (unsigned char) (get() >> 12);
-  }
-};
-
 class PrependLeaderTilestack : public LRUTilestack {
   std::auto_ptr<Tilestack> source;
   unsigned leader_nframes;
@@ -420,7 +448,7 @@ public:
     set_nframes(leader_nframes + this->source->nframes);
   }
   
-  virtual void instantiate_pixels(unsigned frame) {
+  virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
     
@@ -435,14 +463,13 @@ public:
       memset(pixels[frame], 0, bytes_per_frame());
     } else {
       // Generate leader frame
-      MWC random((frame + 1) * 4294967291,
-                 (frame + 1) * 3537812053);
+      MWC random((frame + 1) * 4294967291, (frame + 1) * 3537812053);
       int frame_size = bytes_per_frame();
       for (int i = 0; i < frame_size;) {
         unsigned char c = random.get_byte() / 4 + 96;
         for (int j = 0; j < 8; j++) {
           if (i < frame_size) {
-            for (int k = 0; k < bytes_per_pixel(); k++) {
+            for (unsigned k = 0; k < bytes_per_pixel(); k++) {
               pixels[frame][i++] = c;
             }
           }
@@ -472,7 +499,7 @@ public:
     compression_format = 0;
   }
   
-  virtual void instantiate_pixels(unsigned frame) {
+  virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
     
@@ -721,7 +748,7 @@ public:
     x -= 0.5;
     y -= 0.5;
 
-    const int MAX_BYTES_PER_PIXEL = 128;
+    const unsigned int MAX_BYTES_PER_PIXEL = 128;
     unsigned char p00[MAX_BYTES_PER_PIXEL];
     unsigned char p01[MAX_BYTES_PER_PIXEL];
     unsigned char p10[MAX_BYTES_PER_PIXEL];
@@ -817,7 +844,7 @@ void parse_path(std::vector<Frame> &frames, Json::Value path) {
 //}
 
 class TilestackFromPath : public LRUTilestack {
-  Stackset stackset;
+  mutable Stackset stackset;
   std::vector<Frame> frames;
 
 public:
@@ -833,7 +860,7 @@ public:
     compression_format = 0;
   }
 
-  virtual void instantiate_pixels(unsigned frame) {
+  virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
     Image image(*this, tile_width, tile_height, pixels[frame]);
@@ -975,7 +1002,7 @@ int main(int argc, char **argv)
           throw_error("Can't parse %s as JSON", json_path.c_str());
         }
 
-        for (int i = 0; i < tileList["tiles"].size(); i++) {
+        for (unsigned i = 0; i < tileList["tiles"].size(); i++) {
           srcs.push_back(tileList["tiles"][i].asString());
         }
 

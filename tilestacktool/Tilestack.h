@@ -22,7 +22,7 @@ struct PixelInfo {
   unsigned int bands_per_pixel;
   unsigned int bits_per_band;
   unsigned int pixel_format; // 0=unsigned integer, 1=floating point,
-  int bytes_per_pixel() const { return bands_per_pixel * bits_per_band / 8; }
+  unsigned int bytes_per_pixel() const { return bands_per_pixel * bits_per_band / 8; }
 
   double get_pixel_band(const unsigned char *pixel, unsigned band) const {
     switch ((bits_per_band << 1) | pixel_format) {
@@ -70,7 +70,11 @@ struct TilestackInfo : public PixelInfo {
   unsigned int tile_width;
   unsigned int tile_height;
   unsigned int compression_format;
-  int bytes_per_frame() const { return bytes_per_pixel() * tile_width * tile_height; }
+  enum CompressionFormat {
+    NO_COMPRESSION = 0,
+    ZLIB_COMPRESSION = 1
+  };
+  unsigned int bytes_per_frame() const { return bytes_per_pixel() * tile_width * tile_height; }
 };
 
 class Tilestack : public TilestackInfo {
@@ -79,15 +83,15 @@ public:
     double timestamp;
     unsigned long long address, length;
   };
-  std::vector<TOCEntry> toc;
-  std::vector<unsigned char*> pixels;
+  mutable std::vector<TOCEntry> toc;
+  mutable std::vector<unsigned char*> pixels;
 
 public:
   double frame_timestamp(unsigned frame) {
     assert(frame < nframes);
     return toc[frame].timestamp;
   }
-  unsigned char *frame_pixels(unsigned frame) {
+  unsigned char *frame_pixels(unsigned frame) const {
     assert(frame < nframes);
     if (!pixels[frame]) instantiate_pixels(frame);
     return pixels[frame];
@@ -100,8 +104,10 @@ public:
   unsigned char *frame_pixel(unsigned frame, unsigned x, unsigned y) {
     return frame_pixels(frame) + bytes_per_pixel() * (x + y * tile_width);
   }
-  virtual void instantiate_pixels(unsigned frame) = 0;
+  void write(Writer *w) const;
   virtual ~Tilestack() {}
+ protected:
+  virtual void instantiate_pixels(unsigned frame) const = 0;
 };
 
 /*
@@ -134,8 +140,7 @@ public:
                     unsigned int tile_height, unsigned int bands_per_pixel,
                     unsigned int bits_per_band, unsigned int pixel_format,
                     unsigned int compression_format);
-  void write(Writer *w);
-  virtual void instantiate_pixels(unsigned frame);
+  virtual void instantiate_pixels(unsigned frame) const;
 };
 
 #endif
