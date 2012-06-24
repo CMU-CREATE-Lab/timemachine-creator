@@ -50,7 +50,7 @@ void API::openBrowser(QString url) {
         QSettings brwCH("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe",QSettings::NativeFormat);
         QString brwPath = brwCH.value( "Default", "0" ).toString();
         if(brwPath!="0") {
-                QProcess::startDetached(brwPath, QStringList() << "--allow-file-access-from-files" << url);
+                QProcess::startDetached(brwPath, QStringList() << url);
                 return;
         }
         
@@ -70,7 +70,7 @@ void API::openBrowser(QString url) {
 #elif defined Q_WS_MAC
         url = "file://"+url;
         if(QFileInfo("/Applications/Google Chrome.app").exists())
-                QProcess::startDetached("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", QStringList() << "--allow-file-access-from-files" << url);
+                QProcess::startDetached("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", QStringList() << url);
         else if(QFileInfo("/Applications/Safari.app").exists())
                 QProcess::startDetached("/Applications/Safari.app/Contents/MacOS/Safari", QStringList() << url);
         else

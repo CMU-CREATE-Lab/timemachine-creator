@@ -3,7 +3,7 @@ var projectPath = '';
 var projectName = '';
 var inProgress = false;
 var projectModified = false;
-var capture_time_parser_path = api.getRootAppPath()+"/ct/extract_exif_capturetimes.rb";
+var captureTimeParserPath = api.getRootAppPath()+"/ct/extract_exif_capturetimes.rb";
 var undoArray = new Array();
 var redoArray = new Array();
 var filmstripIndex = 0;
@@ -16,6 +16,7 @@ var view = "thumbnails";
 var max;
 var selectedImages = new Array();
 var shiftAlreadyClicked = true;
+var tileSize = 512;
 
 function saveAs() {
   var startDirectory = '';
@@ -44,8 +45,8 @@ function saveAs() {
     outputData["source"]["type"] = "images";
     outputData["source"]["images"] = activeData["images"];
     outputData["source"]["capture_times"] = activeData["capture_times"];
-    outputData["source"]["capture_time_parser"] = capture_time_parser_path;
-    outputData["source"]["tilesize"] = 256;
+    outputData["source"]["capture_time_parser"] = captureTimeParserPath;
+    outputData["source"]["tilesize"] = tileSize;
 
     outputData["videosets"] = []
 
@@ -82,8 +83,8 @@ function save() {
   outputData["source"]["type"] = "images";
   outputData["source"]["images"] = activeData["images"];
   outputData["source"]["capture_times"] = activeData["capture_times"];
-  outputData["source"]["capture_time_parser"] = capture_time_parser_path;
-  outputData["source"]["tilesize"] = 256;
+  outputData["source"]["capture_time_parser"] = captureTimeParserPath;
+  outputData["source"]["tilesize"] = tileSize;
 
   outputData["videosets"] = [];
 
