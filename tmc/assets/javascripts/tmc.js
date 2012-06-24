@@ -1091,8 +1091,12 @@ function init() {
     var coords = originalCanvasPos;
     var itemInBounds = false;
 
+    var mintime = getTime(-1);
+    var maxtime = getTime(1);
+
     for (i = 0; i < data[0].length; i++) {
-      if (data[0][i].deleted) continue;
+      if ((data[0][i].deleted) || !(data[0][i].time >= mintime && data[0][i].time <= maxtime)) continue;
+
       if (inBounds(data[0][i], coords.x, coords.y)) {
         api.setDeleteMenu(true);
         if (!(e.ctrlKey || e.metaKey) && !e.shiftKey) selectedImages.length = 0;
@@ -1193,18 +1197,18 @@ function init() {
 
       //!(r2.left > r1.right || r2.right < r1.left || r2.top > r1.bottom || r2.bottom < r1.top);
       for (i = 0; i < data[0].length; i++) {
-        if (data[0][i].deleted) continue;
+
+        // There is something wrong with my collision code or something else is at play.
+        // Either way, checking whether the image is currently visible seems to fix this.   
+        if ((data[0][i].deleted) || !(data[0][i].time >= mintime && data[0][i].time <= maxtime)) continue;
+
         // Determine whether the selection rectangle intersects one of our data objects (also a rectangle)
         if (!(origCanvasX > data[0][i].x + data[0][i].w || coords.x < data[0][i].x || origCanvasY > data[0][i].y + data[0][i].h || coords.y < data[0][i].y)) {
           if ($.inArray(data[0][i], selectedImages) < 0) {
-            // There is something wrong with my collision code or something else is at play.
-            // Either way, checking whether the image is currently visible seems to fix this.
-            if (data[0][i].time >= mintime && data[0][i].time <= maxtime) {
-              selectedImages.push(data[0][i]);
-              api.setDeleteMenu(true);
-              refresh();
-              break;
-            }
+            selectedImages.push(data[0][i]);
+            api.setDeleteMenu(true);
+            refresh();
+            break;
           }
         } else {
           var idx = $.inArray(data[0][i], selectedImages);
