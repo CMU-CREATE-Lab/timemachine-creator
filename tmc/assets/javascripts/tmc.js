@@ -46,6 +46,7 @@ function setOutputSettings() {
     videoSet["fps"] = $("#fps").spinner("value");
 
     outputData["videosets"].push(videoSet);
+
     projectModified = false;
     saveAction(false);
 
@@ -757,27 +758,32 @@ function keypress(e) {
   case 8: // backsapce key
   case 46: // delete key
     // delete
-    if (data.length > 0 && data[0].length > 0) {
-      projectModified = true;
-      saveAction(true);
-      for (i = 0; i < selectedImages.length; i++) {
-        // Mark as deleted, but do not actually delete. Useful for undo feature
-        data[selectedImages[i].col][selectedImages[i].row].deleted = true;
-      }
-      undoArray.push(new Array());
-      jQuery.extend(true, undoArray[undoArray.length - 1], selectedImages);
-      if (undoArray.length > 0) api.setUndoMenu(true);
-      selectedImages.length = 0;
-
-      updateActiveData()
-      $("#numFrames").text(activeData["images"][0].length + " Frames");
-      rescale();
-      refresh();
-    }
+    doDelete();
     break;
   default:
     //console.log("key " + e.which);
   }
+}
+
+function doDelete() {
+  if (selectedImages.length == 0) return;
+
+  projectModified = true;
+  saveAction(true);
+  for (i = 0; i < selectedImages.length; i++) {
+    // Mark as deleted, but do not actually delete. Useful for undo feature
+    data[selectedImages[i].col][selectedImages[i].row].deleted = true;
+  }
+  undoArray.push(new Array());
+  jQuery.extend(true, undoArray[undoArray.length - 1], selectedImages);
+  if (undoArray.length > 0) api.setUndoMenu(true);
+  selectedImages.length = 0;
+
+  updateActiveData()
+  $("#numFrames").text(activeData["images"][0].length + " Frames");
+  api.setDeleteMenu(false);
+  rescale();
+  refresh();
 }
 
 function inBounds(elm, mx, my) {
@@ -804,6 +810,7 @@ function startRender() {
   addFoldersAction(false);
   recentlyAddedAction(false);
   newProjectAction(false);
+  api.setDeleteMenu(false);
 
   undoArray.length = 0;
   redoArray.length = 0;
@@ -833,6 +840,7 @@ function init() {
   $('#zoom').hide();
   $('#scroll').css({'overflow':'hidden'});
 
+  api.setDeleteMenu(false);
   api.setUndoMenu(false);
   api.setRedoMenu(false);
   saveAction(false);
@@ -1086,6 +1094,7 @@ function init() {
     for (i = 0; i < data[0].length; i++) {
       if (data[0][i].deleted) continue;
       if (inBounds(data[0][i], coords.x, coords.y)) {
+        api.setDeleteMenu(true);
         if (!(e.ctrlKey || e.metaKey) && !e.shiftKey) selectedImages.length = 0;
 
         if (e.shiftKey) {
@@ -1128,6 +1137,7 @@ function init() {
     }
 
     if (!itemInBounds) {
+      api.setDeleteMenu(false);
       if (!(e.ctrlKey || e.metaKey) && !e.shiftKey) selectedImages.length = 0;
     }
     refresh();
@@ -1178,15 +1188,23 @@ function init() {
         'height': height
       });
 
+      var mintime = getTime(-1);
+      var maxtime = getTime(1);
+
       //!(r2.left > r1.right || r2.right < r1.left || r2.top > r1.bottom || r2.bottom < r1.top);
       for (i = 0; i < data[0].length; i++) {
         if (data[0][i].deleted) continue;
         // Determine whether the selection rectangle intersects one of our data objects (also a rectangle)
         if (!(origCanvasX > data[0][i].x + data[0][i].w || coords.x < data[0][i].x || origCanvasY > data[0][i].y + data[0][i].h || coords.y < data[0][i].y)) {
           if ($.inArray(data[0][i], selectedImages) < 0) {
-            selectedImages.push(data[0][i]);
-            refresh();
-            break;
+            // There is something wrong with my collision code or something else is at play.
+            // Either way, checking whether the image is currently visible seems to fix this.
+            if (data[0][i].time >= mintime && data[0][i].time <= maxtime) {
+              selectedImages.push(data[0][i]);
+              api.setDeleteMenu(true);
+              refresh();
+              break;
+            }
           }
         } else {
           var idx = $.inArray(data[0][i], selectedImages);

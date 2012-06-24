@@ -128,6 +128,10 @@ void API::openBrowser(QString url) {
 #endif
 }
 
+void API::setDeleteMenu(bool state) {
+        mainwindow->setDeleteMenu(state);
+}
+
 void API::setUndoMenu(bool state) {
 	mainwindow->setUndoMenu(state);
 }

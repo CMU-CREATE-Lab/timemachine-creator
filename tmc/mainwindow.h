@@ -16,6 +16,7 @@ class MainWindow : public QMainWindow
 public:
     MainWindow();
 	void setApi(API *api);
+        void setDeleteMenu(bool state);
 	void setUndoMenu(bool state);
 	void setRedoMenu(bool state);
 	void setNewProjectMenu(bool state);
@@ -39,6 +40,8 @@ private slots:
 	void addFolders();
 	void openRecentFile();
 	
+        void deleteImages();
+
 	void undo();
 	void redo();
 	
@@ -56,6 +59,8 @@ private:
 	QAction *separatorAct;
 	QAction *exitAction;
 	
+        QAction *deleteAction;
+
 	QAction *undoAction;
 	QAction *redoAction;
 	

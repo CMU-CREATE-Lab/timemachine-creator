@@ -38,6 +38,8 @@ api.readFileDialog = window._api.readFileDialog;
 
 api.saveAsDialog = window._api.saveAsDialog;
 
+api.setDeleteMenu = window._api.setDeleteMenu;
+
 api.setUndoMenu = window._api.setUndoMenu;
 
 api.setRedoMenu = window._api.setRedoMenu;

@@ -39,6 +39,10 @@ MainWindow::MainWindow()
 	exitAction = new QAction(tr("E&xit"), this);
 	exitAction->setShortcuts(QKeySequence::Close);
 	exitAction->setStatusTip(tr("Close the software"));
+
+        deleteAction = new QAction(tr("&Delete"), this);
+        deleteAction->setShortcut(Qt::Key_Delete);
+        deleteAction->setStatusTip(tr("Delete selected images"));
 	
 	undoAction = new QAction(tr("&Undo"), this);
 	undoAction->setShortcuts(QKeySequence::Undo);
@@ -59,7 +63,8 @@ MainWindow::MainWindow()
 	connect(addImagesAction, SIGNAL(triggered()), this, SLOT(addImages()));
 	connect(addFoldersAction, SIGNAL(triggered()), this, SLOT(addFolders()));
 	connect(exitAction, SIGNAL(triggered()), this, SLOT(close()));
-	
+
+        connect(deleteAction, SIGNAL(triggered()), this, SLOT(deleteImages()));
 	connect(undoAction, SIGNAL(triggered()), this, SLOT(undo()));
 	connect(redoAction, SIGNAL(triggered()), this, SLOT(redo()));
 	
@@ -82,6 +87,9 @@ MainWindow::MainWindow()
 	updateRecentFileActions();
 	
 	fileMenu = menuBar()->addMenu(tr("&Edit"));
+        fileMenu->addAction(deleteAction);
+        setDeleteMenu(false);
+        fileMenu->addSeparator();
 	fileMenu->addAction(undoAction);
 	setUndoMenu(false);
 	fileMenu->addAction(redoAction);
@@ -168,6 +176,11 @@ void MainWindow::closeEvent(QCloseEvent *event)
 void MainWindow::createStatusBar()
 {
 	statusBar()->showMessage(tr("Ready"));
+}
+
+void MainWindow::setDeleteMenu(bool state)
+{
+        deleteAction->setEnabled(state);
 }
 
 void MainWindow::setUndoMenu(bool state)
@@ -274,6 +287,11 @@ void MainWindow::saveAs()
 void MainWindow::save()
 {
 	api->evaluateJavaScript("save(); null");
+}
+
+void MainWindow::deleteImages()
+{
+        api->evaluateJavaScript("doDelete(); null");
 }
 
 void MainWindow::undo()
