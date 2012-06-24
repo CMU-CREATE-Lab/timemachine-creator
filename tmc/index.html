@@ -75,7 +75,7 @@
                 </div>
                 <input style="margin: 0px 0px 0px 5px; float:left" type="text" id="fps" size="2" maxlength="2" value="25"/>
                 <br/><br/>
-                h.264 video (Chrome or Safari required)<br/>
+                H.264 video (Chrome or Safari required)<br/>
                 <div style="margin: 0px 0px 0px 20px"><div style="float:left">Compression:</div> <div style="margin: 0px 0px 0px 5px; float:left" id="compression_explanation" style="width: 16px" class="ui-state-default ui-corner-all" title="Explain"><span class="ui-icon ui-icon-info" title="Explain"></span></div> <div style="background: LightGray; font-size: 10px; margin: 3px 0px 0px 10px; float: left; width: 150px;" id="compression"></div><br/>
                   <font style="margin: -120px" size="1px">Typical settings:</font>
                   <div style="margin: 0px 0px 0px 10px">
@@ -95,7 +95,7 @@
                 </div>
                 <div id="compression-dialog-message" title="Compression explanation">
                   <p>
-                    This setting controls the compression level of the output videos.<br/><br/>Higher compression means smaller videos sizes, but at the loss of quality. Lower compression means higher quality but results in larger file sizes. Going below a setting of 26 is not recommended if you plan to stream your Time Machine over the Internet. And going significantly above a setting of 30 will result in videos which are blocky and blurred.<br/><br/>At this time, encoding only in h264 is supported by this software.
+                    This setting controls the compression level of the output videos.<br/><br/>Higher compression means smaller videos sizes, but at the loss of quality. Lower compression means higher quality but results in larger file sizes. Going below a setting of 26 is not recommended if you plan to stream your Time Machine over the Internet. And going significantly above a setting of 30 will result in videos which are blocky and blurred.<br/><br/>At this time, encoding only in H.264 is supported by this software.
                   </p>
                 </div>
                 <div id="fps-dialog-message" title="Frame rate explanation">
@@ -105,7 +105,7 @@
                 </div>
                 <div id="jobs-dialog-message" title="Running tasks in parallel">
                   <p>
-                    If you have a computer with multiple cores and plenty of RAM, you can compile significantly faster by increasing the number of tasks you want to run in parallel.  A good rule of thumb is to set a value equal to the number of cores you have.<br/><br/>Note that if your system has Hyper-threading, you effectively have twice the number of cores.
+                    If you have a computer with multiple cores and plenty of RAM, you can compile significantly faster by increasing the number of tasks you want to run in parallel.  A good rule of thumb is to set a value equal to the number of cores you have.<br/><br/>Note that if your system has Hyper-threading, you effectively have twice the number of cores, though it may not be recommended to increase the number of jobs in this case.
                   </p>
                 </div>
                 <div id="dialog-confirm" title="Save Project?">

@@ -18,28 +18,7 @@ var selectedImages = new Array();
 var shiftAlreadyClicked = true;
 var tileSize = 512;
 
-function saveAs() {
-  var startDirectory = '';
-  var tmpPath = api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.tmc');
-
-  if (!tmpPath) {
-    alert('Save canceled');
-  } else {
-
-    var startIndex = tmpPath.lastIndexOf("/");
-    var endIndex = tmpPath.lastIndexOf(".tmc");
-    if (endIndex == -1) endIndex = tmpPath.length;
-    projectName = tmpPath.substring(startIndex+1,endIndex);
-    projectPath = tmpPath.substring(0,endIndex);
-    var tmcPath = projectPath.substring(0,startIndex)+"/"+projectName+"/"+projectName+".tmc";
-
-    if (!api.makeFullDirectoryPath(tmcPath)) {
-      alert('Error creating directory ' + tmcPath);
-      return;
-    }
-
-    definitionPath = tmcPath + '/definition.tmc';
-
+function setOutputSettings() {
     var outputData = {}
     outputData["source"] = {}
     outputData["source"]["type"] = "images";
@@ -68,6 +47,34 @@ function saveAs() {
 
     outputData["videosets"].push(videoSet);
     projectModified = false;
+    saveAction(false);
+
+    return outputData;
+}
+
+function saveAs() {
+  var startDirectory = '';
+  var tmpPath = api.saveAsDialog('Save Time Machine Definition', startDirectory, '*.tmc');
+
+  if (!tmpPath) {
+    alert('Save canceled');
+  } else {
+
+    var startIndex = tmpPath.lastIndexOf("/");
+    var endIndex = tmpPath.lastIndexOf(".tmc");
+    if (endIndex == -1) endIndex = tmpPath.length;
+    projectName = tmpPath.substring(startIndex+1,endIndex);
+    projectPath = tmpPath.substring(0,endIndex);
+    var tmcPath = projectPath.substring(0,startIndex)+"/"+projectName+"/"+projectName+".tmc";
+
+    if (!api.makeFullDirectoryPath(tmcPath)) {
+      alert('Error creating directory ' + tmcPath);
+      return;
+    }
+
+    definitionPath = tmcPath + '/definition.tmc';
+
+    var outputData = setOutputSettings();
 
     if (!api.writeFile(definitionPath, JSON.stringify(outputData, undefined, 2))) {
       alert('Error creating ' + definitionPath);
@@ -78,34 +85,7 @@ function saveAs() {
 }
 
 function save() {
-  var outputData = {};
-  outputData["source"] = {};
-  outputData["source"]["type"] = "images";
-  outputData["source"]["images"] = activeData["images"];
-  outputData["source"]["capture_times"] = activeData["capture_times"];
-  outputData["source"]["capture_time_parser"] = captureTimeParserPath;
-  outputData["source"]["tilesize"] = tileSize;
-
-  outputData["videosets"] = [];
-
-  var videoSet = {};
-  videoSet["label"] = "Small";
-  videoSet["type"] = "h.264";
-  videoSet["size"] = "small";
-  videoSet["compression"] = $("#compression").slider_x("value");
-  videoSet["fps"] = $("#fps").spinner("value");
-
-  outputData["videosets"].push(videoSet);
-
-  videoSet = {};
-  videoSet["label"] = "Large";
-  videoSet["type"] = "h.264";
-  videoSet["size"] = "large";
-  videoSet["compression"] = $("#compression").slider_x("value");
-  videoSet["fps"] = $("#fps").spinner("value");
-
-  outputData["videosets"].push(videoSet);        
-  projectModified = false;
+  var outputData = setOutputSettings();
 
   if(!definitionPath) {
     saveAs();
