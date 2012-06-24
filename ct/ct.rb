@@ -19,6 +19,30 @@ require 'tile'
 require 'tileset'
 require 'xmlsimple'
 
+$ajax_includes = {}
+
+def include_ajax(filename, contents)
+  $ajax_includes[filename] = contents
+end
+
+def include_ajax_file(filename)
+  include_ajax filename, Filesystem.read_file("#{$explorer_source_dir}/#{filename}")
+end
+
+def javascript_quote x
+  # JSON.generate works for arrays and maps, but not strings or numbers.  So wrap in an array
+  # before generating, and then take the square brackets off
+  JSON.generate([x])[1...-1]
+end
+
+def ajax_includes_to_javascript
+  statements = ["cached_ajax={};"]
+  $ajax_includes.keys.sort.each do |filename|
+    statements << "cached_ajax['#{filename}']=#{javascript_quote($ajax_includes[filename])};"
+  end
+  statements.join "\n\n"
+end
+
 #profile = "ct.profile.13n.txt"
 profile = false
 debug = false
@@ -181,10 +205,6 @@ class Filesystem
 
   def self.write_file(path, data)
     open(path, 'w') { |fh| fh.write data }
-  end
-
-  def self.append_file(path, data)
-    open(path, 'a') { |fh| fh.write data }
   end
 
   def self.cache_directory(root)
@@ -561,7 +581,7 @@ class VideosetCompiler
 
   def write_json
     write_json_and_js("#{@parent.videosets_dir}/#{id}/r", 'org.cmucreatelab.loadVideoset', info)
-    Filesystem.append_file("#{@parent.videosets_dir}/json_includes.js", "cached_ajax['./#{id}/r.json']=" + JSON(info) + "\n")
+    include_ajax "./#{id}/r.json", info
   end
 end
 
@@ -986,14 +1006,9 @@ class Compiler
     initialize_tiles
 
     # add time machine viewer templates to the json_includes file
-    Filesystem.write_file("#{@videosets_dir}/json_includes.js", "cached_ajax={}"+"\n")
-    player_template = Filesystem.read_file("#{$explorer_source_dir}/player_template.html")
-    Filesystem.append_file("#{@videosets_dir}/json_includes.js", "cached_ajax['player_template.html']='" + player_template.gsub(/(\r)?\n/,"") + "'\n")
-    time_warp_composer_template = Filesystem.read_file("#{$explorer_source_dir}/time_warp_composer.html")
-    Filesystem.append_file("#{@videosets_dir}/json_includes.js", "cached_ajax['time_warp_composer.html']='" + time_warp_composer_template.gsub(/(\r)?\n/,"") + "'\n")
-    browser_not_supported_template = Filesystem.read_file("#{$explorer_source_dir}/browser_not_supported_template.html")
-    Filesystem.append_file("#{@videosets_dir}/json_includes.js", "cached_ajax['browser_not_supported_template.html']='" + browser_not_supported_template.gsub(/(\r)?\n/,"") + "'\n")
-
+    include_ajax_file("player_template.html")
+    include_ajax_file("time_warp_composer.html")
+    include_ajax_file("browser_not_supported_template.html")
   end
 
   def initialize_source(source_info)
@@ -1184,7 +1199,7 @@ class Compiler
 
   def write_json
     write_json_and_js("#{@videosets_dir}/tm", 'org.cmucreatelab.loadTimeMachine', info)
-    Filesystem.append_file("#{@videosets_dir}/json_includes.js", "cached_ajax['./tm.json']=" + JSON(info) + "\n")
+    include_ajax "./tm.json", info
     @videoset_compilers.each { |vc| vc.write_json }
   end
 
@@ -1638,8 +1653,11 @@ Filesystem.rm("#{@@global_parent.tiles_dir}/tiles-*.json")
 
 # append tm.json to json_includes.js again to include the addition of capture times
 # it will be in that file twice, but the last one is the one javascript will use
-tm_json = Filesystem.read_file("#{@@global_parent.videosets_dir}/tm.json")
-Filesystem.append_file("#{@@global_parent.videosets_dir}/json_includes.js", "cached_ajax['./tm.json']=" + tm_json.gsub(/(\r)?\n/,"") + "\n")
+include_ajax("./tm.json", JSON.parse(Filesystem.read_file("#{@@global_parent.videosets_dir}/tm.json")))
+
+Filesystem.write_file("#{@@global_parent.videosets_dir}/json_includes.js", 
+                      ajax_includes_to_javascript)
+STDERR.puts "Wrote #{@@global_parent.videosets_dir}/json_includes.js"
 
 STDERR.puts "If you're authoring a mediawiki page at timemachine.gigapan.org, you can add this to #{compiler.urls['view'] || "your page"} to see the result: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{compiler.versioned_id}|timelapse_dataset=1}}"
 compiler.urls['track'] and STDERR.puts "and update tracking page #{compiler.urls['track']}"

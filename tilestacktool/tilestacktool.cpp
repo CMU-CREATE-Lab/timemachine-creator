@@ -36,7 +36,7 @@ std::vector<std::string> source_tiles_to_delete;
 
 void usage(const char *fmt, ...);
 
-const char *version() { return "0.2.1"; }
+const char *version() { return "0.3.0"; }
 
 class LRUTilestack : public Tilestack {
   unsigned int lru_size;
