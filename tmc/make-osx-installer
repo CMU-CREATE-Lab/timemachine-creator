@@ -1,11 +1,16 @@
 #!/bin/sh
 
 rm -rf tmc.app tmc.dmg
+make clean
 make
 rm -rf installer
 mkdir installer
 cp -a tmc.app installer/tmc.app
 mkdir -p installer/tmc.app/Contents/{tmc,ct,tilestacktool,tilestacktool/ffmpeg/osx,time-machine-explorer}
+cd ../tilestacktool
+make clean
+make
+cd ../tmc
 cp -a index.html test.html assets installer/tmc.app/Contents/tmc
 cp -a ../ct/{*.rb,backports,json,exifr} installer/tmc.app/Contents/ct
 cp -a ../tilestacktool/tilestacktool installer/tmc.app/Contents/tilestacktool

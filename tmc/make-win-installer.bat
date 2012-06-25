@@ -8,6 +8,7 @@ xcopy ..\ct\exifr installer\ct\exifr /E /C /R /I /K /Y
 for %%I in (..\ct\*.rb) do copy %%I installer\ct
 echo Making tilestacktool.exe
 cd ..\tilestacktool
+make clean
 make
 cd ..\tmc
 xcopy ..\tilestacktool\tilestacktool.exe installer\tilestacktool\ /I
@@ -16,6 +17,7 @@ xcopy ..\ruby installer\ruby /E /C /R /I /K /Y
 xcopy ..\time-machine-explorer installer\time-machine-explorer /E /C /R /I /K /Y
 echo Making tmc.exe
 qmake
+nmake clean
 nmake release
 copy release\tmc.exe installer
 echo.
