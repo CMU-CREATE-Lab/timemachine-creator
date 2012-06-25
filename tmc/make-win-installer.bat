@@ -15,6 +15,7 @@ xcopy ..\tilestacktool\ffmpeg\windows\ffmpeg.exe installer\tilestacktool\ffmpeg\
 xcopy ..\ruby installer\ruby /E /C /R /I /K /Y
 xcopy ..\time-machine-explorer installer\time-machine-explorer /E /C /R /I /K /Y
 echo Making tmc.exe
+qmake
 nmake release
 copy release\tmc.exe installer
 echo.
