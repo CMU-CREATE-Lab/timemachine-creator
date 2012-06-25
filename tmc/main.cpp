@@ -131,6 +131,9 @@ int main(int argc, char *argv[])
   #ifdef QT_NO_DEBUG
     view.setContextMenuPolicy(Qt::NoContextMenu);
   #endif
+
+  view.setWindowIcon(QIcon(":/tmc.ico"));
+
   //view.show();
   windowMenu->show();
   

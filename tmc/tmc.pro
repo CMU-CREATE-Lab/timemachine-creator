@@ -8,4 +8,4 @@ QT += webkit
 
 QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.5
 
-RC_FILE = tmc.rc
+win32:RC_FILE += tmc.rc

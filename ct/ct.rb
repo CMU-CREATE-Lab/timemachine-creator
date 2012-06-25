@@ -1508,10 +1508,14 @@ if $os == 'windows'
       end
     end
     reg.close
-    stitchpath = File.join(stitchpath,"stitch.exe")
-    STDERR.puts "Found stitch at: #{stitchpath}"
+    if stitchpath.nil?
+      STDERR.puts "Could not find an entry for stitch in the registry. Checking default installation path..."
+    else
+      stitchpath = File.join(stitchpath,"stitch.exe")
+      STDERR.puts "Found stitch at: #{stitchpath}"
+    end
   else
-    STDERR.puts "Could not find an entry for stitch in the registry. Checking default installation path..."
+    STDERR.puts "Could not read registry."
   end
 end
 
