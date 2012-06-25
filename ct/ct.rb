@@ -1005,10 +1005,11 @@ class Compiler
     @videoset_compilers = settings["videosets"].map {|json| VideosetCompiler.new(self, json)}
     initialize_tiles
 
-    # add time machine viewer templates to the json_includes file
+    # add time machine viewer templates to the ajax_includes file
     include_ajax_file("player_template.html")
     include_ajax_file("time_warp_composer.html")
     include_ajax_file("browser_not_supported_template.html")
+    
   end
 
   def initialize_source(source_info)
@@ -1641,6 +1642,9 @@ Filesystem.cache_directory destination
 while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
   compiler = Compiler.new(definition)
   compiler.write_json
+  Filesystem.write_file("#{@@global_parent.videosets_dir}/ajax_includes.js", 
+                    ajax_includes_to_javascript)
+  STDERR.puts "Wrote initial #{@@global_parent.videosets_dir}/ajax_includes.js"
   compiler.compute_rules # Creates rules, which will be accessible from Rule.all
   $check_mem and CheckMem.logvm "All rules created"
   # compiler.write_rules
@@ -1651,13 +1655,12 @@ end
 # remove any old tmp json files which are passed to tilestacktool
 Filesystem.rm("#{@@global_parent.tiles_dir}/tiles-*.json")
 
-# append tm.json to json_includes.js again to include the addition of capture times
-# it will be in that file twice, but the last one is the one javascript will use
+# Add tm.json to ajax_includes.js again to include the addition of capture times
 include_ajax("./tm.json", JSON.parse(Filesystem.read_file("#{@@global_parent.videosets_dir}/tm.json")))
 
-Filesystem.write_file("#{@@global_parent.videosets_dir}/json_includes.js", 
+Filesystem.write_file("#{@@global_parent.videosets_dir}/ajax_includes.js", 
                       ajax_includes_to_javascript)
-STDERR.puts "Wrote #{@@global_parent.videosets_dir}/json_includes.js"
+STDERR.puts "Wrote final #{@@global_parent.videosets_dir}/ajax_includes.js"
 
 STDERR.puts "If you're authoring a mediawiki page at timemachine.gigapan.org, you can add this to #{compiler.urls['view'] || "your page"} to see the result: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{compiler.versioned_id}|timelapse_dataset=1}}"
 compiler.urls['track'] and STDERR.puts "and update tracking page #{compiler.urls['track']}"
