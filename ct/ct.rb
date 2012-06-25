@@ -1174,7 +1174,7 @@ class Compiler
 
   def capture_times_rule
     source = @@global_parent.source.capture_times.nil? ? @@global_parent.source.capture_time_parser_inputs : @@jsonfile
-    ruby_path = ($os == 'windows') ? "../ruby/windows/bin/ruby.exe" : "/usr/bin/ruby"
+    ruby_path = ($os == 'windows') ? File.dirname(__FILE__)+"/../ruby/windows/bin/ruby.exe" : "/usr/bin/ruby"
     Rule.add("capture_times", videoset_rules, [[ruby_path, "#{@@global_parent.source.capture_time_parser}", source, "#{@videosets_dir}/tm.json"]])
   end
 

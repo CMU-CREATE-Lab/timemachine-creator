@@ -7,6 +7,8 @@ moc_*.h
 junkyard
 *.dSYM
 debug/
+release/
+installer/
 *.pdb
 tmc-linux-*.*
 gigapan-*.*.*-linux*

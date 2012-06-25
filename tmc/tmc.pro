@@ -7,3 +7,5 @@ CONFIG(debug, debug|release) {
 QT += webkit
 
 QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.5
+
+RC_FILE = tmc.rc
