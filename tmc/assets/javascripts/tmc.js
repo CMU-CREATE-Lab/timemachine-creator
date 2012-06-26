@@ -527,12 +527,12 @@ function refresh() {
             }
           }
           var x = left_margin + c * 150;
-          elt.w = 120;
-          elt.h = 160;
+          elt.w = 160;
+          elt.h = 120;
           elt.x = x;
           elt.y = y;
-          context.save();
-          context.transform(0, -1, 1, 0, (x + 80) - (y + 80), (x + 80) + (y + 80));
+          //context.save();
+          //context.transform(0, -1, 1, 0, (x + 80) - (y + 80), (x + 80) + (y + 80));
           if (!elt.image.complete) loading = true;
           if (elt.image.complete && elt.image.width > 0) {
             //console.log("drawing image");
@@ -550,8 +550,8 @@ function refresh() {
             //console.log("drawing box");
             context.fillRect(x, y, 160, 120);
           }
-          context.restore();
-          context.fillText(legend, x, y + 161);
+          //context.restore();
+          context.fillText(legend, x, y + 121);
         } else {
           //console.log("drawing lines");
           context.fillRect(left_margin + c * 25, y, 25, 1);
