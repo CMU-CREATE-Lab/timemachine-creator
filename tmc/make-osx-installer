@@ -2,6 +2,8 @@
 
 rm -rf tmc.app tmc.dmg
 make clean
+rm Makefile
+qmake -spec macx-g++ -config release
 make
 rm -rf installer
 mkdir installer
