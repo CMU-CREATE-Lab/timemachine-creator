@@ -70,7 +70,8 @@ void API::openBrowser(QString url) {
 #elif defined Q_WS_MAC
         url = "file://"+url;
         if(QFileInfo("/Applications/Google Chrome.app").exists())
-                QProcess::startDetached("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", QStringList() << "--new-window" << url);
+                //QProcess::startDetached("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", QStringList() << "--new-window" << url);
+                system(string_printf("open -a 'Google Chrome' '%s'", QUrl(url).toEncoded().replace("'", "%27").constData()).c_str());
         else if(QFileInfo("/Applications/Safari.app").exists())
                 QProcess::startDetached("/Applications/Safari.app/Contents/MacOS/Safari", QStringList() << url);
         else
@@ -301,7 +302,8 @@ bool API::writeFile(QString path, QString data)
 
 QString API::readFileDialog(QString caption, QString startingDirectory, QString filter)
 {
-  QString path = QFileDialog::getOpenFileName(NULL, caption, startingDirectory, filter);
+  // We do not use native dialog boxes because on Mac OS our data diretory ends in .tmc and Mac thinks this is the item we wanted
+  QString path = QFileDialog::getOpenFileName(NULL, caption, startingDirectory, filter, NULL, QFileDialog::DontUseNativeDialog);
   return readFile(path);
 }
 

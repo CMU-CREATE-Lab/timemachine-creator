@@ -152,7 +152,7 @@ void MainWindow::openRecentFile()
 	if (action)
 	{
 		if (QFileInfo(action->data().toString()).exists())
-			api->evaluateJavaScript("openRecentProject('"+action->data().toString()+"'); null");
+                        api->evaluateJavaScript("openRecentProject('"+action->data().toString().replace("'", "\\'")+"'); null");
 		else {
 			QSettings settings;
 			QStringList files = settings.value("recentFileList").toStringList();
@@ -242,9 +242,9 @@ void MainWindow::newProject()
 
 void MainWindow::open()
 {
-        QApplication::setOverrideCursor(Qt::WaitCursor);
+        //QApplication::setOverrideCursor(Qt::WaitCursor);
 	api->evaluateJavaScript("openData(); null");
-        QApplication::restoreOverrideCursor();
+        //QApplication::restoreOverrideCursor();
 }
 
 void MainWindow::addImages()
