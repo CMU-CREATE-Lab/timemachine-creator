@@ -79,53 +79,18 @@ void API::openBrowser(QString url) {
 
 // TODO: must be tested on Linux
 #else
-        QProcess process;
-        process.setReadChannel(QProcess::StandardOutput);
-        process.setReadChannelMode(QProcess::MergedChannels);
-        process.start("type -p chromium");
+        /*if (QProcess::startDetached("chromium", QStringList() << url))
+	        return;
 
-        process.waitForStarted(1000);
-        process.waitForFinished(1000);
+        if (QProcess::startDetached("chromium-browser", QStringList() << "--new-window" << url))
+	        return;*/
 
-        QByteArray list = process.readAll();
-
-        // if there is chromium installed
-        if(list.length()>0)
-        {
-                QProcess::startDetached(list, QStringList() << url);
-                return;
-        }
-		
-		process.start("type -p chromium-browser");
-
-        process.waitForStarted(1000);
-        process.waitForFinished(1000);
-
-        list = process.readAll();
-
-        // if there is chromium-browser installed
-        if(list.length()>0)
-        {
-                QProcess::startDetached(list, QStringList() << "--new-window" << url);
-                return;
-        }
-
-        process.start("type -p google-chrome");
-
-        process.waitForStarted(1000);
-        process.waitForFinished(1000);
-
-        list = process.readAll();
-
-        // if there is google-chrome installed
-        if(list.length()>0)
-        {
-                QProcess::startDetached(list, QStringList() << "--new-window" << url);
-                return;
-        }
+        if (QProcess::startDetached("google-chrome", QStringList() << "--new-window" << url))
+            return;
 
         // go with the default browser
-        QDesktopServices::openUrl(url);
+        //QDesktopServices::openUrl(url);
+        QMessageBox::critical(mainwindow,tr("No Browser"),tr("There is no compatible browser installed on this computer.\nYou need Google Chrome in order to view your time machine."));
 #endif
 }
 
