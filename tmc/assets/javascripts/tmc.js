@@ -1274,7 +1274,8 @@ function ct_out(out) {
      reactivateUI();
     });
 
-    if (out == 0) { //success
+    //linux and mac report an error code of 0 when we kill ct.rb, so we check that we are actually done
+    if (out == 0 && (api.fileExists(projectPath+"/"+projectName+".timemachine/COMPLETE"))) { //success
       $("#status_window").append("<br/><button id='view_timemachine'><b>View Time Machine</b></button><br/>");
       $("#view_timemachine").button().click(function () {
         openInBrowser(projectPath+"/"+projectName+".timemachine/view.html");
