@@ -1116,6 +1116,12 @@ class Compiler
   end
 
   def raw_base_tilestack_rule(target, dependencies)
+    if @source.respond_to?(:tilestack_rules)
+      # raw tilestacks are produced by the source directly
+      return dependencies
+    end
+    
+    # Build tilestacks from source tiles
     inputs = @source.framenames.map {|frame| "#{@tiles_dir}/#{frame}.data/tiles/#{target.path}.#{@source.tileformat}"}
 
     Filesystem.mkdir_p @tiles_dir
@@ -1125,11 +1131,37 @@ class Compiler
 
     target = raw_tilestack_path(target)
     cmd = tilestacktool_cmd # , "--delete-source-tiles"]
-      cmd << "--create-parent-directories"
+    cmd << "--create-parent-directories"
     cmd += ["--loadtiles-from-json"] + path.to_a
     cmd += ["--save", target]
     Rule.add(target, dependencies, [cmd])
   end
+
+  # How are tilstacks created?
+  #
+  # Tilestacks are created in a quadtree, with the root tilestack at level 0, depending on 4 level 1 tilestacks, all the
+  # way down to the highest level max_level, which is the base of the tree
+  #
+  # levels = 0 (root) down to max_level-1:
+  #    Stored in @tilestacks_dir (0300-tilestacks)
+  #    Computed by subsampled_tilestack_rule from up to 4 children each
+  # 
+  # max_level (base level):
+  #    These are computed in one of several ways, depending on whether your image
+  #    source can natively produce tilestacks, and whether you have a stack filter
+  #    to apply
+  #
+  #    base tilestack (not raw):
+  #         Stored in @tilestacks_dir (0300-tilestacks)
+  #         A base-level tilestack, created by applying the stack filter (@stack_filter) to
+  #         the corresponding raw base tilestack.  If no stack filter exists, the base tilestack
+  #         is simply the raw base tilestack (no copy is performed, but rather @raw_tilestack_dir
+  #         is set to 0300-tilestacks instead of 0250-raw-tilestacks)
+  #
+  #    raw base tilestack:  
+  #         Stored in @raw_tilestack_dir (0250-raw-tilestacks or 0300-tilestacks)
+  #         A base-level tilestack, created by tilestacktool directly from image source tiles,
+  #         or, if supported by the image source, created directly by the image source.
 
   def all_tilestacks_rule
     if $compute_tilestacks.none?
@@ -1138,9 +1170,11 @@ class Compiler
     else
       STDERR.puts "   #{@base_tiles.size} base tiles per input frame (#{@source.tilesize}x#{@source.tilesize} px)"
       if @source.respond_to?(:tilestack_rules)
+        # The source natively supplies tilestacks.  We should depend on these
         targets = @source.tilestack_rules
         targets = Rule.touch("#{@raw_tilestack_dir}/SOURCE_COMPLETE", targets)
       else
+        # The source supplies tiles.  We should depend on these
         targets = all_tiles_rule
       end
       targets = tilestack_rule(Tile.new(0,0,0), targets)
@@ -1220,21 +1254,35 @@ class Compiler
   end
 end
 
+
+# Rule completed:
+#    Label rule :done
+#    For each target
+#       Record that target now exists
+#       Loop over @rules_waiting_for_dependency[target] and
+#          remove target from @dependencies_holding_up_rule[rule]
+#          if @dependencies_holding_up_rule[rule] is empty, and rule is :waiting, label rule :ready
+#          
+
 class Maker
   @@ndone = 0
 	
   def initialize(rules)
     @rules = rules
     @ready = []
+    
+    # Does target exist?  true or false
     @targets={}
-    @rules_waiting = {}
+    
+    # Status of each rule.  :waiting, :ready, :executing, :done
     @status = {}
+    
     STDERR.write "Checking targets from #{rules.size} rules...  0%"
     rules.each_with_index do |rule, i| 
       if i*100/rules.size > (i-1)*100/rules.size
         STDERR.write("\b\b\b\b%3d%%" % (i*100/rules.size))
       end
-      check_rule(rule)
+      compute_rule_status(rule)
     end
     STDERR.write("\b\b\b\bdone.\n")
   end
@@ -1247,27 +1295,33 @@ class Maker
     @@ndone = 0
   end
 
-  def check_rule(rule)
-    if @status[rule] == :done
-      return
-    elsif rule_targets_exist(rule)
-      rule_completed(rule)
-    elsif @status[rule] == :ready
-      return
-    elsif @status[rule] == :executing
-      return
+  #
+  # Compute rule status (done once per rule, at beginning)
+  #    If every target exists, label :done
+  #    If all dependencies exist, label rule :ready.  Return
+  #    Label rule :waiting
+  #    For each dependency that doesn't exist:
+  #      add rule to @rules_waiting_for_dependency[dep]
+  #      add dep to @dependencies_holding_up_rule[rule]
+  #  
+  def compute_rule_status(rule)
+    @dependencies_holding_up_rule[rule] = Set.new
+    if rule.targets.all { |target| target_exists? target }
+      # If every target exists, label :done
+      @status[rule] == :done
+      @@ndone += 1
     else
-      rule_ready = true
       rule.dependencies.each do |dep|
-        if not target_exists?(dep)
-          (@rules_waiting[dep] ||= Set.new) << rule
-          rule_ready = false
+        if not target_exists? dep
+          # For dependencies which don't exist, set up cross references
+          (@rules_waiting_for_dependency[dep] ||= Set.new) << rule
+          @dependencies_holding_up_rule[rule] << dep
         end
       end
-      if rule_ready
-        @status[rule] = :ready
+      if @dependencies_holding_up_rule[rule].empty?
+        @status[rule] =  :ready
         @ready << rule
-      else
+      else 
         @status[rule] = :waiting
       end
     end
@@ -1283,27 +1337,25 @@ class Maker
     end
   end
 
-  def rule_targets_exist(rule)
-    rule.targets.each do |target|
-      target_exists?(target) or return false
-    end
-    true
-  end
-
   def rule_completed(rule)
-    @status[rule] == :done and raise("assert")
-    @status[rule] == :ready and raise("assert")
+    @status[rule] != :executing and raise("Completed a rule that wasn't executing")
     @@ndone += 1
     @status[rule] = :done
-    rule.targets.each do |target|
-      if not @targets[target]
-        @targets[target] = true
-        if @rules_waiting.member?(target)
-          @rules_waiting[target].each {|rule| check_rule(rule)}
+    rule.targets.each { |target| create_target target }
+  end  
+
+  def create_target(target)
+    if not @targets[target]
+      @targets[target] = true
+      (@rules_waiting_for_dependency[target] || []).each do |rule|
+        @dependencies_holding_up_rule[rule].remove target
+        if @dependencies_holding_up_rule[rule].empty? and @status[rule] == :waiting
+          @status[rule] = :ready
+          @ready << rule
         end
       end
     end
-  end  
+  end
 
   def execute_rules(job_no, rules, response)
     begin
@@ -1329,10 +1381,9 @@ class Maker
           json_file = "job_#{job_no}_#{Process.pid}.json"
           open(json_file, "w") do |json|
             json.puts "["
-            commands = rules.flat_map(&:commands)
-            commands.size.times do |i|
+            rules.map(&:commands).each_with_index do |command, i|
               i > 0 and json.puts ","
-              json.write JSON.fast_generate commands[i]
+              json.write JSON.fast_generate command
             end
             json.puts "\n]"
           end
@@ -1443,7 +1494,9 @@ class Maker
       $dry_run || thread.join
       jobs_executing -= 1
       rules_executing -= rules.size
+      STDERR.write "#{date}: Completing #{rule.size} rules..."
       rules.each {|rule| rule_completed(rule)}
+      STDERR.write "#{date}: Done"
       print_status(rules_executing, jobs_executing)
     end
     duration = Time.now.to_i - begin_time.to_i
