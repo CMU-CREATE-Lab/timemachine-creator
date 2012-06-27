@@ -53,6 +53,14 @@ void API::openBrowser(QString url) {
                 QProcess::startDetached(brwPath, QStringList() << "--new-window" << url);
                 return;
         }
+
+        // probably the preferred way to find Chrome, but the above has worked on multiple systems tested
+        QSettings brwCH2("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Google Chrome",QSettings::NativeFormat);
+        brwPath = brwCH2.value( "InstallLocation", "0" ).toString();
+        if(brwPath!="0") {
+                QProcess::startDetached(brwPath+"\\chrome.exe", QStringList() << "--new-window" << url);
+                return;
+        }
         
         // search whether user has safari installed
         QSettings brwSA("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\Safari.exe",QSettings::NativeFormat);
