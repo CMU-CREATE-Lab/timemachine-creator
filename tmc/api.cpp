@@ -74,7 +74,6 @@ void API::openBrowser(QString url) {
         QMessageBox::critical(mainwindow,tr("No Browser"),tr("There is no compatible browser installed on this computer.\nYou need either Chrome or Safari in order to view your time machine."));
         return;
         
-// TODO: must be tested on MAC
 #elif defined Q_WS_MAC
         url = "file://"+url;
         if(QFileInfo("/Applications/Google Chrome.app").exists())
@@ -85,8 +84,7 @@ void API::openBrowser(QString url) {
         else
                 QDesktopServices::openUrl(url);
 
-// TODO: must be tested on Linux
-#else
+#else //Linux or other
         /*if (QProcess::startDetached("chromium", QStringList() << url))
 	        return;
 
@@ -98,6 +96,7 @@ void API::openBrowser(QString url) {
 
         // go with the default browser
         //QDesktopServices::openUrl(url);
+
         QMessageBox::critical(mainwindow,tr("No Browser"),tr("There is no compatible browser installed on this computer.\nYou need Google Chrome in order to view your time machine."));
 #endif
 }
