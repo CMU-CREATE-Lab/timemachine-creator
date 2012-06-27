@@ -306,5 +306,5 @@ void MainWindow::redo()
 
 void MainWindow::about()
 {
-	QMessageBox::about(this,"About","Time Machine Creator, v1.0.3\nCREATE Lab, 2012");
+	QMessageBox::about(this,"About","Time Machine Creator, v1.0.4\nCREATE Lab, 2012");
 }
