@@ -31,6 +31,36 @@ Compile:
 Run:
 1. cd to /debug (this directory was created by 'qmake' in your source files directory. Double cick the name of your program: {name}.exe
 
+
+
+Linux: (tested on Ubuntu 12.04)
+-------------------------------
+
+Setup:
+1. Install Qt Creator. You can use Ubuntu software center and install Qt creator or go to Qt website and follow the instructions from there. (http://qt.nokia.com/downloads)
+2. Download and compile ffmpeg. It currently works with ffmpeg-0.10.4
+ 2a. sudo apt-get remove ffmpeg x264 libx264-dev
+ 2b. sudo apt-get update
+ 2c. git clone git://git.videolan.org/x264
+ 2d. cd x264/
+ 2e. ./configure --enable-shared
+ 2f. make
+ 2g. sudo make install
+ 2h. Download ffmpeg 0.10.4 from this address: http://ffmpeg.org/releases/ffmpeg-0.10.4.tar.gz . Then unpack it and cd to its directory.
+ 2i. ./configure --enable-gpl --enable-libx264
+ 2j. make
+ 2k. copy ffmpeg executable to the time machine directory at this location: tmca/tilestacktool/ffmpeg/linux/
+3. cd to time machine directory at: tmca/tilestacktool
+ 3a. make clean
+ 3b. make
+ 3c. make test
+4. cd to tmca/tmc for compiling Qt GUI:
+ 4a. qmake
+ 4b. make
+
+Run:
+1. cd to tmca/tmc
+2. ./tmc
 ===================
 
 Development directory structure:
