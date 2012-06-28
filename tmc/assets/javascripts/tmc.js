@@ -120,6 +120,9 @@ function clearProjectData() {
   data.length = 0;
   selectedImages.length = 0;
   shiftAlreadyClicked = false;
+
+  // bring up organize image tab
+  $("#tabs").tabs("select", "tabs-1");
   
   $("#numFrames").text(data.length + " Frames")
   $('#zoom').hide();
@@ -136,6 +139,9 @@ function clearProjectData() {
 }
 
 function openData(startDirectory) {
+  // bring up organize image tab
+  $("#tabs").tabs("select", "tabs-1");
+
   if (typeof startDirectory == 'undefined') file = api.readFileDialog('Open Time Machine Definition', '', '*.tmc');
   else file = api.readFile(startDirectory);
 
