@@ -759,7 +759,7 @@ $sourcetypes['prestitched'] = PrestitchedSource;
 class StitchSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :framenames, :subsample
   attr_reader :align_to, :stitcher_args, :camera_response_curve, :cols, :rows, :rowfirst
-  attr_reader :directory_per_position, :capture_time_parser, :capture_time_parser_inputs
+  attr_reader :directory_per_position, :capture_times, :capture_time_parser, :capture_time_parser_inputs
   
   def initialize(parent, settings)
     @parent = parent
@@ -789,6 +789,7 @@ class StitchSource
     @rowfirst = settings["rowfirst"] || false
     @images = settings["images"]
     @directory_per_position = settings["directory_per_position"] || false
+	@capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
     @capture_time_parser = "/home/rsargent/bin/extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
     initialize_frames
