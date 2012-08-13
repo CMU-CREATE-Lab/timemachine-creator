@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# mounting gluster
+mkdir ~/jobs
+sudo mount -t glusterfs tmc-server:/tmc-volume ~/jobs

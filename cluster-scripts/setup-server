@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# setting up gluster
+i=0;
+x='';
+while [ $i -lt $1 ]
+do
+  i=$((i+1));
+  sudo gluster peer probe tmc-$i
+  x=$x' tmc-'$i':/mnt/disk';
+done
+
+sudo gluster volume create tmc-volume $x
+sudo gluster volume start tmc-volume
+
+# mounting gluster
+mkdir ~/jobs
+sudo mount -t glusterfs tmc-server:/tmc-volume ~/jobs
+
+# setting up nodes for Torque
+i=0;
+while [ $i -lt $1 ]
+do
+  i=$((i+1));
+  echo "tmc-$i np=$2" >> /var/spool/torque/server_priv/nodes
+done
+
+# starting PBS
+sudo qterm
+sudo pbs_server

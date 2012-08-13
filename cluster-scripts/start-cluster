@@ -1,0 +1,100 @@
+#!/bin/sh
+
+> log
+
+# the first input parameter is the number of nodes
+
+# parameters
+zone='us-east1-a';
+server_machine='n1-standard-4-d';
+node_machine='n1-standard-4-d';
+np=4; #number of cores on each node
+image_name='tmc-image-gluster';
+proj_id='timemachine4720';
+
+echo '*************************'
+echo 'starting creating cluster'
+echo '*************************'
+
+echo 'creating:'
+echo '--> tmc-server'
+# creating server
+gcutil addinstance --image=$image_name --zone=$zone --machine_type=$server_machine tmc-server --project_id=$proj_id --wait_until_running
+
+# creating nodes
+i=0;
+while [ $i -lt $1 ]
+do
+	i=$((i+1));
+	echo "--> tmc-$i"
+	gcutil addinstance --image=$image_name --zone=$zone --machine_type=$node_machine tmc-$i --project_id=$proj_id >> log 2>&1 &
+done
+echo
+
+# waiting for server and nodes to start
+echo "waiting for instances to start ..."
+ready_instances=$(gcutil --project_id=$proj_id listinstances | grep RUNNING | wc -l);
+while [ $ready_instances -lt $(($1+1)) ]
+do
+	sleep 5
+	ready_instances=$(gcutil --project_id=$proj_id listinstances | grep RUNNING | wc -l);
+done
+sleep 5
+echo
+
+# setting /etc/hosts file on all instances
+echo '*************************'
+echo 'setting hosts on instances'
+echo '*************************'
+
+server_ip=$(gcutil getinstance tmc-server | grep '  ip' | tr -d "[:alpha:] |");
+x=$server_ip' tmc-server \n';
+echo "$server_ip \t tmc-server"
+
+i=0;
+while [ $i -lt $1 ]
+do
+	i=$((i+1));
+	node_ip=$(gcutil getinstance tmc-$i | grep '  ip' | tr -d "[:alpha:] |");
+	echo "$node_ip \t tmc-$i"
+	x=$x$node_ip' tmc-'$i' \n';
+done
+
+gcutil ssh --project_id=$proj_id tmc-server "sudo chmod a+w /etc/hosts; echo -e '$x' >> /etc/hosts; sudo apt-get install glusterfs-server glusterfs-client -y" >> log 2>&1 &
+i=0;
+while [ $i -lt $1 ]
+do
+	i=$((i+1));
+	gcutil ssh --project_id=$proj_id tmc-$i "sudo chmod a+w /etc/hosts; echo -e '$x' >> /etc/hosts; sudo apt-get install glusterfs-server glusterfs-client -y; /home/tmc/scripts/setup-node-1" >> log 2>&1 &
+done
+echo
+
+echo "waiting 120s ..."
+sleep 120
+echo
+
+# setting server
+echo '*************************'
+echo '     setting server'
+echo '*************************'
+
+gcutil ssh --project_id=$proj_id tmc-server "/home/tmc/scripts/setup-server $1 $np"
+echo
+
+# setting nodes
+echo '*************************'
+echo '     setting nodes'
+echo '*************************'
+
+i=0;
+while [ $i -lt $1 ]
+do
+	i=$((i+1));
+	gcutil ssh --project_id=$proj_id tmc-$i "/home/tmc/scripts/setup-node-2" >> log 2>&1 &
+done
+echo
+
+echo '*************************'
+echo '    cluster is ready'
+echo '*************************'
+

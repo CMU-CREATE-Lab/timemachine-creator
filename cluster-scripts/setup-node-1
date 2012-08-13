@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# mounting ephemeral hard
+sudo mkdir /mnt/disk
+sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-ephemeral-disk-0 /mnt/disk
+sudo chmod a+w /mnt/disk

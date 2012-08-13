@@ -1,0 +1,32 @@
+#!/bin/sh
+
+> log
+
+# parameters
+proj_id='timemachine4720';
+
+echo '*************************'
+echo 'starting deleting cluster'
+echo '*************************'
+
+# deleting server
+echo 'deleting:'
+echo '--> tmc-server'
+gcutil deleteinstance tmc-server -f --project_id=$proj_id
+
+# deleting nodes
+i=0;
+nodes=$(gcutil listinstances --project_id=$proj_id | wc -l);
+nodes=$((nodes-4));
+while [ $i -lt $nodes ]
+do
+  i=$((i+1));
+  echo "--> tmc-$i"
+  gcutil deleteinstance tmc-$i -f --project_id=$proj_id >> log 2>&1 &
+done
+
+echo
+echo '*************************'
+echo '    cluster is down'
+echo '*************************'
+
