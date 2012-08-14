@@ -23,6 +23,9 @@ build: $(TILESTACKTOOL)
 
 test: selftest patp4_1x1_small
 
+test-clean:
+	$(call RM_R,testresults)
+
 DATASETS=../datasets
 PATP4S=$(DATASETS)/patp
 
@@ -229,8 +232,7 @@ test_%: unit_tests/test_%.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp SimpleZlib.cpp GPTi
 	g++ $(PLATFORM_CXX_FLAGS) -g -Ijsoncpp -I. -I$(LIBJPEG_DIR) -I$(LIBPNG_DIR) -I$(CPP_UTILS_DIR) -Wall $^ -o unit_tests/$@
 	unit_tests/$@
 
-clean: zlib-clean libpng-clean libjpeg-clean
-	$(call RM_R,testresults)
+clean: zlib-clean libpng-clean libjpeg-clean test-clean
 	$(call RM,*.o)
 	$(call RM,*.obj)
 	$(call RM,$(TILESTACKTOOL))

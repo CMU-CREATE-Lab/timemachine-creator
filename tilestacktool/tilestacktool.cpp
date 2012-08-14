@@ -1319,6 +1319,8 @@ int main(int argc, char **argv)
     
     fprintf(stderr, "User time %g, System time %g\n", user, system);
 
+    while (tilestackstack.size()) tilestackstack.pop();
+
     return 0;
     //  } catch (const std::exception &e) {
     //    fprintf(stderr, "Error: %s\n", e.what());
