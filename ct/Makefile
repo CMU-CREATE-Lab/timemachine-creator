@@ -26,6 +26,12 @@ patp4_1x1_small carnival4_2x2_listed_small patp4_1x1_small_split2:
 	$(call CP,$@.tmc,testresults/$@.tmc/definition.tmc)
 	$(RUBY) ./ct.rb testresults/$@.tmc testresults/$@.timemachine
 
+
+patp4_from_tilestacks: patp4_1x1_small
+	$(call MKDIR_P,testresults/$@.tmc)
+	$(call CP,$@.tmc,testresults/$@.tmc/definition.tmc)
+	$(RUBY) ./ct.rb testresults/$@.tmc testresults/$@.timemachine
+
 # Same as above, but larger job with more concurrency
 
 patp10_1x1 patp100_1x1_medium patp10_1x1_split4:

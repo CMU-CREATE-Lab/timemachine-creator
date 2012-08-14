@@ -54,7 +54,7 @@ bool Zlib::uncompress(std::vector<unsigned char> &dest, const unsigned char *src
       (void)inflateEnd(&strm);
       throw_error("Error %d in zlib uncompress", ret);
     }
-    dest.insert(dest.end(), &buf[0], &buf[buf.size() - strm.avail_out]);
+    dest.insert(dest.end(), &buf[0], &buf[0] + buf.size() - strm.avail_out);
   } while (ret != Z_STREAM_END);
   
   (void)inflateEnd(&strm);

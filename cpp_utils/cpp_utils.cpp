@@ -194,6 +194,13 @@ bool delete_file(const std::string &src) {
 #endif
 }
 
+// Returns -1 if error
+long long file_size(const std::string &src) {
+  struct stat stat_buf;
+  if (stat(src.c_str(), &stat_buf)) return -1;
+  return stat_buf.st_size;
+}
+
 std::string read_file(const std::string &filename) {
   FILE *in = fopen_utf8(filename, "rb");
   if (!in) return "";

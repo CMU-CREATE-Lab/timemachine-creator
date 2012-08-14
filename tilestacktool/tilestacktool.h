@@ -8,6 +8,7 @@
 
 #include "json/json.h"
 
+#include "simple_shared_ptr.h"
 #include "Tilestack.h"
 
 void usage(const char *fmt, ...);
@@ -52,24 +53,56 @@ public:
     }
     return ret;
   }
+  bool next_is_non_flag() const {
+    if (empty()) return false;
+    if (front().length() > 0 && front()[0] == '-') return false;
+    return true;
+  }
 };
 
 template <typename T>
 class AutoPtrStack {
-  std::list<T*> stack;
+  std::list<simple_shared_ptr<T> > stack;
 public:
-  void push(std::auto_ptr<T> t) {
-    stack.push_back(t.release());
+  void push(simple_shared_ptr<T> &t) {
+    stack.push_back(t);
   }
-  std::auto_ptr<T> pop() {
+  simple_shared_ptr<T> pop() {
     assert(!stack.empty());
-    T* ret = stack.back();
+    simple_shared_ptr<T> ret = stack.back();
     stack.pop_back();
-    return std::auto_ptr<T>(ret);
+    return ret;
+  }
+  simple_shared_ptr<T> top() {
+    assert(!stack.empty());
+    return stack.back();
   }
   int size() { 
     return stack.size(); 
   }
+};
+
+struct Bbox {
+  double x, y;
+  double width, height;
+  Bbox(double x, double y, double width, double height) : x(x), y(y), width(width), height(height) {}
+  Bbox &operator*=(double scale) {
+    x *= scale;
+    y *= scale;
+    width *= scale;
+    height *= scale;
+    return *this;
+  }
+  std::string to_string() {
+    return string_printf("[bbox x=%g y=%g width=%g height=%g]",
+                         x, y, width, height);
+  }
+};
+
+struct Frame {
+  int frameno;
+  Bbox bounds;
+  Frame(int frameno, const Bbox &bounds) : frameno(frameno), bounds(bounds) {}
 };
 
 extern AutoPtrStack<Tilestack> tilestackstack;

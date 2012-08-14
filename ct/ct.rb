@@ -111,6 +111,7 @@ end
 
 $run_remotely = nil
 $run_remotely_json = false
+$run_remotely_json_dir = nil
 $dry_run = false
 
 if RUBY_VERSION < '1.8.5' || RUBY_VERSION > '1.9.'
@@ -985,6 +986,9 @@ class Compiler
     @raw_tilestack_dir = @stack_filter ? "#{store}/0250-raw-tilestacks" : @tilestack_dir
     source_info = settings["source"] || raise("Time Machine must have source")
     initialize_source(source_info)
+    if @source.respond_to? :tilestack_root_path
+      @raw_tilestack_dir = @source.tilestack_root_path
+    end
 
     # remove any old tmp json files which are passed to tilestacktool
     Filesystem.rm("#{@tiles_dir}/tiles-*.json")
@@ -1023,7 +1027,8 @@ class Compiler
     Filesystem.mkdir_p @raw_tilestack_dir
     Filesystem.mkdir_p @tilestack_dir
     r = {'width' => @source.width, 'height' => @source.height,
-         'tile_width' => @source.tilesize, 'tile_height' => @source.tilesize}
+         'tile_width' => @source.tilesize, 'tile_height' => @source.tilesize,
+         'frame_count' => @source.framenames.size }
     Filesystem.write_file("#{@tilestack_dir}/r.json", JSON.pretty_generate(r))
   end
 
@@ -1095,7 +1100,7 @@ class Compiler
     cmd << "--create-parent-directories"
     frames = {'frames' => {'start' => 0, 'end' => @source.framenames.size - 1}, 
               'bounds' => target_idx.bounds(@source.tilesize, @max_level)}
-    cmd += ['--path2stack', @source.tilesize, @source.tilesize, JSON.generate(frames), @tilestack_dir]
+    cmd += ['--path2stack-downsize', @source.tilesize, @source.tilesize, JSON.generate(frames), @tilestack_dir]
     cmd += ['--save', target]
     Rule.add(target, children, [cmd])
   end
@@ -1265,11 +1270,12 @@ end
 #          
 
 class Maker
-  @@ndone = 0
-	
   def initialize(rules)
+    @ndone = 0
     @rules = rules
     @ready = []
+    @dependencies_holding_up_rule = {}
+    @rules_waiting_for_dependency = {}
     
     # Does target exist?  true or false
     @targets={}
@@ -1287,14 +1293,6 @@ class Maker
     STDERR.write("\b\b\b\bdone.\n")
   end
 
-  def self.ndone
-    @@ndone
-  end
-  
-  def self.reset_ndone
-    @@ndone = 0
-  end
-
   #
   # Compute rule status (done once per rule, at beginning)
   #    If every target exists, label :done
@@ -1306,10 +1304,10 @@ class Maker
   #  
   def compute_rule_status(rule)
     @dependencies_holding_up_rule[rule] = Set.new
-    if rule.targets.all { |target| target_exists? target }
+    if rule.targets.all? { |target| target_exists? target }
       # If every target exists, label :done
       @status[rule] == :done
-      @@ndone += 1
+      @ndone += 1
     else
       rule.dependencies.each do |dep|
         if not target_exists? dep
@@ -1339,7 +1337,7 @@ class Maker
 
   def rule_completed(rule)
     @status[rule] != :executing and raise("Completed a rule that wasn't executing")
-    @@ndone += 1
+    @ndone += 1
     @status[rule] = :done
     rule.targets.each { |target| create_target target }
   end  
@@ -1348,7 +1346,7 @@ class Maker
     if not @targets[target]
       @targets[target] = true
       (@rules_waiting_for_dependency[target] || []).each do |rule|
-        @dependencies_holding_up_rule[rule].remove target
+        @dependencies_holding_up_rule[rule].delete target
         if @dependencies_holding_up_rule[rule].empty? and @status[rule] == :waiting
           @status[rule] = :ready
           @ready << rule
@@ -1363,7 +1361,7 @@ class Maker
 
       $check_mem and CheckMem.logvm "Constructing job #{job_no}"
 
-      if !$run_remotely || rules.all?(&:local)
+      if !$dry_run && (!$run_remotely || rules.all?(&:local))
         result = rules.flat_map(&:commands).all? do |command|
           STDERR.write "#{date} Job #{job_no} executing #{command.join(' ')}\n"
           if (command[0] == 'mv')
@@ -1378,27 +1376,35 @@ class Maker
         end
       else
         if $run_remotely_json
-          json_file = "job_#{job_no}_#{Process.pid}.json"
-          open(json_file, "w") do |json|
+          json_file = "job_#{$name}_#{Process.pid}_#{"%04d" % job_no}_#{rules.size}.json"
+          $run_remotely_json_dir and json_file = $run_remotely_json_dir + "/" + json_file
+          STDERR.write "#{date} Writing #{rules.size} rules to #{json_file}\n"
+          open(json_file+".tmp", "w") do |json|
             json.puts "["
             rules.map(&:commands).each_with_index do |command, i|
+              (i % 50000 == 0) and STDERR.write "#{date} Progress: #{i} rules of #{rules.size}\n"
               i > 0 and json.puts ","
               json.write JSON.fast_generate command
             end
             json.puts "\n]"
           end
+          File.rename(json_file+".tmp", json_file)
           command = "#{$run_remotely} --jobs @#{json_file}"
         else
           commands = rules.flat_map &:commands
           command = commands.join(" && ")
           command = "#{$run_remotely} '#{command}'"
         end
-        STDERR.write "#{date} Job #{job_no} executing #{command}\n"
+        STDERR.write "#{date} Job #{job_no} #{$dry_run ? "would execute" : "executing"} #{command}\n"
     
-        # Retry up to 3 times if we fail
-        while (!(result = system(command)) && counter < 4) do
-          STDERR.write "#{date} Job #{job_no} failed, retrying, attempt #{counter}\n"
-          counter += 1
+        if $dry_run
+          result = true
+        else
+          # Retry up to 3 times if we fail
+          while (!(result = system(command)) && counter < 4) do
+            STDERR.write "#{date} Job #{job_no} failed, retrying, attempt #{counter}\n"
+            counter += 1
+          end
         end
       end
     
@@ -1419,6 +1425,8 @@ class Maker
     end
   end
 
+  # Returns true if success, false if failed or need to retry (e.g. now have first image dimensions)
+  
   def make(max_jobs, max_rules_per_job)
     begin_time = Time.now
     # build all rules
@@ -1441,19 +1449,19 @@ class Maker
     
     @aborting = false
     current_job_no = 0
-    initial_ndone = @@ndone
+    initial_ndone = @ndone
 
     print_status(rules_executing, nil)
 
-    while @@ndone < @rules.size
+    while @ndone < @rules.size
     	# Restart the process if we are stitching from source and we have not gotten dimensions from the first gigapan
-      if @@global_parent.source.class.to_s == "StitchSource" && @@ndone > 0 && @@global_parent.source.width == 1 && @@global_parent.source.height == 1
+      if @@global_parent.source.class.to_s == "StitchSource" && @ndone > 0 && @@global_parent.source.width == 1 && @@global_parent.source.height == 1
         STDERR.write "Initial .gigapan file created. We now have enough info to get the dimensions.\n"
         STDERR.write "Clearing all old rules...\n"
         Rule.clear_all
-        Maker.reset_ndone
         STDERR.write "Restarting process with new dimensions...\n"
-        return
+        # Return false will cause a retry
+        return false
       end
       # Send jobs
       if !@aborting && !@ready.empty?
@@ -1472,11 +1480,7 @@ class Maker
               @status[rule]=:executing
             end
             STDERR.write "#{date} Job #{job_no} executing #{to_run.size} rules #{to_run[0]}...\n"
-            if $dry_run
-              response.push([job_no, to_run, nil])
-            else
-              Thread.new { execute_rules(job_no, to_run, response) }
-            end
+            Thread.new { execute_rules(job_no, to_run, response) }
             jobs_executing += 1
             rules_executing += to_run.size
           end
@@ -1487,31 +1491,34 @@ class Maker
         exit 1
       end
       if @ready.empty? && jobs_executing == 0
-        STDERR.write "#{date}: Don't know how to build targets, aborting"
+        STDERR.write "#{date}: Don't know how to build targets, aborting\n"
         exit 1
       end
       (job_no, rules, thread) = response.pop
       $dry_run || thread.join
       jobs_executing -= 1
       rules_executing -= rules.size
-      STDERR.write "#{date}: Completing #{rule.size} rules..."
+      STDERR.write "#{date}: Completing #{rules.size} rules...\n"
       rules.each {|rule| rule_completed(rule)}
-      STDERR.write "#{date}: Done"
+      STDERR.write "#{date}: Done\n"
       print_status(rules_executing, jobs_executing)
     end
     duration = Time.now.to_i - begin_time.to_i
     STDERR.write "#{date}: Completed #{@rules.size-initial_ndone} rules (#{current_job_no} jobs) in #{duration/86400}d #{duration%86400/3600}h #{duration%3600/60}m #{duration%60}s\n"
     if @aborting
       STDERR.write "Aborted due to error"
+      return false
+    else
+      return true
     end
   end
 
   def print_status(rules, jobs)
     status = []
-    status << "#{(@@ndone*100.0/@rules.size).round(1)}% rules finished (#{@@ndone}/#{@rules.size})"
+    status << "#{(@ndone*100.0/@rules.size).round(1)}% rules finished (#{@ndone}/#{@rules.size})"
     rules && jobs && status << "#{rules} rules executing (in #{jobs} jobs)"
     status << "#{@ready.size} rules ready to execute"
-    status << "#{@rules.size-@@ndone-@ready.size-rules} rules awaiting dependencies"
+    status << "#{@rules.size-@ndone-@ready.size-rules} rules awaiting dependencies"
     STDERR.write "#{date} Rules #{status.join(". ")}\n"
   end
 
@@ -1637,6 +1644,8 @@ while !ARGV.empty?
     $run_remotely = ARGV.shift
   elsif arg == '--remote-json'
     $run_remotely_json = true
+  elsif arg == '--remote-json-dir'
+    $run_remotely_json_dir = ARGV.shift
   elsif arg == '--tilestacktool'
     $tilestacktool = File.expand_path ARGV.shift
   elsif File.extname(arg) == '.tmc'
@@ -1683,6 +1692,8 @@ if @@jsonfile
   end
 end
 
+$name = without_extension(File.basename(store))
+
 STDERR.puts "Reading #{@@jsonfile}"
 definition = JSON.parse(Filesystem.read_file(@@jsonfile))
 definition['destination'] = destination
@@ -1697,7 +1708,9 @@ definition['store'] = store   # For passing to the compiler.  Not ideal
 Filesystem.cache_directory store
 Filesystem.cache_directory destination
 
-while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
+compiler = nil
+
+3.times do
   compiler = Compiler.new(definition)
   compiler.write_json
   Filesystem.write_file("#{@@global_parent.videosets_dir}/ajax_includes.js", 
@@ -1706,8 +1719,9 @@ while ((Maker.ndone == 0 || Maker.ndone < Rule.all.size) && retry_attempts < 3)
   compiler.compute_rules # Creates rules, which will be accessible from Rule.all
   $check_mem and CheckMem.logvm "All rules created"
   # compiler.write_rules
-  Maker.new(Rule.all).make(njobs, rules_per_job)
-  retry_attempts += 1
+  if Maker.new(Rule.all).make(njobs, rules_per_job)
+    break
+  end
 end
 
 # remove any old tmp json files which are passed to tilestacktool

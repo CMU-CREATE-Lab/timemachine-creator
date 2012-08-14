@@ -10,3 +10,4 @@ testresults
 *.ilk
 *.pdb
 .DS_Store
+TAGS

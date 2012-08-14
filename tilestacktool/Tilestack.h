@@ -22,6 +22,8 @@ struct PixelInfo {
   unsigned int bands_per_pixel;
   unsigned int bits_per_band;
   unsigned int pixel_format; // 0=unsigned integer, 1=floating point,
+  enum { PIXEL_FORMAT_INTEGER = 0,
+         PIXEL_FORMAT_FLOATING_POINT = 1 };
   unsigned int bytes_per_pixel() const { return bands_per_pixel * bits_per_band / 8; }
 
   double get_pixel_band(const unsigned char *pixel, unsigned band) const {
@@ -63,6 +65,11 @@ struct PixelInfo {
       break;
     }
   }
+
+  std::string info() {
+    return string_printf("%d bands of %d-bit %s",
+                         bands_per_pixel, bits_per_band, pixel_format == PIXEL_FORMAT_INTEGER ? "integer" : "float");
+  }
 };
 
 struct TilestackInfo : public PixelInfo {
@@ -75,6 +82,10 @@ struct TilestackInfo : public PixelInfo {
     ZLIB_COMPRESSION = 1
   };
   unsigned int bytes_per_frame() const { return bytes_per_pixel() * tile_width * tile_height; }
+  std::string info() {
+    return string_printf("%d frames of %d x %d pixels, each with %s", nframes, tile_width, tile_height,
+                         PixelInfo::info().c_str());
+  }
 };
 
 class Tilestack : public TilestackInfo {
@@ -106,8 +117,9 @@ public:
   }
   void write(Writer *w) const;
   virtual ~Tilestack() {}
- protected:
+protected:
   virtual void instantiate_pixels(unsigned frame) const = 0;
+  
 };
 
 /*

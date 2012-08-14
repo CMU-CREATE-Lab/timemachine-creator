@@ -6,6 +6,7 @@
 #include <string>
 
 #include <jpeglib.h>
+#include <png.h>
 
 class ImageReader {
  protected:
@@ -24,7 +25,7 @@ class ImageReader {
   virtual void read_rows(unsigned char *pixels, unsigned int nrows) const = 0;
   virtual void close() = 0;
   virtual ~ImageReader() {}
-  static std::auto_ptr<ImageReader> open(const std::string &filename);
+  static ImageReader *open(const std::string &filename);
 };
 
 class JpegReader : public ImageReader {
@@ -49,6 +50,19 @@ class KroReader : public ImageReader {
   virtual void read_rows(unsigned char *pixels, unsigned int nrows) const;
   virtual void close();
   virtual ~KroReader();
+};
+
+class PngReader : public ImageReader {
+  FILE *in;
+  std::string filename;
+  png_structp png_read;
+  png_infop png_info;
+  
+ public:
+  PngReader(const std::string &filename);
+  virtual void read_rows(unsigned char *pixels, unsigned int nrows) const;
+  virtual void close();
+  virtual ~PngReader();
 };
 
 

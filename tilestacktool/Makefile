@@ -39,7 +39,7 @@ patp4_1x1_small: $(TILESTACKTOOL)
 	./tilestacktool --loadtiles testresults/$@/patp?.data/tiles/r2.kro --create-parent-directories --save testresults/$@/transpose/r2.ts2
 	./tilestacktool --loadtiles testresults/$@/patp?.data/tiles/r3.kro --create-parent-directories --save testresults/$@/transpose/r3.ts2
 	$(call CP,testresults/$@/patp0.data/tiles/r.json,testresults/$@/transpose/r.json)
-	./tilestacktool --path2stack 256 256 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":0, "ymin":0, "width":512, "height":512}}' testresults/$@/transpose --save testresults/$@/transpose/r.ts2
+	./tilestacktool --path2stack-downsize 256 256 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":0, "ymin":0, "width":512, "height":512}}' testresults/$@/transpose --save testresults/$@/transpose/r.ts2
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --writevideo testresults/$@/testvid.mp4 1 24
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --prependleader 10 --writevideo testresults/$@/testvid-with-leader.mp4 1 24
 	./tilestacktool --path2stack 1088 624 '{"frames":{"start":0,"end":3},"bounds":{"xmin":0,"ymin":0,"width":1088,"height":624}}' testresults/$@/transpose
@@ -48,11 +48,56 @@ patp4_1x1_small: $(TILESTACKTOOL)
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --viz '{"gamma":2}' --writevideo testresults/$@/testvid_gamma_2.mp4 1 24
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --viz '{"gamma":[1,2,1]}' --writevideo testresults/$@/testvid_gamma_1_2_1.mp4 1 24
 
+test-overlay: patp4_1x1_small
+	./tilestacktool \
+	    --path2stack 1920 1080 '{"frames":{"start":0,"end":3},"bounds":{"xmin":0,"ymin":48,"width":512,"height":288}}' testresults/patp4_1x1_small/transpose \
+	    --tilestackinfo \
+	    --viz '{"scale":0.3}' \
+	    --tilestackinfo \
+	    --path2overlay 1920 1080 '{"frames":{"start":0,"end":3},"bounds":{"xmin":0,"ymin":48,"width":512,"height":288}}' overlay-test.html \
+	    --tilestackinfo \
+	    --composite \
+	    --writevideo testresults/overlay.mp4 1 24
+
 test-modis: tilestacktool
 	./tilestacktool --load modis/r12.ts2 --viz '{"scale":0.0853}' --writehtml r12.html
 	./tilestacktool --load modis/r12.ts2 --viz '{"scale":0.0853}' --save modis/r12.8.ts2
 	./tilestacktool --load modis/r12.8.ts2 --writehtml modis/r12.8.html
 	./tilestacktool --load modis/r12.8.ts2 --writevideo modis/r12.8.mp4 1 26
+
+interpolation: $(TILESTACKTOOL)
+	./tilestacktool --tilesize 256 --image2tiles testresults/$@/0.data/tiles kro InterpolationTest.png
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r00.kro --create-parent-directories --save testresults/$@/stacks/r00.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r01.kro --create-parent-directories --save testresults/$@/stacks/r01.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r02.kro --create-parent-directories --save testresults/$@/stacks/r02.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r03.kro --create-parent-directories --save testresults/$@/stacks/r03.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r10.kro --create-parent-directories --save testresults/$@/stacks/r10.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r11.kro --create-parent-directories --save testresults/$@/stacks/r11.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r12.kro --create-parent-directories --save testresults/$@/stacks/r12.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r13.kro --create-parent-directories --save testresults/$@/stacks/r13.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r20.kro --create-parent-directories --save testresults/$@/stacks/r20.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r21.kro --create-parent-directories --save testresults/$@/stacks/r21.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r22.kro --create-parent-directories --save testresults/$@/stacks/r22.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r23.kro --create-parent-directories --save testresults/$@/stacks/r23.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r30.kro --create-parent-directories --save testresults/$@/stacks/r30.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r31.kro --create-parent-directories --save testresults/$@/stacks/r31.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r32.kro --create-parent-directories --save testresults/$@/stacks/r32.ts2
+	./tilestacktool --loadtiles testresults/$@/0.data/tiles/r33.kro --create-parent-directories --save testresults/$@/stacks/r33.ts2
+	$(call CP,testresults/$@/0.data/tiles/r.json,testresults/$@/stacks/r.json)
+	./tilestacktool --path2stack-downsize 256 256 '{"frames":{"start":0, "end":0} ,"bounds":{"xmin":  0, "ymin":  0, "width": 512, "height": 512}}' testresults/$@/stacks --save testresults/$@/stacks/r0.ts2
+	./tilestacktool --path2stack-downsize 256 256 '{"frames":{"start":0, "end":0} ,"bounds":{"xmin":512, "ymin":  0, "width": 512, "height": 512}}' testresults/$@/stacks --save testresults/$@/stacks/r1.ts2
+	./tilestacktool --path2stack-downsize 256 256 '{"frames":{"start":0, "end":0} ,"bounds":{"xmin":  0, "ymin":512, "width": 512, "height": 512}}' testresults/$@/stacks --save testresults/$@/stacks/r2.ts2
+	./tilestacktool --path2stack-downsize 256 256 '{"frames":{"start":0, "end":0} ,"bounds":{"xmin":512, "ymin":512, "width": 512, "height": 512}}' testresults/$@/stacks --save testresults/$@/stacks/r3.ts2
+	./tilestacktool --path2stack-downsize 256 256 '{"frames":{"start":0, "end":0} ,"bounds":{"xmin":  0, "ymin":  0, "width":1024, "height":1024}}' testresults/$@/stacks --save testresults/$@/stacks/r.ts2
+	./tilestacktool --path2stack-downsize 256 256 '{"frames":{"start":0, "end":0} ,"bounds":{"xmin":383, "ymin":383, "width": 256, "height": 256}}' testresults/$@/stacks --writevideo testresults/$@/foo0.mp4 1 24 # 4
+	./tilestacktool --path2stack-downsize 256 256 '{"frames":{"start":0, "end":0} ,"bounds":{"xmin":255, "ymin":255, "width": 512, "height": 512}}' testresults/$@/stacks --writevideo testresults/$@/foo1.mp4 1 24 # 9
+	./tilestacktool --path2stack-downsize 256 256 '{"frames":{"start":0, "end":0} ,"bounds":{"xmin":  0, "ymin":  0, "width":1024, "height":1024}}' testresults/$@/stacks --writevideo testresults/$@/foo2.mp4 1 24 # 4
+	./tilestacktool --path2stack 256 256 '{"frames":{"start":0, "end":0} ,"bounds":{"xmin":383, "ymin":383, "width": 256, "height": 256}}' testresults/$@/stacks --writevideo testresults/$@/foo0.mp4 1 24 # 4
+	./tilestacktool --path2stack 256 256 '{"frames":{"start":0, "end":0} ,"bounds":{"xmin":255, "ymin":255, "width": 512, "height": 512}}' testresults/$@/stacks --writevideo testresults/$@/foo1.mp4 1 24 # 4
+	./tilestacktool --path2stack 256 256 '{"frames":{"start":0, "end":0} ,"bounds":{"xmin":  0, "ymin":  0, "width":1024, "height":1024}}' testresults/$@/stacks --writevideo testresults/$@/foo2.mp4 1 24 # 1
+	./tilestacktool --path2stack 1024 1024 '{"frames":{"start":0, "end":0} ,"bounds":{"xmin":  0, "ymin":  0, "width":1024, "height":1024}}' testresults/$@/stacks --writehtml testresults/$@/1024.html
+	./tilestacktool --path2stack 512 512 '{"frames":{"start":0, "end":0} ,"bounds":{"xmin":  0, "ymin":  0, "width":1024, "height":1024}}' testresults/$@/stacks --writehtml testresults/$@/512.html
+	./tilestacktool --path2stack 256 256 '{"frames":{"start":0, "end":0} ,"bounds":{"xmin":  0, "ymin":  0, "width":1024, "height":1024}}' testresults/$@/stacks --writehtml testresults/$@/256.html
 
 LEADERDEST = testresults/leaders
 
@@ -86,7 +131,7 @@ leader_%.mp4: $(TILESTACKTOOL)
 	mkdir -p $(LEADERDEST)
 	./tilestacktool --blackstack 1 $(call leader_width,$@) $(call leader_height,$@) 3 8 --prependleader $(call leader_nframes,$@) --writevideo $@ 10 $(call leader_compression,$@)
 
-SOURCES = tilestacktool.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp qt-faststart.cpp SimpleZlib.cpp $(COMMANDS)
+SOURCES = tilestacktool.cpp warp.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp qt-faststart.cpp SimpleZlib.cpp $(COMMANDS)
 
 ZLIB_DIR = dependencies/zlib
 
