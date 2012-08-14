@@ -149,19 +149,15 @@ else
 
 ZLIB = $(ZLIB_DIR)/libz.a
 
-$(ZLIB): $(ZLIB_DIR)/Makefile
-	make -C $(ZLIB_DIR)
+$(ZLIB):
+	(cd $(ZLIB_DIR) && cp zconf.h.original zconf.h && cp Makefile.original Makefile && ./configure && make)
 
-$(ZLIB_DIR)/Makefile:
-	(cd $(ZLIB_DIR); cp zconf.h.original zconf.h; cp Makefile.original Makefile; ./configure)
-
-zlib-clean: $(ZLIB_DIR)/Makefile
-	make -C $(ZLIB_DIR) clean
-	rm -rf $(ZLIB_DIR)/lib $(ZLIB_DIR)/include
-
-endif
+zlib-clean:
+	rm -rf $(ZLIB_DIR)/lib $(ZLIB_DIR)/include $(ZLIB_DIR)/Makefile $(ZLIB)
 
 zlib: $(ZLIB)
+
+endif
 
 LIBPNG_DIR = dependencies/libpng
 
@@ -179,12 +175,12 @@ else
 
 LIBPNG = $(LIBPNG_DIR)/lib/libpng.a
 
-$(LIBPNG):
-	(cd $(LIBPNG_DIR); ./configure --prefix=`pwd`; make install)
+$(LIBPNG): $(ZLIB)
+	(cd $(LIBPNG_DIR); CFLAGS=-I`pwd`/../zlib LDFLAGS=-L`pwd`/../zlib ./configure --prefix=`pwd` --enable-shared=no; make install)
 
 libpng-clean:
-	rm -rf $(LIBPNG_DIR)/lib $(LIBPNG_DIR)/include
-	make -C $(LIBPNG_DIR) clean
+	rm -rf $(LIBPNG_DIR)/lib $(LIBPNG_DIR)/include $(LIBPNG)
+	-make -C $(LIBPNG_DIR) clean
 
 endif
 
@@ -214,8 +210,8 @@ $(LIBJPEG):
 	(cd $(LIBJPEG_DIR); ./configure --prefix=`pwd`; make install)
 
 libjpeg-clean:
-	rm -rf $(LIBJPEG_DIR)/lib $(LIBJPEG_DIR)/include
-	make -C $(LIBJPEG_DIR) clean
+	rm -rf $(LIBJPEG_DIR)/lib $(LIBJPEG_DIR)/include $(LIBJPEG)
+	-make -C $(LIBJPEG_DIR) clean
 
 endif
 

@@ -87,7 +87,7 @@ public:
     std::string stats = "";
     stats += string_printf("Read %d tiles from %d tilestacks.",
                            total_tiles_read, stacks_read);
-    if (stacks_read) {
+    if (total_tiles_read) {
       stats += string_printf("  %.1f tiles per tilestack.  %.0f%% tiles compressed.",
                              (double) total_tiles_read / stacks_read,
                              100.0 * compressed_tiles_read / total_tiles_read);
@@ -690,7 +690,7 @@ void write_video(std::string dest, double fps, double compression, int max_size)
               filelen, max_size, compression);
       delete_file(temp_dest);
     } else {
-      fprintf(stderr, "Size %d is less than %d\n", filelen, max_size);
+      if (max_size > 0) fprintf(stderr, "Size %d <= max size %d\n", filelen, max_size);
       fprintf(stderr, "Renaming %s to %s\n", temp_dest.c_str(), dest.c_str());
       rename_file(temp_dest, dest);
       break;
@@ -1196,7 +1196,8 @@ int main(int argc, char **argv)
         std::string dest = args.shift();
         double fps = args.shift_double();
         double compression = args.shift_double();
-        int max_size = 1000000; // TODO(rsargent): Warning: hardcoded.  do not check this in!
+        //int max_size = 1000000;
+        int max_size = 0; // TODO(rsargent):  don't hardcode this
         write_video(dest, fps, compression, max_size);
       }
       else if (arg == "--writevideou") {
