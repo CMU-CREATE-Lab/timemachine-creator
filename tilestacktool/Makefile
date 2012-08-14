@@ -34,10 +34,10 @@ patp4_1x1_small: $(TILESTACKTOOL)
 	./tilestacktool --tilesize 256 --image2tiles testresults/$@/patp1.data/tiles kro $(DATASETS)/$@/patp1.jpg
 	./tilestacktool --tilesize 256 --image2tiles testresults/$@/patp2.data/tiles kro $(DATASETS)/$@/patp2.jpg
 	./tilestacktool --tilesize 256 --image2tiles testresults/$@/patp3.data/tiles kro $(DATASETS)/$@/patp3.jpg
-	./tilestacktool --loadtiles testresults/$@/patp?.data/tiles/r0.kro --create-parent-directories --save testresults/$@/transpose/r0.ts2
-	./tilestacktool --loadtiles testresults/$@/patp?.data/tiles/r1.kro --create-parent-directories --save testresults/$@/transpose/r1.ts2
-	./tilestacktool --loadtiles testresults/$@/patp?.data/tiles/r2.kro --create-parent-directories --save testresults/$@/transpose/r2.ts2
-	./tilestacktool --loadtiles testresults/$@/patp?.data/tiles/r3.kro --create-parent-directories --save testresults/$@/transpose/r3.ts2
+	./tilestacktool --delete-source-tiles --loadtiles testresults/$@/patp?.data/tiles/r0.kro --create-parent-directories --save testresults/$@/transpose/r0.ts2
+	./tilestacktool --delete-source-tiles --loadtiles testresults/$@/patp?.data/tiles/r1.kro --create-parent-directories --save testresults/$@/transpose/r1.ts2
+	./tilestacktool --delete-source-tiles --loadtiles testresults/$@/patp?.data/tiles/r2.kro --create-parent-directories --save testresults/$@/transpose/r2.ts2
+	./tilestacktool --delete-source-tiles --loadtiles testresults/$@/patp?.data/tiles/r3.kro --create-parent-directories --save testresults/$@/transpose/r3.ts2
 	$(call CP,testresults/$@/patp0.data/tiles/r.json,testresults/$@/transpose/r.json)
 	./tilestacktool --path2stack-downsize 256 256 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":0, "ymin":0, "width":512, "height":512}}' testresults/$@/transpose --save testresults/$@/transpose/r.ts2
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --writevideo testresults/$@/testvid.mp4 1 24

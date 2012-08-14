@@ -1135,9 +1135,9 @@ class Compiler
     Filesystem.write_file(path, JSON.fast_generate(json))
 
     target = raw_tilestack_path(target)
-    cmd = tilestacktool_cmd # , "--delete-source-tiles"]
+    cmd = tilestacktool_cmd
     cmd << "--create-parent-directories"
-    cmd += ["--loadtiles-from-json"] + path.to_a
+    cmd += ["--delete-source-tiles", "--loadtiles-from-json"] + path.to_a
     cmd += ["--save", target]
     Rule.add(target, dependencies, [cmd])
   end
@@ -1740,7 +1740,7 @@ compiler.urls['track'] and STDERR.puts "and update tracking page #{compiler.urls
 STDERR.puts "View at file://#{destination}/view.html"
 
 end_time = Time.new
-STDERR.puts "Executiontook #{end_time-start_time} seconds"
+STDERR.puts "Execution took #{end_time-start_time} seconds"
 
 if profile
   result = RubyProf.stop

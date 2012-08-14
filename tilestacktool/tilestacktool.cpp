@@ -771,6 +771,7 @@ void load_tiles(const std::vector<std::string> &srcs)
   for (unsigned frame = 0; frame < dest->nframes; frame++) {
     dest->toc[frame].timestamp = 0;
     simple_shared_ptr<ImageReader> tile(ImageReader::open(srcs[frame]));
+    if (delete_source_tiles) source_tiles_to_delete.push_back(srcs[frame]);
     assert(tile->width() == dest->tile_width);
     assert(tile->height() == dest->tile_height);
     assert(tile->bands_per_pixel() == dest->bands_per_pixel);
@@ -839,10 +840,10 @@ public:
     if (readers.find(idx) == readers.end()) {
       // TODO(RS): If this starts running out of RAM, consider LRU on the readers
       try {
-        fprintf(stderr, "get_reader constructing TilestackReader %llx from %s\n", (unsigned long long) readers[idx], path(level, x, y).c_str());
+        //fprintf(stderr, "get_reader constructing TilestackReader %llx from %s\n", (unsigned long long) readers[idx], path(level, x, y).c_str());
 	readers[idx] = new TilestackReader(simple_shared_ptr<Reader>(FileReader::open(path(level, x, y))));
       } catch (std::runtime_error &e) {
-        fprintf(stderr, "No tilestackreader for (%d, %d, %d)\n", level, x, y);
+        //fprintf(stderr, "No tilestackreader for (%d, %d, %d)\n", level, x, y);
         readers[idx] = NULL;
       }
     }
