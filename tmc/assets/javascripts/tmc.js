@@ -1273,6 +1273,7 @@ function ct_out(out) {
   //console.log("In ct_out, out=" + out);
   if (typeof out === 'number') {
     inProgress = false;
+    newProjectAction(true);
     $("#cancel_render_btn").hide();
     $("#status_window").append("Ended: " + get_current_time_formatted() + "<br/>");
     $("#status_window").append("<br/><button id='change_settings_btn'>Change settings for new render/export</button><br/>");
