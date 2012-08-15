@@ -1301,10 +1301,12 @@ function ct_out(out) {
       });
     }
   } else {
-    output_string = out.replace(/\r\n|\r|\n/g, "<br />")
-    output = output_string.match(/\d+.\d+%/g);
-    //console.log(output[0]);
-    if (output != null) $("#current_progress").progressBar(parseFloat(output[0].slice(0, -1)));
+    var output_string = out.replace(/\r\n|\r|\n/g, "<br />")
+    var output_tmp = output_string.match(/Rules \d+.\d+% rules finished/);
+    if (output_tmp != null) {
+      var output = output_tmp[0].match(/\d+.\d+%/);
+      $("#current_progress").progressBar(parseFloat(output[0].slice(0, -1)));
+    }
   }
 }
 
