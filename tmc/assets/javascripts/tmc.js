@@ -19,24 +19,15 @@ var shiftAlreadyClicked = true;
 var tileSize = 512;
 
 function setOutputSettings() {
-    var outputData = {}
-    outputData["source"] = {}
+    var outputData = {};
+    outputData["source"] = {};
     outputData["source"]["type"] = "images";
     outputData["source"]["images"] = activeData["images"];
     outputData["source"]["capture_times"] = activeData["capture_times"];
     outputData["source"]["capture_time_parser"] = captureTimeParserPath;
     outputData["source"]["tilesize"] = tileSize;
 
-    outputData["videosets"] = []
-
-    var videoSet = {}
-    videoSet["label"] = "Small";
-    videoSet["type"] = "h.264";
-    videoSet["size"] = "small";
-    videoSet["compression"] = $("#compression").slider_x("value");
-    videoSet["fps"] = $("#fps").spinner("value");
-
-    outputData["videosets"].push(videoSet);
+    outputData["videosets"] = [];
 
     videoSet = {};
     videoSet["label"] = "Large";
