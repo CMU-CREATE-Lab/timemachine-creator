@@ -713,7 +713,7 @@ void image2tiles(std::string dest, std::string format, std::string src)
     return;
   }
   simple_shared_ptr<ImageReader> reader(ImageReader::open(src));
-  fprintf(stderr, "Opened %s: %d x %d pixels\n", src.c_str(), reader->width(), reader->height());
+  //fprintf(stderr, "Opened %s: %d x %d pixels\n", src.c_str(), reader->width(), reader->height());
 
   std::vector<unsigned char> stripe(reader->bytes_per_row() * tilesize);
   std::vector<unsigned char> tile(reader->bytes_per_pixel() * tilesize * tilesize);
@@ -970,7 +970,7 @@ public:
         }
       }
     } else {
-      fprintf(stderr, "slowly rendering %d x %d from %s\n", dest.width, dest.height, bounds.to_string().c_str());
+      //fprintf(stderr, "slowly rendering %d x %d from %s\n", dest.width, dest.height, bounds.to_string().c_str());
       slow_render_count++;
       for (int y = 0; y < dest.height; y++) {
         double source_y = interpolate(y + 0.5, 0, dest.height, bounds.y, bounds.y + bounds.height);
@@ -1146,7 +1146,7 @@ bool self_test() {
 
 int main(int argc, char **argv)
 {
-  //  try {
+  try {
     Arglist args(argv+1, argv+argc);
     while (!args.empty()) {
       std::string arg = args.shift();
@@ -1322,8 +1322,8 @@ int main(int argc, char **argv)
     while (tilestackstack.size()) tilestackstack.pop();
 
     return 0;
-    //  } catch (const std::exception &e) {
-    //    fprintf(stderr, "Error: %s\n", e.what());
-    //    return 1;
-    //  }
+  } catch (const std::exception &e) {
+    fprintf(stderr, "Error: %s\n", e.what());
+    return 1;
+  }
 }

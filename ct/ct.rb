@@ -1092,17 +1092,22 @@ class Compiler
     end
   end
 
+  def metadata_tilestack
+    return Tile.new(0, 0, @max_level)
+  end
+
   def subsampled_tilestack_rule(target_idx, children, dependencies)
     target = tilestack_path(target_idx)
-    children = children.flat_map {|child| tilestack_rule(child, dependencies)}
-
+    rule_dependencies = children.flat_map {|child| tilestack_rule(child, dependencies)}
+    rule_dependencies << tilestack_path(metadata_tilestack)
+    
     cmd = tilestacktool_cmd
     cmd << "--create-parent-directories"
     frames = {'frames' => {'start' => 0, 'end' => @source.framenames.size - 1}, 
               'bounds' => target_idx.bounds(@source.tilesize, @max_level)}
     cmd += ['--path2stack-downsize', @source.tilesize, @source.tilesize, JSON.generate(frames), @tilestack_dir]
     cmd += ['--save', target]
-    Rule.add(target, children, [cmd])
+    Rule.add(target, rule_dependencies, [cmd])
   end
 
   def base_tilestack_rule(target_idx, dependencies)
@@ -1409,6 +1414,7 @@ class Maker
       end
     
       if !result
+        @failed_jobs << job_no
         STDERR.write "#{date} Job #{job_no} failed too many times; aborting\n"
         @aborting = true
         response.push([job_no, [], Thread.current])
@@ -1447,6 +1453,7 @@ class Maker
     rules_executing = 0
     response = Queue.new
     
+    @failed_jobs = []
     @aborting = false
     current_job_no = 0
     initial_ndone = @ndone
@@ -1488,6 +1495,7 @@ class Maker
       end
       # Wait for job to finish
       if @aborting && jobs_executing == 0
+        STDERR.write "#{date}: Aborting because of failed job(s) [#{@failed_jobs.sort.join(', ')}]\n"
         exit 1
       end
       if @ready.empty? && jobs_executing == 0
@@ -1498,9 +1506,9 @@ class Maker
       $dry_run || thread.join
       jobs_executing -= 1
       rules_executing -= rules.size
-      STDERR.write "#{date}: Completing #{rules.size} rules...\n"
+      #STDERR.write "#{date}: Completing #{rules.size} rules...\n"
       rules.each {|rule| rule_completed(rule)}
-      STDERR.write "#{date}: Done\n"
+      #STDERR.write "#{date}: Done\n"
       print_status(rules_executing, jobs_executing)
     end
     duration = Time.now.to_i - begin_time.to_i

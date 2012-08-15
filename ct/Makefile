@@ -54,7 +54,9 @@ pitt4_2x1_dpp_small carnival4_2x2_small:
 	$(call CP_R,../datasets/$@,testresults/$@.tmc/0100-unstitched)
 	$(RUBY) ./ct.rb testresults/$@.tmc testresults/$@.timemachine
 
-clean:
+clean: test-clean
+
+test-clean:
 	$(call RM_R,testresults)
 
 ifeq ($(OS),windows)
