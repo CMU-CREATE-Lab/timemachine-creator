@@ -669,7 +669,10 @@ StyledStreamWriter::writeArrayValue( const Value &value )
          {
             if ( index > 0 )
                *document_ << ", ";
-            *document_ << childValues_[index];
+            // Due to bug in compiler for 10.8, adding ".c_str()" to the following
+            // Should be OK since NUL shouldn't ever show up in JSON output
+            // See http://answers.opencv.org/question/1186/opencv-on-mac-os-x-108-mountain-lion/
+            *document_ << childValues_[index].c_str();
          }
          *document_ << " ]";
       }
@@ -714,7 +717,10 @@ StyledStreamWriter::pushValue( const std::string &value )
    if ( addChildValues_ )
       childValues_.push_back( value );
    else
-      *document_ << value;
+      // Due to bug in compiler for 10.8, adding ".c_str()" to the following
+      // Should be OK since NUL shouldn't ever show up in JSON output
+      // See http://answers.opencv.org/question/1186/opencv-on-mac-os-x-108-mountain-lion/
+      *document_ << value.c_str();
 }
 
 
@@ -733,7 +739,10 @@ StyledStreamWriter::writeIndent()
          *document_ << '\n';
    }
   */
-   *document_ << '\n' << indentString_;
+   // Due to bug in compiler for 10.8, adding ".c_str()" to the following
+   // Should be OK since NUL shouldn't ever show up in JSON output
+   // See http://answers.opencv.org/question/1186/opencv-on-mac-os-x-108-mountain-lion/
+   *document_ << '\n' << indentString_.c_str();
 }
 
 
@@ -741,7 +750,10 @@ void
 StyledStreamWriter::writeWithIndent( const std::string &value )
 {
    writeIndent();
-   *document_ << value;
+   // Due to bug in compiler for 10.8, adding ".c_str()" to the following
+   // Should be OK since NUL shouldn't ever show up in JSON output
+   // See http://answers.opencv.org/question/1186/opencv-on-mac-os-x-108-mountain-lion/
+   *document_ << value.c_str();
 }
 
 
@@ -765,7 +777,10 @@ StyledStreamWriter::writeCommentBeforeValue( const Value &root )
 {
    if ( !root.hasComment( commentBefore ) )
       return;
-   *document_ << normalizeEOL( root.getComment( commentBefore ) );
+   // Due to bug in compiler for 10.8, adding ".c_str()" to the following
+   // Should be OK since NUL shouldn't ever show up in JSON output
+   // See http://answers.opencv.org/question/1186/opencv-on-mac-os-x-108-mountain-lion/
+   *document_ << normalizeEOL( root.getComment( commentBefore ) ).c_str();
    *document_ << "\n";
 }
 
@@ -774,12 +789,18 @@ void
 StyledStreamWriter::writeCommentAfterValueOnSameLine( const Value &root )
 {
    if ( root.hasComment( commentAfterOnSameLine ) )
-      *document_ << " " + normalizeEOL( root.getComment( commentAfterOnSameLine ) );
+      // Due to bug in compiler for 10.8, adding ".c_str()" to the following
+      // Should be OK since NUL shouldn't ever show up in JSON output
+      // See http://answers.opencv.org/question/1186/opencv-on-mac-os-x-108-mountain-lion/
+      *document_ << (" " + normalizeEOL( root.getComment( commentAfterOnSameLine ) ) ).c_str();
 
    if ( root.hasComment( commentAfter ) )
    {
       *document_ << "\n";
-      *document_ << normalizeEOL( root.getComment( commentAfter ) );
+      // Due to bug in compiler for 10.8, adding ".c_str()" to the following
+      // Should be OK since NUL shouldn't ever show up in JSON output
+      // See http://answers.opencv.org/question/1186/opencv-on-mac-os-x-108-mountain-lion/
+      *document_ << normalizeEOL( root.getComment( commentAfter ) ).c_str();
       *document_ << "\n";
    }
 }
