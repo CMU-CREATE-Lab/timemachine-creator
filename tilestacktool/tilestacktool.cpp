@@ -1069,33 +1069,44 @@ void image2tiles(std::string dest, std::string format, std::string src)
   }
 }
 
+class TilestackFromTiles : public LRUTilestack {
+  std::vector<std::string> srcs;
+public:
+  TilestackFromTiles(const std::vector<std::string> &srcs_init) : srcs(srcs_init) {
+    assert(srcs.size() > 0);
+    if (delete_source_tiles) {
+      source_tiles_to_delete.insert(source_tiles_to_delete.begin(), srcs.begin(), srcs.end());
+    }
+
+    simple_shared_ptr<ImageReader> tile0(ImageReader::open(srcs[0]));
+    set_nframes(srcs.size());
+    tile_width = tile0->width();
+    tile_height = tile0->height();
+    bands_per_pixel = tile0->bands_per_pixel();
+    bits_per_band = tile0->bits_per_band();
+    pixel_format = PixelInfo::PIXEL_FORMAT_INTEGER;
+    compression_format = TilestackInfo::NO_COMPRESSION;
+  }
+private:
+  virtual void instantiate_pixels(unsigned frame) const {
+    assert(!pixels[frame]);
+    create(frame);
+
+    toc[frame].timestamp = 0;
+    simple_shared_ptr<ImageReader> tile(ImageReader::open(srcs[frame]));
+    assert(tile->width() == tile_width);
+    assert(tile->height() == tile_height);
+    assert(tile->bands_per_pixel() == bands_per_pixel);
+    assert(tile->bits_per_band() == bits_per_band);
+      
+    tile->read_rows(pixels[frame], tile->height());
+  }
+};
+  
 void load_tiles(const std::vector<std::string> &srcs)
 {
-  assert(srcs.size() > 0);
-  simple_shared_ptr<ImageReader> tile0(ImageReader::open(srcs[0]));
-
-  TilestackInfo ti;
-  ti.nframes = srcs.size();
-  ti.tile_width = tile0->width();
-  ti.tile_height = tile0->height();
-  ti.bands_per_pixel = tile0->bands_per_pixel();
-  ti.bits_per_band = tile0->bits_per_band();
-  ti.pixel_format = PixelInfo::PIXEL_FORMAT_INTEGER;
-  ti.compression_format = TilestackInfo::NO_COMPRESSION;
-  simple_shared_ptr<Tilestack> dest(new ResidentTilestack(ti));
-
-  for (unsigned frame = 0; frame < dest->nframes; frame++) {
-    dest->toc[frame].timestamp = 0;
-    simple_shared_ptr<ImageReader> tile(ImageReader::open(srcs[frame]));
-    if (delete_source_tiles) source_tiles_to_delete.push_back(srcs[frame]);
-    assert(tile->width() == dest->tile_width);
-    assert(tile->height() == dest->tile_height);
-    assert(tile->bands_per_pixel() == dest->bands_per_pixel);
-    assert(tile->bits_per_band() == dest->bits_per_band);
-
-    tile->read_rows(dest->frame_pixels(frame), tile->height());
-  }
-  tilestackstack.push(dest);
+  simple_shared_ptr<Tilestack> tilestack(new TilestackFromTiles(srcs));
+  tilestackstack.push(tilestack);
 }
 
 struct Image {

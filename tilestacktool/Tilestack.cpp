@@ -5,7 +5,15 @@ ResidentTilestack::ResidentTilestack(const TilestackInfo &ti)
 {
   *((TilestackInfo*)this) = ti;
   set_nframes(nframes);
-  all_pixels.resize(bytes_per_frame() * nframes);
+  size_t size = bytes_per_frame() * nframes;
+  try {
+    if (size / 1e9 > 0.5) fprintf(stderr, "Allocating %f GB in ResidentTilestack\n", size / 1e9);
+    all_pixels.resize(size);
+  } catch (std::bad_alloc) {
+    fprintf(stderr, "Ran out of memory trying to allocate ResidentTilestack of dimensions width:%d x height:%d x nframes:%d (%lld bytes)\n",
+            tile_width, tile_height, nframes, (long long) size);
+    throw;
+  }
   for (unsigned i = 0; i < nframes; i++) {
     pixels[i] = &all_pixels[bytes_per_frame() * i];
   }
@@ -65,36 +73,6 @@ void Tilestack::write(Writer *w) const {
   write_u64(&footer[40], 0x646e65326b747374LL); // ASCII: 'tstk2end'
   w->write(footer);
 }
-
-// Old:  write uncompressed pixels
-// void ResidentTilestack::write(Writer *w) {
-//   std::vector<unsigned char> header(8);
-//   write_u64(&header[0], 0x326b7473656c6974LL); // ASCII 'tilestk2'
-//   w->write(header);
-//   w->write(all_pixels);
-//   size_t tocentry_size = 24;
-//   std::vector<unsigned char> tocdata(tocentry_size * nframes);
-//   size_t address = header.size();
-//   for (unsigned i = 0; i < nframes; i++) {
-//     write_double64(&tocdata[i*tocentry_size +  0], toc[i].timestamp);
-//     write_u64(&tocdata[i*tocentry_size +  8], address);
-//     write_u64(&tocdata[i*tocentry_size + 16], tile_size);
-//     address += tile_size;
-//   }
-//   w->write(tocdata);
-//   size_t footer_size = 48;
-//   std::vector<unsigned char> footer(footer_size);
-// 
-//   write_u64(&footer[ 0], nframes);
-//   write_u64(&footer[ 8], tile_width);
-//   write_u64(&footer[16], tile_height);
-//   write_u32(&footer[24], bands_per_pixel);
-//   write_u32(&footer[28], bits_per_band);
-//   write_u32(&footer[32], pixel_format);
-//   write_u32(&footer[36], compression_format);
-//   write_u64(&footer[40], 0x646e65326b747374LL); // ASCII: 'tstk2end'
-//   w->write(footer);
-// }
 
 void ResidentTilestack::instantiate_pixels(unsigned frame) const {
   assert(0); // we instantiate all the pixels in our constructor
