@@ -43,6 +43,23 @@ struct PixelInfo {
     }
   }
 
+  unsigned char *get_pixel_band_ptr(const unsigned char *pixel, unsigned band) const {
+    switch ((bits_per_band << 1) | pixel_format) {
+    case ((8 << 1) | 0):
+      return &((unsigned char *)pixel)[band];
+    case ((16 << 1) | 0):
+      return (unsigned char*)&((unsigned short *)pixel)[band];
+    case ((32 << 1) | 0):
+      return (unsigned char*)&((unsigned int *)pixel)[band];
+    case ((32 << 1) | 1):
+      return (unsigned char*)&((float *)pixel)[band];
+    case ((64 << 1) | 1):
+      return (unsigned char*)&((double *)pixel)[band];
+    default:
+      throw_error("Can't read pixel type %d:%d", bits_per_band, pixel_format);
+    }
+  }
+
   void set_pixel_band(unsigned char *pixel, unsigned band, double val) const {
     switch ((bits_per_band << 1) | pixel_format) {
     case ((8 << 1) | 0):
@@ -112,7 +129,7 @@ public:
     toc.resize(nframes);
     pixels.resize(nframes);
   }
-  unsigned char *frame_pixel(unsigned frame, unsigned x, unsigned y) {
+  unsigned char *frame_pixel(unsigned frame, unsigned x, unsigned y) const {
     return frame_pixels(frame) + bytes_per_pixel() * (x + y * tile_width);
   }
   void write(Writer *w) const;
@@ -146,12 +163,8 @@ Frames-on-demand:
 // TODO: support compressed formats by splitting all_pixels into multiple frames
 class ResidentTilestack : public Tilestack {
   std::vector<unsigned char> all_pixels;
-  size_t tile_size;
 public:
-  ResidentTilestack(unsigned int nframes, unsigned int tile_width,
-                    unsigned int tile_height, unsigned int bands_per_pixel,
-                    unsigned int bits_per_band, unsigned int pixel_format,
-                    unsigned int compression_format);
+  ResidentTilestack(const TilestackInfo &ti);
   virtual void instantiate_pixels(unsigned frame) const;
 };
 

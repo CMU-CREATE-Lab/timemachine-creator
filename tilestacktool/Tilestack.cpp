@@ -1,22 +1,13 @@
 #include "Tilestack.h"
 #include "SimpleZlib.h"
 
-ResidentTilestack::ResidentTilestack(unsigned int nframes, unsigned int tile_width,
-                                     unsigned int tile_height, unsigned int bands_per_pixel,
-                                     unsigned int bits_per_band, unsigned int pixel_format,
-                                     unsigned int compression_format)
+ResidentTilestack::ResidentTilestack(const TilestackInfo &ti)
 {
+  *((TilestackInfo*)this) = ti;
   set_nframes(nframes);
-  this->tile_width = tile_width;
-  this->tile_height = tile_height;
-  this->bands_per_pixel = bands_per_pixel;
-  this->bits_per_band = bits_per_band;
-  this->pixel_format = pixel_format;
-  this->compression_format = compression_format;
-  tile_size =  tile_width * tile_height * bands_per_pixel * bits_per_band / 8;
-  all_pixels.resize(tile_size * nframes);
+  all_pixels.resize(bytes_per_frame() * nframes);
   for (unsigned i = 0; i < nframes; i++) {
-    pixels[i] = &all_pixels[tile_size * i];
+    pixels[i] = &all_pixels[bytes_per_frame() * i];
   }
 }
 

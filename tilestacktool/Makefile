@@ -50,6 +50,7 @@ patp4_1x1_small: $(TILESTACKTOOL)
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --viz '{"scale":[1,0,0]}' --writevideo testresults/$@/testvid_scale_1_0_0.mp4 1 24
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --viz '{"gamma":2}' --writevideo testresults/$@/testvid_gamma_2.mp4 1 24
 	./tilestacktool --path2stack 200 150 '{"frames":{"start":0, "end":3} ,"bounds":{"xmin":150, "ymin":200, "width":400, "height":300}}' testresults/$@/transpose --viz '{"gamma":[1,2,1]}' --writevideo testresults/$@/testvid_gamma_1_2_1.mp4 1 24
+	./tilestacktool --load testresults/$@/transpose/r0.ts2 --path2stack-from-stack 100 100 '{"frames":{"start":0, "end":3},"bounds":{"xmin":50,"ymin":100,"width":100,"height":100}}' --writevideo testresults/$@/fromstack.mp4 1 24
 
 test-overlay: patp4_1x1_small
 	./tilestacktool \

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 #include <cmath>
 #include <memory>
@@ -76,7 +77,6 @@ public:
 
   TilestackReader(simple_shared_ptr<Reader> reader) : reader(reader) {
     read();
-    //fprintf(stderr, "TilestackReader constructing %llx\n", (unsigned long long) this);
     stacks_read++;
   }
 
@@ -175,6 +175,29 @@ void load(std::string filename)
   tilestackstack.push(tilestack);
 }
 
+void loadraw(std::string filename, const TilestackInfo &ti)
+{
+  // Compute number of frames
+  size_t size = file_size(filename);
+  if (size < 0) throw_error("loadraw: can't access %s", filename.c_str());
+  if (size == 0) throw_error("loadraw: %s is zero length", filename.c_str());
+  if (size % ti.bytes_per_frame()) {
+    throw_error("loadraw: format given has %ld bytes per frame, but file has %ld, which doesn't divide evenly",
+                (long) ti.bytes_per_frame(), (long) size);
+  }
+  TilestackInfo ti_with_nframes = ti;
+  ti_with_nframes.nframes = size / ti.bytes_per_frame();
+  simple_shared_ptr<Tilestack> tilestack(new ResidentTilestack(ti_with_nframes));
+  FILE *in = fopen_utf8(filename, "rb");
+  if (!in) throw_error("loadraw: can't open %s for reading", filename.c_str());
+  // Assumes frames are contiguous
+  int nread = fread(tilestack->frame_pixels(0), ti.bytes_per_frame(), ti_with_nframes.nframes, in);
+  if (nread != (int)ti_with_nframes.nframes) throw_error("loadraw: couldn't read %ld bytes (%s)", (long) size,
+                                                         strerror(errno));
+  fclose(in);
+  tilestackstack.push(tilestack);
+}
+
 // gamma > 1 brightens midtones; < 1 darkens midtones
 
 class VizBand {
@@ -252,6 +275,229 @@ void viz(Json::Value params) {
   simple_shared_ptr<Tilestack> src(tilestackstack.pop());
   simple_shared_ptr<Tilestack> dest(new VizTilestack(src, params));
   tilestackstack.push(dest);
+}
+
+class CastTilestack : public LRUTilestack {
+  simple_shared_ptr<Tilestack> src;
+  
+public:
+  CastTilestack(simple_shared_ptr<Tilestack> src, int pixel_format, int bits_per_band) : src(src) {
+    (*(TilestackInfo*)this) = (*(TilestackInfo*)src.get());
+    this->pixel_format = pixel_format;
+    this->bits_per_band = bits_per_band;
+    set_nframes(nframes);
+  }
+  
+  virtual void instantiate_pixels(unsigned frame) const {
+    assert(!pixels[frame]);
+    create(frame);
+    
+    toc[frame].timestamp = src->toc[frame].timestamp;
+    
+    unsigned char *srcptr = src->frame_pixels(frame);
+    int src_bytes_per_pixel = src->bytes_per_pixel();
+    unsigned char *destptr = pixels[frame];
+    int dest_bytes_per_pixel = bytes_per_pixel();
+    
+    for (unsigned y = 0; y < tile_height; y++) {
+      for (unsigned x = 0; x < tile_width; x++) {
+        for (unsigned band = 0; band < bands_per_pixel; band++) {
+          set_pixel_band(destptr, band, src->get_pixel_band(srcptr, band));
+        }
+        srcptr += src_bytes_per_pixel;
+        destptr += dest_bytes_per_pixel;
+      }
+    }
+  }
+};
+
+simple_shared_ptr<Tilestack> ensure_resident(simple_shared_ptr<Tilestack> src) {
+  if (dynamic_cast<ResidentTilestack*>(src.get())) {
+    // Already resident
+    return src;
+  } else {
+    TilestackInfo ti = *src;
+    ti.compression_format = 0;
+    simple_shared_ptr<Tilestack> copy(new ResidentTilestack(ti));
+    for (unsigned frame = 0; frame < src->nframes; frame++) {
+      memcpy(copy->frame_pixels(frame), src->frame_pixels(frame), src->bytes_per_frame());
+    }
+    return copy;
+  }
+}
+  
+simple_shared_ptr<Tilestack> cast_pixel_format(simple_shared_ptr<Tilestack> src, unsigned int pixel_format, unsigned int bits_per_band) {
+  if (src->pixel_format == pixel_format && src->bits_per_band == bits_per_band) {
+    return src;
+  } else {
+    return simple_shared_ptr<Tilestack>(new CastTilestack(src, pixel_format, bits_per_band));
+  }
+}
+
+struct VecRef {
+  float *vals;
+  size_t size;
+  size_t delta;
+  VecRef(float *vals, size_t size, size_t delta=1) : vals(vals), size(size), delta(delta) {}
+  VecRef(std::vector<float> &vec) : vals(&vec[0]), size(vec.size()), delta(1) {}
+  VecRef slice(size_t begin) {
+    return VecRef(vals + (delta * begin), size - begin, delta);
+  }
+  VecRef slice(size_t begin, size_t end) {
+    return VecRef(vals + (delta * begin), end - begin, delta);
+  }
+  float sum() {
+    float sum = 0;
+    float *ptr = vals;
+    for (size_t i = 0; i < size; i++) {
+      sum += *ptr;
+      ptr += delta;
+    }
+    return sum;
+  }
+};
+
+// Dot product of a and b.  Will use all elements of a.  b must be at least as long as a. if b is longer than a,
+// extra elements are ignored
+inline float dot_product(const VecRef &a, const VecRef &b) {
+  assert(b.size >= a.size);
+  float ret = 0.0;
+  float *aptr = a.vals, *bptr = b.vals;
+  for (size_t i = 0; i < a.size; i++) {
+    ret += (*aptr) * (*bptr);
+    aptr += a.delta;
+    bptr += b.delta;
+  }
+  return ret;
+}
+
+void normalized_convolution(VecRef out, VecRef kernel, VecRef in) {
+  assert(out.size == in.size);
+  assert(kernel.size % 2 == 1);
+  size_t kernel_radius = (kernel.size - 1) / 2;
+  size_t i = 0;
+  float *outptr = out.vals;
+
+  for (; i < std::min(kernel_radius, out.size); i++) {
+    size_t kernel_slice_begin = kernel_radius - i;
+    size_t kernel_slice_end = std::min(kernel_slice_begin + in.size, kernel.size);
+    VecRef kernel_slice = kernel.slice(kernel_slice_begin, kernel_slice_end);
+    *outptr = dot_product(kernel_slice, in) / kernel_slice.sum();
+    outptr += out.delta;
+  }
+  float kernel_sum = kernel.sum();
+  for (; i + kernel_radius < out.size; i++) {
+    *outptr = dot_product(kernel, in) / kernel_sum;
+    in = in.slice(1);
+    outptr += out.delta;
+  }
+  for (; i< out.size; i++) {
+    size_t kernel_slice_begin = 0;
+    size_t kernel_slice_end = kernel_radius + (out.size - i);
+    VecRef kernel_slice = kernel.slice(kernel_slice_begin, kernel_slice_end);
+    *outptr = dot_product(kernel_slice, in) / kernel_slice.sum();
+    in = in.slice(1);
+    outptr += out.delta;
+  }
+}
+
+class LRUConvolve : public LRUTilestack {
+protected:
+  simple_shared_ptr<Tilestack> src;
+  mutable std::vector<float> kernel;
+  virtual void compute(unsigned frame) const = 0;
+  
+public:
+  LRUConvolve(simple_shared_ptr<Tilestack> src, std::vector<float> kernel) : kernel(kernel) {
+    this->src = cast_pixel_format(src, PIXEL_FORMAT_FLOATING_POINT, 32);
+    (*(TilestackInfo*)this) = (*(TilestackInfo*)this->src.get());
+    set_nframes(nframes);
+  }
+  
+  virtual void instantiate_pixels(unsigned frame) const {
+    assert(!pixels[frame]);
+    create(frame);
+
+    toc[frame].timestamp = src->toc[frame].timestamp;
+    compute(frame);
+  }
+};
+
+class HConvolve : public LRUConvolve {
+public:
+  HConvolve(simple_shared_ptr<Tilestack> src, std::vector<float> kernel) : LRUConvolve(src, kernel) {}
+  
+protected:
+  virtual void compute(unsigned frame) const {
+    VecRef kernel_ref(kernel);
+    
+    for (unsigned y = 0; y < tile_height; y++) {
+      for (unsigned band = 0; band < bands_per_pixel; band++) {
+        normalized_convolution(VecRef((float*)get_pixel_band_ptr(frame_pixel(frame, 0, y), band), tile_width, bands_per_pixel),
+                               kernel_ref,
+                               VecRef((float*)get_pixel_band_ptr(src->frame_pixel(frame, 0, y), band), tile_width, bands_per_pixel));
+      }
+    }
+  }
+};
+
+class VConvolve : public LRUConvolve {
+public:
+  VConvolve(simple_shared_ptr<Tilestack> src, std::vector<float> kernel) : LRUConvolve(src, kernel) {}
+  
+protected:
+  virtual void compute(unsigned frame) const {
+    VecRef kernel_ref(kernel);
+    
+    for (unsigned x = 0; x < tile_width; x++) {
+      for (unsigned band = 0; band < bands_per_pixel; band++) {
+        normalized_convolution(VecRef((float*)get_pixel_band_ptr(frame_pixel(frame, x, 0), band), tile_width, bands_per_pixel * tile_height),
+                               kernel_ref,
+                               VecRef((float*)get_pixel_band_ptr(src->frame_pixel(frame, x, 0), band), tile_width, bands_per_pixel * tile_height));
+      }
+    }
+  }
+};
+
+simple_shared_ptr<Tilestack> tconvolve(simple_shared_ptr<Tilestack> src, std::vector<float> kernel) {
+  src = ensure_resident(cast_pixel_format(src, PixelInfo::PIXEL_FORMAT_FLOATING_POINT, 32));
+  simple_shared_ptr<Tilestack> dest(new ResidentTilestack(*src));
+
+  for (unsigned frame = 0; frame < src->nframes; frame++) {
+    dest->toc[frame].timestamp = src->toc[frame].timestamp;
+  }
+
+  VecRef kernel_ref(kernel);
+  for (unsigned y = 0; y < src->tile_height; y++) {
+    for (unsigned x = 0; x < src->tile_width; x++) {
+      for (unsigned band = 0; band < src->bands_per_pixel; band++) {
+        normalized_convolution(VecRef((float*)dest->get_pixel_band_ptr(dest->frame_pixel(0, x, y), band), 
+                                      dest->nframes, dest->bands_per_pixel * dest->tile_width * dest->tile_height),
+                               kernel_ref,
+                               VecRef((float*)src->get_pixel_band_ptr(src->frame_pixel(0, x, y), band), 
+                                      src->nframes, src->bands_per_pixel * src->tile_width * src->tile_height));
+      }
+    }
+  }
+
+  return dest;
+}
+
+std::vector<float> gaussian_kernel(double sigma)
+{
+  assert(sigma >= 0);
+  size_t radius = (size_t)(sigma * 4);
+  std::vector<float> kernel(radius * 2 + 1);
+
+  for (size_t i = 0; i <= radius; i++) {
+    kernel[radius - i] = kernel[radius + i] = exp(-0.5*(i*i)/(sigma*sigma));
+  }
+  
+  // Normalize
+  double sum = VecRef(kernel).sum();
+  for (size_t i = 0; i < kernel.size(); i++) kernel[i] /= sum;
+  
+  return kernel;
 }
 
 class ConcatenationTilestack : public LRUTilestack {
@@ -344,36 +590,122 @@ public:
     }
   }
 };
-
+  
 void composite() {
-  simple_shared_ptr<Tilestack> overlay(tilestackstack.pop());
+    simple_shared_ptr<Tilestack> overlay(tilestackstack.pop());
   simple_shared_ptr<Tilestack> base(tilestackstack.pop());
 
   simple_shared_ptr<Tilestack> composite(new CompositeTilestack(base, overlay));
   tilestackstack.push(composite);
 }
 
+class BinopTilestack : public LRUTilestack {
+  simple_shared_ptr<Tilestack> a;
+  simple_shared_ptr<Tilestack> b;
+  double (*op)(double a, double b);
+
+public:
+  BinopTilestack(simple_shared_ptr<Tilestack> &a, simple_shared_ptr<Tilestack> &b, double (*op)(double, double)) :
+    a(a), b(b), op(op) {
+    (*(TilestackInfo*)this) = (TilestackInfo&)(*a);
+    if (a->nframes != a->nframes) {
+      throw_error("binop: nframes don't match: %d != %d",
+                  a->nframes, a->nframes);
+    }
+    if (a->tile_width != a->tile_width ||
+        a->tile_height != a->tile_height) {
+      throw_error("binop: dimensions don't match: (%d,%d) != (%d,%d)",
+                  a->tile_width, a->tile_height,
+                  b->tile_width, b->tile_height);
+    }
+    if (a->bands_per_pixel != b->bands_per_pixel) {
+      throw_error("binop: bands per pixel don't match: %d != %d",
+                  a->bands_per_pixel, b->bands_per_pixel);
+    }
+    set_nframes(a->nframes);
+  }
+  
+  virtual void instantiate_pixels(unsigned frame) const {
+    assert(!pixels[frame]);
+    create(frame);
+    
+    unsigned char *a_pixel = a->frame_pixels(frame);
+    unsigned char *b_pixel = b->frame_pixels(frame);
+    unsigned char *result_pixel = pixels[frame];
+    
+    for (unsigned y = 0; y < tile_height; y++) {
+      for (unsigned x = 0; x < tile_width; x++) {
+        for (unsigned band = 0; band < bands_per_pixel; band++) {
+          set_pixel_band(result_pixel, band,
+                         (*op)(a->get_pixel_band(a_pixel, band), b->get_pixel_band(b_pixel, band)));
+        }
+        a_pixel += a->bytes_per_pixel();
+        b_pixel += b->bytes_per_pixel();
+        result_pixel += bytes_per_pixel();
+      }
+    }
+  }
+};
+  
+double subtract_op(double a, double b) { return a-b; }
+double add_op(double a, double b) { return a+b; }
+
+void binop(double (*op)(double, double)) {
+  simple_shared_ptr<Tilestack> a(tilestackstack.pop());
+  simple_shared_ptr<Tilestack> b(tilestackstack.pop());
+  simple_shared_ptr<Tilestack> result(new BinopTilestack(a, b, op));
+  tilestackstack.push(result);
+}
+
+template <class T>
+class UnopTilestack : public LRUTilestack {
+  simple_shared_ptr<Tilestack> a;
+  T op;
+  
+public:
+  UnopTilestack(simple_shared_ptr<Tilestack> &a, T op) : a(a), op(op) {
+    (*(TilestackInfo*)this) = (TilestackInfo&)(*a);
+    set_nframes(a->nframes);
+  }
+  
+  virtual void instantiate_pixels(unsigned frame) const {
+    assert(!pixels[frame]);
+    create(frame);
+    
+    unsigned char *a_pixel = a->frame_pixels(frame);
+    unsigned char *result_pixel = pixels[frame];
+    
+    for (unsigned y = 0; y < tile_height; y++) {
+      for (unsigned x = 0; x < tile_width; x++) {
+        for (unsigned band = 0; band < bands_per_pixel; band++) {
+          set_pixel_band(result_pixel, band, op(a->get_pixel_band(a_pixel, band)));
+        }
+        a_pixel += a->bytes_per_pixel();
+        result_pixel += bytes_per_pixel();
+      }
+    }
+  }
+};
+  
+class scale_unop {
+  double scale;
+public:
+  scale_unop(double scale) : scale(scale) {}
+  double operator()(double a) const { return scale*a; }
+};
+  
+template <class T>
+void unop(T op) {
+  simple_shared_ptr<Tilestack> a(tilestackstack.pop());
+  simple_shared_ptr<Tilestack> result(new UnopTilestack<T>(a, op));
+  tilestackstack.push(result);
+}
+  
 void tilestack_info() {
   simple_shared_ptr<Tilestack> src(tilestackstack.top());
   fprintf(stderr, "Tilestack information: %s\n", src->info().c_str());
 }
-
-void ensure_resident() {
-  simple_shared_ptr<Tilestack> src(tilestackstack.pop());
-  if (dynamic_cast<ResidentTilestack*>(src.get())) {
-    // Already resident
-    tilestackstack.push(src);
-  } else {
-    simple_shared_ptr<Tilestack> copy(
-              new ResidentTilestack(src->nframes, src->tile_width, src->tile_height,
-                                    src->bands_per_pixel, src->bits_per_band, src->pixel_format, 0));
-    for (unsigned frame = 0; frame < src->nframes; frame++) {
-      memcpy(copy->frame_pixels(frame), src->frame_pixels(frame), src->bytes_per_frame());
-    }
-    tilestackstack.push(copy);
-  }
-}
-
+  
 void write_html(std::string dest)
 {
   simple_shared_ptr<Tilestack> src(tilestackstack.pop());
@@ -408,29 +740,6 @@ void write_html(std::string dest)
   fclose(html);
   fprintf(stderr, "Created %s\n", html_filename.c_str());
 }
-
-// Old:  uncompressed frames
-//
-// void save(std::string dest)
-// {
-//   ensure_resident();
-//   simple_shared_ptr<Tilestack> tmp(tilestackstack.pop());
-//   ResidentTilestack *src = dynamic_cast<ResidentTilestack*>(tmp.get());
-//   assert(src);
-// 
-//   if (create_parent_directories) make_directory_and_parents(filename_directory(dest));
-// 
-//   std::string temp_dest = temporary_path(dest);
-// 
-//   {
-//     simple_shared_ptr<FileWriter> out(FileWriter::open(temp_dest));
-//     src->write(out.get());
-//   }
-// 
-//   rename_file(temp_dest, dest);
-// 
-//   fprintf(stderr, "Created %s\n", dest.c_str());
-// }
 
 void save(std::string dest)
 {
@@ -674,9 +983,9 @@ void write_video(std::string dest, double fps, double compression, int max_size)
       unsigned char *destptr = &destframe[0];
       for (unsigned y = 0; y < src->tile_height; y++) {
         for (unsigned x = 0; x < src->tile_width; x++) {
-          *destptr++ = (unsigned char) std::min(255u, (unsigned int)src->get_pixel_band(srcptr, 0));
-          *destptr++ = (unsigned char) std::min(255u, (unsigned int)src->get_pixel_band(srcptr, 1));
-          *destptr++ = (unsigned char) std::min(255u, (unsigned int)src->get_pixel_band(srcptr, 2));
+          *destptr++ = (unsigned char) std::max(0, std::min(255, (int)src->get_pixel_band(srcptr, 0)));
+          *destptr++ = (unsigned char) std::max(0, std::min(255, (int)src->get_pixel_band(srcptr, 1)));
+          *destptr++ = (unsigned char) std::max(0, std::min(255, (int)src->get_pixel_band(srcptr, 2)));
           srcptr += src_bytes_per_pixel;
         }
       }
@@ -765,8 +1074,15 @@ void load_tiles(const std::vector<std::string> &srcs)
   assert(srcs.size() > 0);
   simple_shared_ptr<ImageReader> tile0(ImageReader::open(srcs[0]));
 
-  simple_shared_ptr<Tilestack> dest(new ResidentTilestack(srcs.size(), tile0->width(), tile0->height(),
-                                                 tile0->bands_per_pixel(), tile0->bits_per_band(), 0, 0));
+  TilestackInfo ti;
+  ti.nframes = srcs.size();
+  ti.tile_width = tile0->width();
+  ti.tile_height = tile0->height();
+  ti.bands_per_pixel = tile0->bands_per_pixel();
+  ti.bits_per_band = tile0->bits_per_band();
+  ti.pixel_format = PixelInfo::PIXEL_FORMAT_INTEGER;
+  ti.compression_format = TilestackInfo::NO_COMPRESSION;
+  simple_shared_ptr<Tilestack> dest(new ResidentTilestack(ti));
 
   for (unsigned frame = 0; frame < dest->nframes; frame++) {
     dest->toc[frame].timestamp = 0;
@@ -794,67 +1110,31 @@ struct Image {
   }
 };
 
-class Stackset : public TilestackInfo {
+class Renderer : public TilestackInfo {
 protected:
   std::string stackset_path;
-  Json::Value info;
   int width, height;
   int nlevels;
-  std::map<unsigned long long, TilestackReader* > readers;
 
   static int fast_render_count;
   static int slow_render_count;
 
-public:
-  Stackset(const std::string &stackset_path) : stackset_path(stackset_path) {
-    std::string json_path = stackset_path + "/r.json";
-    std::string json = read_file(json_path);
-    if (json == "") {
-      throw_error("Can't open %s for reading, or is empty", json_path.c_str());
-    }
-    Json::Reader json_reader;
-    if (!json_reader.parse(json, info)) {
-      throw_error("Can't parse %s as JSON", json_path.c_str());
-    }
-    width = info["width"].asInt();
-    height = info["height"].asInt();
-    tile_width = info["tile_width"].asInt();
-    tile_height = info["tile_height"].asInt();
-
-    nlevels = compute_tile_nlevels(width, height, tile_width, tile_height);
-    TilestackReader *reader = get_reader(nlevels-1, 0, 0);
-    if (!reader) throw_error("Initializing stackset but couldn't find tilestack at path %s", 
-			     path(nlevels-1, 0, 0).c_str());
-    (TilestackInfo&)(*this) = (TilestackInfo&)(*reader);
-  }
-  
-  std::string path(int level, int x, int y) {
-    return stackset_path + "/" + GPTileIdx(level, x, y).path() + ".ts2";
-  }
-
-  TilestackReader *get_reader(int level, int x, int y) {
-    static unsigned long long cached_idx = -1;
-    static TilestackReader *cached_reader = NULL;
-    unsigned long long idx = GPTileIdx::idx(level, x, y);
-    if (idx == cached_idx) return cached_reader;
-    if (readers.find(idx) == readers.end()) {
-      // TODO(RS): If this starts running out of RAM, consider LRU on the readers
-      try {
-        //fprintf(stderr, "get_reader constructing TilestackReader %llx from %s\n", (unsigned long long) readers[idx], path(level, x, y).c_str());
-	readers[idx] = new TilestackReader(simple_shared_ptr<Reader>(FileReader::open(path(level, x, y))));
-      } catch (std::runtime_error &e) {
-        //fprintf(stderr, "No tilestackreader for (%d, %d, %d)\n", level, x, y);
-        readers[idx] = NULL;
-      }
-    }
-    cached_idx = idx;
-    cached_reader = readers[idx];
-    return cached_reader;
-  }
-
-  double interpolate(double val, double in_min, double in_max, double out_min, double out_max) {
+  static double interpolate(double val, double in_min, double in_max, double out_min, double out_max) {
     return (val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
   }
+
+  // x and y must vary from 0 to 1
+  static double bilinearly_interpolate(double a00, double a01, double a10, double a11, double x, double y) {
+    return
+      a00 * (1-x) * (1-y) +
+      a01 * (1-x) *   y   +
+      a10 *   x   * (1-y) +
+      a11 *   x   *   y;
+  }
+
+  virtual Tilestack *get_tilestack(int level, int x, int y) = 0;
+
+public:
 
   // 47 vs .182:  250x more CPU than ffmpeg
   // 1.86 vs .182: 10x more CPU than ffmpeg
@@ -866,22 +1146,13 @@ public:
     if (x >= 0 && y >= 0) {
       int tile_x = x / tile_width;
       int tile_y = y / tile_height;
-      TilestackReader *reader = get_reader(level, tile_x, tile_y);
-      if (reader) {
-        memcpy(dest, reader->frame_pixel(frame, x % tile_width, y % tile_height), bytes_per_pixel());
+      Tilestack *tilestack = get_tilestack(level, tile_x, tile_y);
+      if (tilestack) {
+        memcpy(dest, tilestack->frame_pixel(frame, x % tile_width, y % tile_height), bytes_per_pixel());
         return;
       }
     }
     memset(dest, 0, bytes_per_pixel());
-  }
-
-  // x and y must vary from 0 to 1
-  double bilinearly_interpolate(double a00, double a01, double a10, double a11, double x, double y) {
-    return
-      a00 * (1-x) * (1-y) +
-      a01 * (1-x) *   y   +
-      a10 *   x   * (1-y) +
-      a11 *   x   *   y;
   }
 
   // Pixels are centered at +.5
@@ -982,12 +1253,7 @@ public:
     }
   }
     
-  ~Stackset() {
-    for (std::map<unsigned long long, TilestackReader*>::iterator i = readers.begin(); i != readers.end(); ++i) {
-      if (i->second) delete i->second;
-      i->second = NULL;
-    }
-  }
+  virtual ~Renderer() {}
 
   static std::string stats() {
     int total_render_count = slow_render_count + fast_render_count;
@@ -997,37 +1263,134 @@ public:
   }
 };
 
-int Stackset::slow_render_count;
-int Stackset::fast_render_count;
+int Renderer::slow_render_count;
+int Renderer::fast_render_count;
+
+class StacksetRenderer : public Renderer {
+protected:
+  std::string stackset_path;
+  Json::Value info;
+  std::map<unsigned long long, TilestackReader* > readers;
+
+  std::string path(int level, int x, int y) {
+    return stackset_path + "/" + GPTileIdx(level, x, y).path() + ".ts2";
+  }
+
+  TilestackReader *get_tilestack(int level, int x, int y) {
+    static unsigned long long cached_idx = -1;
+    static TilestackReader *cached_reader = NULL;
+    unsigned long long idx = GPTileIdx::idx(level, x, y);
+    if (idx == cached_idx) return cached_reader;
+    if (readers.find(idx) == readers.end()) {
+      // TODO(RS): If this starts running out of RAM, consider LRU on the readers
+      try {
+        //fprintf(stderr, "get_reader constructing TilestackReader %llx from %s\n", (unsigned long long) readers[idx], path(level, x, y).c_str());
+	readers[idx] = new TilestackReader(simple_shared_ptr<Reader>(FileReader::open(path(level, x, y))));
+      } catch (std::runtime_error &e) {
+        //fprintf(stderr, "No tilestackreader for (%d, %d, %d)\n", level, x, y);
+        readers[idx] = NULL;
+      }
+    }
+    cached_idx = idx;
+    cached_reader = readers[idx];
+    return cached_reader;
+  }
+
+public:
+  StacksetRenderer(const std::string &stackset_path) : stackset_path(stackset_path) {
+    std::string json_path = stackset_path + "/r.json";
+    std::string json = read_file(json_path);
+    if (json == "") {
+      throw_error("Can't open %s for reading, or is empty", json_path.c_str());
+    }
+    Json::Reader json_reader;
+    if (!json_reader.parse(json, info)) {
+      throw_error("Can't parse %s as JSON", json_path.c_str());
+    }
+    width = info["width"].asInt();
+    height = info["height"].asInt();
+    tile_width = info["tile_width"].asInt();
+    tile_height = info["tile_height"].asInt();
+
+    nlevels = compute_tile_nlevels(width, height, tile_width, tile_height);
+    Tilestack *tilestack = get_tilestack(nlevels-1, 0, 0);
+    if (!tilestack) throw_error("Initializing stackset but couldn't find tilestack at path %s", 
+                                path(nlevels-1, 0, 0).c_str());
+    (TilestackInfo&)(*this) = (TilestackInfo&)(*tilestack);
+  }
+
+  virtual ~StacksetRenderer() {
+    for (std::map<unsigned long long, TilestackReader*>::iterator i = readers.begin(); i != readers.end(); ++i) {
+      if (i->second) delete i->second;
+      i->second = NULL;
+    }
+  }
+};
+
+class TilestackRenderer : public Renderer {
+protected:
+  simple_shared_ptr<Tilestack> tilestack;
+
+  Tilestack *get_tilestack(int level, int x, int y) {
+    if (level == 0 && x == 0 && y == 0) return tilestack.get();
+    return 0;
+  }
+
+public:
+  TilestackRenderer(simple_shared_ptr<Tilestack> &tilestack) : tilestack(tilestack) {
+    width = tile_width = tilestack->tile_width;
+    height = tile_height = tilestack->tile_height;
+    nlevels = 1;
+    
+    (TilestackInfo&)(*this) = (TilestackInfo&)(*tilestack);
+  }
+
+  virtual ~TilestackRenderer() {}
+};
 
 class TilestackFromPath : public LRUTilestack {
-  mutable Stackset stackset;
+  simple_shared_ptr<Renderer> renderer;
   std::vector<Frame> frames;
   bool downsize;
 
-public:
-  TilestackFromPath(int stack_width, int stack_height, Json::Value path, const std::string &stackset_path, bool downsize) :
-    stackset(stackset_path), downsize(downsize) {
+  void init(Renderer *renderer_init, int stack_width_init, int stack_height_init, Json::Value path, bool downsize_init) {
+    renderer.reset(renderer_init);
     parse_warp(frames, path);
     set_nframes(frames.size());
-    tile_width = stack_width;
-    tile_height = stack_height;
-    bands_per_pixel = stackset.bands_per_pixel;
-    bits_per_band = stackset.bits_per_band;
-    pixel_format = stackset.pixel_format;
+    tile_width = stack_width_init;
+    tile_height = stack_height_init;
+    downsize = downsize_init;
+    bands_per_pixel = renderer->bands_per_pixel;
+    bits_per_band = renderer->bits_per_band;
+    pixel_format = renderer->pixel_format;
     compression_format = 0;
   }
 
+public:
+  TilestackFromPath(int stack_width, int stack_height, Json::Value path, const std::string &stackset_path, bool downsize) {
+    init(new StacksetRenderer(stackset_path), stack_width, stack_height, path, downsize);
+  }
+  
+  TilestackFromPath(int stack_width, int stack_height, Json::Value path, simple_shared_ptr<Tilestack> &tilestack) {
+    init(new TilestackRenderer(tilestack), stack_width, stack_height, path, false);
+  }
+  
   virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
     Image image(*this, tile_width, tile_height, pixels[frame]);
-    stackset.render_image(image, frames[frame], downsize);
+    renderer->render_image(image, frames[frame], downsize);
   }
 };
 
 void path2stack(int stack_width, int stack_height, Json::Value path, const std::string &stackset_path, bool downsize) {
   simple_shared_ptr<Tilestack> out(new TilestackFromPath(stack_width, stack_height, path, stackset_path, downsize));
+  tilestackstack.push(out);
+}
+
+void path2stack_from_stack(int stack_width, int stack_height, Json::Value path) {
+  simple_shared_ptr<Tilestack> src(tilestackstack.pop());
+  simple_shared_ptr<Tilestack> out(new TilestackFromPath(stack_width, stack_height, path, src));
   tilestackstack.push(out);
 }
 
@@ -1110,6 +1473,10 @@ void usage(const char *fmt, ...) {
           "        Frame format {\"frameno\":N, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
           "        Multiframe with single bounds. from and to are both inclusive.  step defaults to 1:\n"
           "          {\"frames\":{\"from\":N, \"to\":N, \"step\":N], \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
+          "--path2stack-from-stack width height [frame1, ... frameN]\n"
+          "        Frame format {\"frameno\":N, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
+          "        Multiframe with single bounds. from and to are both inclusive.  step defaults to 1:\n"
+          "          {\"frames\":{\"from\":N, \"to\":N, \"step\":N], \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
           "--path2overlay width height [frame1, ... frameN] overlay.html\n"
           "        Create tilestack by rendering overlay.html#FRAMENO for each frame in path.  Leave background in overlay.html unset\n"
           "        to create an overlay with transparent background\n"
@@ -1118,6 +1485,10 @@ void usage(const char *fmt, ...) {
           "--composite\n"
           "        Framewise overlay top of stack onto second from top.  Stacks must have same dimensions\n"
           "--createfile file   (like touch file)\n"
+          "--loadraw file width height (uint8|uint16|uint32|float32|float64) channels\n"
+          "--hblur sigma: gaussian blur horizontally\n"
+          "--vblur sigma: gaussian blur vertically\n"
+          "--tblur sigma: gaussian blur in time\n"
           );
   exit(1);
 }
@@ -1156,6 +1527,23 @@ int main(int argc, char **argv)
           usage("Filename to load should end in '.ts2'");
         }
         load(src);
+      }
+      else if (arg == "--loadraw") {
+        std::string src = args.shift();
+        TilestackInfo ti;
+        ti.tile_width = args.shift_int();
+        ti.tile_height = args.shift_int();
+        {
+          // TODO: parse this correctly
+          if (args.shift() != "uint8") {
+            usage("Only supporting uint8 for raw input currently");
+          }
+          ti.bits_per_band = 8;
+          ti.pixel_format = PixelInfo::PIXEL_FORMAT_INTEGER;
+        }
+        ti.bands_per_pixel = args.shift_int();
+        
+        loadraw(src, ti);
       }
       else if (arg == "--version") {
         printf("%s\n", version());
@@ -1267,6 +1655,31 @@ int main(int argc, char **argv)
       else if (arg == "--composite") {
         composite();
       }
+      else if (arg == "--subtract") {
+        binop(subtract_op);
+      }
+      else if (arg == "--add") {
+        binop(add_op);
+      }
+      else if (arg == "--scale") {
+        double scale = args.shift_double();
+        unop(scale_unop(scale));
+      }
+      else if (arg == "--hblur") {
+        float sigma = args.shift_double();
+        simple_shared_ptr<Tilestack> result(new HConvolve(tilestackstack.pop(), gaussian_kernel(sigma)));
+        tilestackstack.push(result);
+      }
+      else if (arg == "--vblur") {
+        float sigma = args.shift_double();
+        simple_shared_ptr<Tilestack> result(new VConvolve(tilestackstack.pop(), gaussian_kernel(sigma)));
+        tilestackstack.push(result);
+      }
+      else if (arg == "--tblur") {
+        float sigma = args.shift_double();
+        simple_shared_ptr<Tilestack> result = tconvolve(tilestackstack.pop(), gaussian_kernel(sigma));
+        tilestackstack.push(result);
+      }
       else if (arg == "--create-parent-directories") {
         create_parent_directories = true;
       }
@@ -1286,6 +1699,15 @@ int main(int argc, char **argv)
         }
         bool downsize = (arg == "--path2stack-downsize");
         path2stack(stack_width, stack_height, path, stackset, downsize);
+      }
+      else if (arg == "--path2stack-from-stack") {
+        int stack_width = args.shift_int();
+        int stack_height = args.shift_int();
+        Json::Value path = args.shift_json();
+        if (stack_width <= 0 || stack_height <= 0) {
+          usage("--path2stack: width and height must be positive numbers");
+        }
+        path2stack_from_stack(stack_width, stack_height, path);
       }
       else if (arg == "--path2overlay") {
         int stack_width = args.shift_int();
@@ -1315,7 +1737,7 @@ int main(int argc, char **argv)
     double user, system;
     get_cpu_usage(user, system);
     fprintf(stderr, "%s\n", TilestackReader::stats().c_str());
-    fprintf(stderr, "%s\n", Stackset::stats().c_str());
+    fprintf(stderr, "%s\n", Renderer::stats().c_str());
     
     fprintf(stderr, "User time %g, System time %g\n", user, system);
 
