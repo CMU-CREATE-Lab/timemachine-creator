@@ -1641,7 +1641,7 @@ int main(int argc, char **argv)
           usage("--loadtiles-from-json must have at least one tile defined in the json");
         }
 
-        delete_file(json_path.c_str());
+        //delete_file(json_path.c_str());
         load_tiles(srcs);
       } else if (arg == "--loadtiles") {
         std::vector<std::string> srcs;

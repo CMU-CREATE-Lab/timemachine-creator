@@ -134,7 +134,7 @@ function openData(startDirectory) {
   $("#tabs").tabs("select", "tabs-1");
 
   if (typeof startDirectory == 'undefined') file = api.readFileDialog('Open Time Machine Definition', '', '*.tmc');
-  else file = api.readFile(startDirectory);
+  else file = api.openProjectFile(startDirectory);
 
   if (!file) return;
   tmd = JSON.parse(file);
@@ -795,6 +795,11 @@ function startRender() {
   // Call save dialog window if the current project has not been saved
   if (!definitionPath) saveAs();
   else if (projectModified) save();
+
+  if (definitionPath == "") {
+    inProgress = false;
+    return;
+  }
 
   $("#tabs").tabs("disable","tabs-1");
   $("#compression").slider_x("disable");

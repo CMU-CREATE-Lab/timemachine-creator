@@ -1142,9 +1142,9 @@ class Compiler
     target = raw_tilestack_path(target)
     cmd = tilestacktool_cmd
     cmd << "--create-parent-directories"
-    cmd += ["--delete-source-tiles", "--loadtiles-from-json"] + path.to_a
+    cmd += ["--delete-source-tiles", "--loadtiles-from-json", path]
     cmd += ["--save", target]
-    Rule.add(target, dependencies, [cmd])
+    Rule.add(target, dependencies, [cmd, ["rm", path]])
   end
 
   # How are tilstacks created?
@@ -1369,7 +1369,9 @@ class Maker
       if !$dry_run && (!$run_remotely || rules.all?(&:local))
         result = rules.flat_map(&:commands).all? do |command|
           STDERR.write "#{date} Job #{job_no} executing #{command.join(' ')}\n"
-          if (command[0] == 'mv')
+          if (command[0] == 'rm')
+            File.delete(command[1])
+          elsif (command[0] == 'mv')
             File.rename(command[1], command[2])
           else
             ret = Kernel.system(*command) # This seems to randomly raise an exception in ruby 1.9

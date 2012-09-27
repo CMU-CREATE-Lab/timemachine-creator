@@ -24,7 +24,6 @@ public:
   void requestCallback(int id, QVariantList args);
   bool closeApp();
   
-  Q_INVOKABLE int log();
   Q_INVOKABLE void addJSObject();
   Q_INVOKABLE QPixmap readThumbnail(QString path);
   Q_INVOKABLE double exifTime(QString path);
@@ -33,6 +32,7 @@ public:
   Q_INVOKABLE bool writeFile(QString path, QString data);
   Q_INVOKABLE QString readFileDialog(QString caption, QString startingDirectory, QString filter);
   Q_INVOKABLE QString readFile(QString path);
+  Q_INVOKABLE QString openProjectFile(QString path);
   Q_INVOKABLE bool makeDirectory(QString path);
   Q_INVOKABLE bool invokeRubySubprocess(QStringList args, int callback_id);
   Q_INVOKABLE bool killSubprocess();
@@ -52,6 +52,7 @@ public:
   Q_INVOKABLE bool fileExists(QString path);
   Q_INVOKABLE void doCloseApp();
   Q_INVOKABLE QString getRootAppPath();
+  Q_INVOKABLE bool checkViewerVersion(QString path);
   
 signals:
   void callback(int id, QVariantList args);

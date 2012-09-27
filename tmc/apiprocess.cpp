@@ -7,11 +7,12 @@ APIProcess::APIProcess(API *api, int callback_id) : api(api), callback_id(callba
 }
 
 void APIProcess::receiveReadyReadStandardError() {
-  fprintf(stderr, "%d: receiveReadyReadStandardError\n", callback_id);
+  //fprintf(stderr, "%d: receiveReadyReadStandardError\n", callback_id);
   stderrBuffer.append(process.readAllStandardError());
   while (stderrBuffer.contains('\n')) {
     int pos = stderrBuffer.indexOf('\n');
-    fprintf(stderr, "%d: sending line %s", callback_id, QString(stderrBuffer.left(pos+1)).toUtf8().constData());
+    qDebug() << QString(stderrBuffer.left(pos-1)).toUtf8().constData();
+    //fprintf(stderr, "%d: sending line %s", callback_id, QString(stderrBuffer.left(pos+1)).toUtf8().constData());
     api->requestCallback(callback_id, QVariantList() << QString(stderrBuffer.left(pos+1)));
     stderrBuffer.remove(0, pos+1);
   }

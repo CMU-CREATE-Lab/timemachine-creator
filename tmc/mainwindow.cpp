@@ -291,7 +291,7 @@ void MainWindow::save()
 
 void MainWindow::deleteImages()
 {
-        api->evaluateJavaScript("doDelete(); null");
+  api->evaluateJavaScript("doDelete(); null");
 }
 
 void MainWindow::undo()
@@ -306,5 +306,5 @@ void MainWindow::redo()
 
 void MainWindow::about()
 {
-	QMessageBox::about(this,"About","Time Machine Creator, v1.0.6\nCREATE Lab, 2012");
+  QMessageBox::about(this,"About","Time Machine Creator " + qApp->property("APP_VERSION").toString() + "\nCREATE Lab, 2012");
 }

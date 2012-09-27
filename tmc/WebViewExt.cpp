@@ -4,9 +4,9 @@
 WebViewExt::WebViewExt(API *api, QWidget *parent) : QWebView(parent), api(api) {}
 
 void WebViewExt::dropEvent(QDropEvent *de) {
-  fprintf(stderr, "drop event!\n");
+  //fprintf(stderr, "drop event!\n");
   for (int i = 0; de->format(i); i++) {
-    fprintf(stderr, "  format %s\n", de->format(i));
+    //fprintf(stderr, "  format %s\n", de->format(i));
   }
   if (de->provides("text/uri-list")) {
     QByteArray data = de->encodedData("text/uri-list");

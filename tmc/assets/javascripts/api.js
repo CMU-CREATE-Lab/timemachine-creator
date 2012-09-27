@@ -36,6 +36,8 @@ api.readFile = window._api.readFile;
 
 api.readFileDialog = window._api.readFileDialog;
 
+api.openProjectFile = window._api.openProjectFile;
+
 api.saveAsDialog = window._api.saveAsDialog;
 
 api.setDeleteMenu = window._api.setDeleteMenu;

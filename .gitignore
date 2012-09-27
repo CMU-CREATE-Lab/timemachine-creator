@@ -12,3 +12,4 @@ installer/
 *.pdb
 tmc-linux-*.*
 gigapan-*.*.*-linux*
+*.log

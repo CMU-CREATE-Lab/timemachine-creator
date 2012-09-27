@@ -141,15 +141,6 @@ void API::setRecentlyAddedMenu(bool state) {
         mainwindow->setRecentlyAddedMenu(state);
 }
 
-int API::log() {
-  fprintf(stderr, "log!\n");
-  QVariantList args;
-  args << "hello";
-  args << 33;
-  requestCallback(44, args);
-  return 33;
-}
-
 void API::addJSObject() {
   frame->addToJavaScriptWindowObject(QString("_api"), this);
 }
@@ -261,6 +252,7 @@ QString API::saveAsDialog(QString caption, QString startingDirectory, QString fi
   return QFileDialog::getSaveFileName(NULL, caption, startingDirectory, filter);
 }
 
+// TODO: make this a more generic method
 bool API::writeFile(QString path, QString data)
 {
   QFile file(path);
@@ -269,6 +261,10 @@ bool API::writeFile(QString path, QString data)
   }
   QTextStream(&file) << data;
   mainwindow->setCurrentFile(path);
+  QString projectExtension = ".tmc";
+  QString viewerPath = path.left(path.lastIndexOf("/")-(projectExtension.length())).append(".timemachine/");
+  qApp->setProperty("PROJECT_VIEWER_PATH", viewerPath);
+  file.close();
   return true;
 }
 
@@ -276,19 +272,150 @@ QString API::readFileDialog(QString caption, QString startingDirectory, QString 
 {
   // We do not use native dialog boxes because on Mac OS our data diretory ends in .tmc and Mac thinks this is the item we wanted
   QString path = QFileDialog::getOpenFileName(NULL, caption, startingDirectory, filter, NULL, QFileDialog::DontUseNativeDialog);
+
+  if (path != "") {
+    // first check if this project has an outdated viewer
+    QString projectExtension = ".tmc";
+    QString viewerPath = path.left(path.lastIndexOf("/")-(projectExtension.length())).append(".timemachine/");
+    qApp->setProperty("PROJECT_VIEWER_PATH", viewerPath);
+    QString versionFile = viewerPath.append("VERSION");
+    checkViewerVersion(versionFile);
+    openedProject = path;
+  }
   return readFile(path);
+}
+
+QString API::openProjectFile(QString path)
+{
+  if (path != "") {
+    // first check if this project has an outdated viewer
+    QString projectExtension = ".tmc";
+    QString viewerPath = path.left(path.lastIndexOf("/")-(projectExtension.length())).append(".timemachine/");
+    qApp->setProperty("PROJECT_VIEWER_PATH", viewerPath);
+    QString versionFile = viewerPath.append("VERSION");
+    checkViewerVersion(versionFile);
+    openedProject = path;
+    mainwindow->setCurrentFile(path);
+    return readFile(path);
+  }
+  return NULL;
 }
 
 QString API::readFile(QString path)
 {
-  if(path != "") {
+  if (path != "") {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return ""; // null would be better
-    openedProject = path;
-    mainwindow->setCurrentFile(path);
-    return QTextStream(&file).readAll();
+    QString input = QTextStream(&file).readAll();
+    file.close();
+    return input;
   }
   return NULL;
+}
+
+bool copyDir(const QString source, const QString destination, const bool override, const QStringList exclude) {
+  qApp->processEvents();
+
+  QDir directory(source);
+  bool error = false;
+
+  if (!directory.exists()) {
+    return false;
+  }
+
+  QStringList dirs =  directory.entryList(QDir::AllDirs | QDir::Hidden | QDir::NoDotAndDotDot);
+  QStringList files = directory.entryList(QDir::Files | QDir::Hidden);
+  bool doSkipDir, doSkipFile;
+
+  QList<QString>::iterator d,f;
+
+  for (d = dirs.begin(); d != dirs.end(); ++d) {
+
+    if (!QFileInfo(directory.path() + "/" + (*d)).isDir()) {
+      continue;
+    }
+
+    doSkipDir = false;
+    for (int i = 0; i < exclude.length(); i++) {
+      if (exclude[i] == *d) {
+        doSkipDir = true;
+        break;
+      }
+    }
+    if (doSkipDir) continue;
+
+    QDir temp(destination + "/" + (*d));
+    temp.mkpath(temp.path());
+
+    if (!copyDir(directory.path() + "/" + (*d), destination + "/" + (*d), override, exclude)) {
+      error = true;
+    }
+  }
+
+  for (f = files.begin(); f != files.end(); ++f) {
+    QFile tempFile(directory.path() + "/" + (*f));
+
+    if (QFileInfo(directory.path() + "/" + (*f)).isDir()) {
+      continue;
+    }
+
+    doSkipFile = false;
+    for (int i = 0; i < exclude.length(); i++) {
+      if (exclude[i] == *f) {
+        doSkipFile = true;
+        break;
+      }
+    }
+    if (doSkipFile) continue;
+
+    QFile destFile(destination + "/" + directory.relativeFilePath(tempFile.fileName()));
+
+    if (destFile.exists() && override) {
+      destFile.remove();
+    }
+
+    if (!tempFile.copy(destination + "/" + directory.relativeFilePath(tempFile.fileName()))) {
+      error = true;
+    }
+  }
+
+  return !error;
+}
+
+bool API::checkViewerVersion(QString path)
+{
+  QString viewerVersion = readFile(path);
+
+  if (QString::compare(viewerVersion,qApp->property("APP_VERSION").toString()) < 0) {
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+
+    QString msg = "Old viewer detected: [" + viewerVersion + "] vs [" + qApp->property("APP_VERSION").toString() + "] Updating...";
+    qDebug() << msg;
+
+    QProgressDialog *dialog = new QProgressDialog();
+    dialog->setMinimum(0);
+    dialog->setMaximum(0);
+    dialog->setLabelText("Updating viewer files...");
+    dialog->setCancelButton(0);
+    dialog->show();
+    qApp->processEvents();
+
+    QString srcPath = getRootAppPath().append("/time-machine-explorer/");
+    QString dstPath = path.left(path.lastIndexOf("VERSION"));
+
+    QStringList exclude;
+    exclude << "archive" << "cgi-bin" << "htmlets" << "utils" << "tests"
+            << ".git" << ".gitignore" << "favicon.ico" << "iframe.html"
+            << "integrated-viewer.html" << "save_time_warp.php" << "standalone.html"
+            << "TimeMachineExplorer.iml" << "TimeMachineExplorer.ipr";
+
+    copyDir(srcPath,dstPath,true,exclude);
+
+    dialog->close();
+    delete dialog;
+    QApplication::restoreOverrideCursor();
+  }
+  return true;
 }
 
 QString API::getOpenedProjectPath()
@@ -313,11 +440,14 @@ bool API::fileExists(QString path)
 
 bool API::invokeRubySubprocess(QStringList args, int callback_id)
 {
-  fprintf(stderr, "invokeRubySubprocess:");
+  //fprintf(stderr, "invokeRubySubprocess:");
+  qDebug() << "invokeRubySubprocess:";
+
   for (int i = 0; i < args.length(); i++) {
-    fprintf(stderr, " %s", args[i].toUtf8().constData());
+    //fprintf(stderr, " %s", args[i].toUtf8().constData());
+    qDebug() << args[i].toUtf8().constData();
   }
-  fprintf(stderr, "\n");
+  //fprintf(stderr, "\n");
   process = new APIProcess(this, callback_id);
 
   // Ruby path
@@ -329,17 +459,19 @@ bool API::invokeRubySubprocess(QStringList args, int callback_id)
     ruby_path = "/usr/bin/ruby";
   }
 
-  fprintf(stderr, "Invoking ruby with path '%s'\n", ruby_path.c_str());
+  //fprintf(stderr, "Invoking ruby with path '%s'\n", ruby_path.c_str());
+  qDebug() << QString("Invoking ruby with path: ").append(ruby_path.c_str());
   process->process.start(ruby_path.c_str(), args, QIODevice::ReadOnly);
   return true;
 }
 
 bool API::killSubprocess() {
   process->process.kill();
+  delete process;
   return true;
 }
 
 QString API::getRootAppPath()
 {
-        return QString::fromStdString(rootdir);
+  return QString::fromStdString(rootdir);
 }
