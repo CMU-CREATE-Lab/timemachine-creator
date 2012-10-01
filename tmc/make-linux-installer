@@ -1,0 +1,40 @@
+#!/bin/sh
+
+if [ -z $1 ]; then
+  echo "Usage: $0 versionNumber"
+  exit
+fi
+
+version=$1
+output_directory="tmc-$version-linux"
+
+rm -rf $output_directory
+mkdir $output_directory
+# make tilestackool
+cd ../tilestacktool
+make clean
+make
+cd ..
+# make tmc
+cd tmc
+make clean
+rm tmc
+qmake
+make
+# viewer files
+cp -R ../time-machine-explorer $output_directory
+# ct.rb files
+mkdir $output_directory/ct
+cp -R ../ct/*.rb ../ct/backports ../ct/exifr ../ct/json $output_directory/ct
+# tilestacktool files
+mkdir -p $output_directory/tilestacktool/ffmpeg/linux
+cp -R ../tilestacktool/tilestacktool $output_directory/tilestacktool
+cp -R ../tilestacktool/ffmpeg/linux/ffmpeg $output_directory/tilestacktool/ffmpeg/linux
+# tmc files
+mkdir $output_directory/tmc
+cp -R assets index.html tmc ../LICENSE tmc.ico $output_directory/tmc
+# .so files since we are doing a shared build
+cp -RL /usr/lib/i386-linux-gnu/libaudio.so.2 /usr/lib/i386-linux-gnu/libQtCore.so.4 /usr/lib/i386-linux-gnu/libQtGui.so.4 /usr/lib/i386-linux-gnu/libQtNetwork.so.4 /usr/lib/i386-linux-gnu/libQtWebKit.so.4 /usr/lib/i386-linux-gnu/qt4/plugins/imageformats $output_directory/tmc
+cp tmc.sh $output_directory
+# create archive
+tar -czf "$output_directory.tar.gz" $output_directory

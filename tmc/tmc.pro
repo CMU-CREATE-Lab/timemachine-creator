@@ -6,6 +6,11 @@ CONFIG(debug, debug|release) {
 }
 QT += webkit
 
+unix:!mac{
+    QMAKE_LFLAGS += -Wl,--rpath=\\\$\$ORIGIN
+    QMAKE_LFLAGS_RPATH=
+}
+
 QMAKE_MACOSX_DEPLOYMENT_TARGET = 10.5
 
 win32:RC_FILE += tmc.rc
