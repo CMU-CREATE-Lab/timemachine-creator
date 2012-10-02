@@ -1744,7 +1744,7 @@ Filesystem.write_file("#{@@global_parent.videosets_dir}/ajax_includes.js",
                       ajax_includes_to_javascript)
 STDERR.puts "Wrote final #{@@global_parent.videosets_dir}/ajax_includes.js"
 
-STDERR.puts "If you're authoring a mediawiki page at timemachine.gigapan.org, you can add this to #{compiler.urls['view'] || "your page"} to see the result: {{TimeWarpComposer}} {{TimelapseViewer|timelapse_id=#{compiler.versioned_id}|timelapse_dataset=1}}"
+STDERR.puts "If you're authoring a mediawiki page at timemachine.gigapan.org, you can add this to #{compiler.urls['view'] || "your page"} to see the result: {{TimelapseViewer|timelapse_id=#{compiler.versioned_id}|timelapse_dataset=1|show_timewarp_composer=true}}"
 compiler.urls['track'] and STDERR.puts "and update tracking page #{compiler.urls['track']}"
 
 STDERR.puts "View at file://#{destination}/view.html"
