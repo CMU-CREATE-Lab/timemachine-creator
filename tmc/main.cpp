@@ -75,12 +75,12 @@ int main(int argc, char *argv[])
   a.setApplicationName("Time Machine Creator");
 
   // App Version (used for the creator software and time-machine-explorer)
-  a.setProperty("APP_VERSION", "1.0.7");
+  a.setProperty("APP_VERSION", "1.0.8");
 
   // Get root directory
   std::string exedir = filename_directory(executable_path());
   std::string rootdir;
-  
+
   if (os() == "windows") {
     if (filename_exists(exedir + "/tmc")) {
       // Deployed path
@@ -127,11 +127,11 @@ int main(int argc, char *argv[])
 
   QWebSettings::globalSettings()->setLocalStoragePath(local_storage_path.c_str());
   API api(rootdir);
-  
+
   MainWindow * windowMenu = new MainWindow;
   windowMenu->setApi(&api);
   QVBoxLayout *layout = new QVBoxLayout(windowMenu->centralWidget());
-  
+
   WebViewExt view(&api);
   view.setMinimumSize(640,480); //set a minimum window size so things do not get too distorted
 
@@ -141,7 +141,7 @@ int main(int argc, char *argv[])
 
   api.setFrame(view.page()->mainFrame());
   api.setWindow(windowMenu);
-  
+
   // Signal is emitted before frame loads any web content:
   QObject::connect(view.page()->mainFrame(), SIGNAL(javaScriptWindowObjectCleared()),
 		   &api, SLOT(addJSObject()));
@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
   #endif
   //fprintf(stderr, "Loading '%s'\n", url.c_str());
   view.load(QUrl(url.c_str()));
-  
+
   // Disable right click in webkit when in release mode
   #ifdef QT_NO_DEBUG
     view.setContextMenuPolicy(Qt::NoContextMenu);
@@ -164,6 +164,6 @@ int main(int argc, char *argv[])
   view.setWindowIcon(QIcon(":/tmc.ico"));
 
   windowMenu->show();
-  
+
   return a.exec();
 }

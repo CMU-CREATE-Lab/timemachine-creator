@@ -7,10 +7,12 @@
     <script type="text/javascript" src="assets/javascripts/ui.spinner.min.js"></script>
     <script type="text/javascript" src="assets/javascripts/jquery.progressbar.min.js"></script>
     <script type="text/javascript" src="assets/javascripts/jquery.ui-slider-x.js"></script>
+    <script type="text/javascript" src="assets/javascripts/jquery.ui.selectmenu.min.js"></script>
     <script type="text/javascript" src="assets/javascripts/tmc.js"></script>
     <link rel="stylesheet" type="text/css" href="assets/stylesheets/smoothness/jquery-ui.css" />
     <link rel="stylesheet" type="text/css" href="assets/stylesheets/ui.spinner.css" />
     <link rel="stylesheet" type="text/css" href="assets/stylesheets/jquery.ui-slider-x.css" />
+    <link rel="stylesheet" type="text/css" href="assets/stylesheets/jquery.ui.selectmenu.css" />
     <link rel="stylesheet" type="text/css" href="assets/stylesheets/tmc.css" />
     <script>
       $(init);
@@ -23,7 +25,7 @@
           <a href="#tabs-1">Organize Images</a>
         </li>
         <li>
-          <a href="#tabs-2" onclick="checkData()">Render and Export</a>
+          <a href="#tabs-2" onclick="checkDataFields()">Render and Export</a>
         </li>
       </ul>
       <div id="tabs-1" style="height:100%">
@@ -49,8 +51,8 @@
         </div>
         <div id="top_area" style="position:absolute; height:100px; top:60px; left:200px;">
           <!-- Drag and drop files and folders -->
-          <div id="dropbox" style="border-style:dotted; border-width: 3px; background: #f5f5f5; padding: 20px; display: table; width: 50%; margin: 0px auto; text-align: center; height: 80px">
-            Drop images or directories here
+          <div id="dropbox" style="border:3px dashed #a3a3a3; background: #f5f5f5; padding: 10px; display: table; width: 50%; margin: 0px auto; text-align: center; height: 80px">
+            <br/>Drop images or directories here
           </div>
           <button id="btnToggle" type="button" onclick="toggleFilmstrip()" style="position:absolute; bottom:2px;left:2px;width:90px;">Slideshow View</button>
         </div>
@@ -87,14 +89,32 @@
                   </div>
                 </div>
                 <div style="float:left">
-                  Parallel Jobs:<input type="text" style="float:right; margin: 0px 0px 0px 5px" id="num_jobs" size="2" maxlength="2" value="2" onclick="this.select();" onblur="checkNumJobs(this.value)"/>
-                  <div id="jobs_explanation" style="float:right; width: 16px" class="ui-state-default ui-corner-all" title="Explain">
+                  Video Size: <select id="videoSize" style="width: 80px;">
+                    <option value="854,480">480p</option>
+                    <option value="1280,720">720p</option>
+                    <option value="1920,1080">1080p</option>
+                    <option value="-1">Custom</option>
+                  </select>
+                  <div id="videoSize_explanation" style="float:right; width: 16px" class="ui-state-default ui-corner-all" title="Explain">
                     <span class="ui-icon ui-icon-info" title="Explain"></span>
                   </div>
                   <br/>
+                  <div id="videoSize_custom" style="margin: 20px -55px 0px 20px; display: none">
+                      Width: <input type="text" id="videoSize_width" style="width: 30px !important"> Height: <input type="text" id="videoSize_height" style="width: 30px !important">
+                  </div>
                 </div>
-                <br/>
-                <p style="max-width:352px"><font size="1">Note: A rough speed estimate is about 30 seconds per input frame, on a typical 2-core Windows computer.</font></p>
+                <br/><br/><br/><br/>
+                <div id="job_setting" style="margin-top: -30px">
+                  <div style="float:left">
+                    Parallel Jobs:<input type="text" style="float:right; margin: 0px 0px 0px 5px" id="num_jobs" size="2" maxlength="2" value="2" onclick="this.select();" onblur="checkNumJobs(this.value)"/>
+                    <div id="jobs_explanation" style="float:right; width: 16px" class="ui-state-default ui-corner-all" title="Explain">
+                      <span class="ui-icon ui-icon-info" title="Explain"></span>
+                    </div>
+                    <br/>
+                  </div>
+                  <br/>
+                  <p style="max-width:352px"><font size="1">Note: A rough speed estimate is about 30 seconds per input frame, on a typical 2-core Windows computer.</font></p>
+                </div>
                 <div id="compression-dialog-message" title="Compression explanation">
                   <p>
                     This setting controls the compression level of the output videos.<br/><br/>Higher compression means smaller videos sizes, but at the loss of quality. Lower compression means higher quality but results in larger file sizes. Going below a setting of 26 is not recommended if you plan to stream your Time Machine over the Internet. And going significantly above a setting of 30 will result in videos which are blocky and blurred.<br/><br/>At this time, encoding only in H.264 is supported by this software.
@@ -103,6 +123,15 @@
                 <div id="fps-dialog-message" title="Frame rate explanation">
                   <p>
                     This setting controls the speed at which the frames are played back -- typically from 3 to 25 frames per second.<br/><br/>You should experiment to see what speed works best for your data. If you have thousands of frames, and there is a relatively small change between frames, 25 FPS might be a good choice. If you have fewer frames, or there is a larger change between images, select a slower rate such as 6 or 12 FPS. Even lower, like 3 FPS tends to work well when there is a large change between successive images.
+                  </p>
+                </div>
+                <div id="videoSize-dialog-message" title="Video size explanation">
+                  <p>
+                    Set the width and height of the videos generated. <br/><br/>Note that the videos produced are 25% larger than the values specified, since overlap is required by the viewer. <br/><br/>
+                    You can choose from a set of standard sizes or input your own. <br/><br/>For reference, the choices correspond to the following dimensions:<br/><br/>
+                    480p => 854x480<br/>
+                    720p => 1280x720<br/>
+                    1080p => 1920x1080<br/>
                   </p>
                 </div>
                 <div id="jobs-dialog-message" title="Running tasks in parallel">
@@ -115,7 +144,7 @@
                     <span class="ui-icon ui-icon-alert" style="float:left; margin:0 7px 80px 0;"></span>
                     You have made changes to your project which you have not saved.<br><br>Would you like to save these changes before you proceed?
                   </p>
-                </div>                  
+                </div>
                 <div id="change-format" title="Set Capture Format">
                   <table>
                     <tr>

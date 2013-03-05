@@ -50,7 +50,7 @@ void API::openBrowser(QString url) {
         QSettings brwCH("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe",QSettings::NativeFormat);
         QString brwPath = brwCH.value( "Default", "0" ).toString();
         if(brwPath!="0") {
-                QProcess::startDetached(brwPath, QStringList() << "--new-window" << url);
+                QProcess::startDetached(brwPath, QStringList() << "--new-window" << "--disable-web-security" << "--disable-accelerated-video" << url);
                 return;
         }
 
@@ -58,10 +58,10 @@ void API::openBrowser(QString url) {
         QSettings brwCH2("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Google Chrome",QSettings::NativeFormat);
         brwPath = brwCH2.value( "InstallLocation", "0" ).toString();
         if(brwPath!="0") {
-                QProcess::startDetached(brwPath+"\\chrome.exe", QStringList() << "--new-window" << url);
+                QProcess::startDetached(brwPath+"\\chrome.exe", QStringList() << "--new-window" << "--disable-web-security" << "--disable-accelerated-video" << url);
                 return;
         }
-        
+
         // search whether user has safari installed
         QSettings brwSA("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\Safari.exe",QSettings::NativeFormat);
         brwPath = brwSA.value( "Default", "0" ).toString();
@@ -69,18 +69,18 @@ void API::openBrowser(QString url) {
                 QProcess::startDetached(brwPath, QStringList() << url);
                 return;
         }
-        
+
         // tell user that they don't have any compatible browser and exit
         QMessageBox::critical(mainwindow,tr("No Browser"),tr("There is no compatible browser installed on this computer.\nYou need either Chrome or Safari in order to view your time machine."));
         return;
-        
+
 #elif defined Q_WS_MAC
         url = "file://"+url;
         if(QFileInfo("/Applications/Google Chrome.app").exists())
                 //QProcess::startDetached("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", QStringList() << "--new-window" << url);
-                system(string_printf("open -a 'Google Chrome' '%s'", QUrl(url).toEncoded().replace("'", "%27").constData()).c_str());
+                system(string_printf("open -a 'Google Chrome' '%s' --disable-web-security", QUrl(url).toEncoded().replace("'", "%27").constData()).c_str());
         else if(QFileInfo("/Applications/Safari.app").exists())
-                QProcess::startDetached("/Applications/Safari.app/Contents/MacOS/Safari", QStringList() << url);
+                QProcess::startDetached("/Applications/Safari.app/Contents/MacOS/Safari", QStringList() << "--disable-web-security" << url);
         else
                 QDesktopServices::openUrl(url);
 
@@ -91,7 +91,7 @@ void API::openBrowser(QString url) {
         if (QProcess::startDetached("chromium-browser", QStringList() << "--new-window" << url))
 	        return;*/
 
-        if (QProcess::startDetached("google-chrome", QStringList() << "--new-window" << url))
+        if (QProcess::startDetached("google-chrome", QStringList() << "--new-window" << "--disable-web-security" << url))
             return;
 
         // go with the default browser
@@ -384,12 +384,16 @@ bool copyDir(const QString source, const QString destination, const bool overrid
 
 bool API::checkViewerVersion(QString path)
 {
+
+  QDir dir = QFileInfo(path).absoluteDir();
+  if (!dir.exists()) return false;
+
   QString viewerVersion = readFile(path);
 
   if (QString::compare(viewerVersion,qApp->property("APP_VERSION").toString()) < 0) {
     QApplication::setOverrideCursor(Qt::WaitCursor);
 
-    QString msg = "Old viewer detected: [" + viewerVersion + "] vs [" + qApp->property("APP_VERSION").toString() + "] Updating...";
+    QString msg = "Old viewer detected: [" + viewerVersion + "] vs [" + qApp->property("APP_VERSION").toString() + "]. Updating...";
     qDebug() << msg;
 
     QProgressDialog *dialog = new QProgressDialog();
@@ -414,8 +418,9 @@ bool API::checkViewerVersion(QString path)
     dialog->close();
     delete dialog;
     QApplication::restoreOverrideCursor();
+    return true;
   }
-  return true;
+  return false;
 }
 
 QString API::getOpenedProjectPath()
@@ -452,7 +457,7 @@ bool API::invokeRubySubprocess(QStringList args, int callback_id)
 
   // Ruby path
   std::string ruby_path;
-  
+
   if (os() == "windows") {
     ruby_path = rootdir + "/ruby/windows/bin/ruby.exe";
   } else {

@@ -2,6 +2,11 @@
   font-size: .8em !important;
 }
 
+.ui-selectmenu { 
+  float: right !important; 
+  margin: 0px 0px 0px 5px !important;
+}
+
 .ui-state-default {
   cursor: pointer;
 }

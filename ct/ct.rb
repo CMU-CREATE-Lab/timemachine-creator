@@ -417,11 +417,17 @@ class VideosetCompiler
     @label = settings["label"] || raise("Video settings must include label")
 
     @videotype = settings["type"] || raise("Video settings must include type")
-    
+
     size = settings["size"] || raise("Video settings must include size")
-    @@sizes.member?(size) || raise("Video size must be one of [#{@@sizes.keys.join(", ")}]")
-    (@vid_width, @vid_height) = @@sizes[size][:vid_size]
-    (@overlap_x, @overlap_y) = @@sizes[size][:overlap]
+
+    overlap = settings["overlap"] || 0.25
+    (@vid_width, @vid_height) = [(size[0] / (1-overlap)).ceil, (size[1] / (1-overlap)).ceil]
+    
+    # Ensure that the width and height are multiples of 2 for ffmpeg
+    @vid_width = ((@vid_width - 1) / 2 + 1) * 2
+    @vid_height = ((@vid_height - 1) / 2 + 1) * 2
+
+    (@overlap_x, @overlap_y) = [@vid_width - size[0], @vid_height - size[1]]
 
     (@compression = settings["compression"] || settings["quality"]) or raise "Video settings must include compression"
     @compression = @compression.to_i
@@ -553,7 +559,17 @@ class VideosetCompiler
         cmd += @parent.video_filter || []
         
         @leader > 0 and cmd += ["--prependleader", @leader]
-        
+
+        cmd += ["--blackstack",
+                10, # number of frames
+                @vid_width,
+                @vid_height,
+                3,  # bands per pixel
+                8   # bits per band
+                ];
+
+        cmd << "--cat";
+
         cmd += ['--writevideo', target, @fps, @compression]
         
         Rule.add(target, dependencies, [cmd])

@@ -28,11 +28,16 @@ function setOutputSettings() {
     outputData["source"]["tilesize"] = tileSize;
 
     outputData["videosets"] = [];
-
     videoSet = {};
-    videoSet["label"] = "Large";
     videoSet["type"] = "h.264";
-    videoSet["size"] = "large";
+
+    if ($('#videoSize').val() == -1) {
+      videoSet["label"] = $("#videoSize_width").val() + "x" + $("#videoSize_height").val();
+      videoSet["size"] = [parseInt($("#videoSize_width").val()),parseInt($("#videoSize_height").val())];
+    } else {
+      videoSet["label"] = $('#videoSize :selected').text();
+      videoSet["size"] = $('#videoSize').val().split(",").map( Number );
+    }
     videoSet["compression"] = $("#compression").slider_x("value");
     videoSet["fps"] = $("#fps").spinner("value");
 
@@ -94,7 +99,7 @@ function newProject() {
     $("#dialog-confirm").data('recentProjectPath', null);
     $("#dialog-confirm").data('clearProject', true);
     $("#dialog-confirm").dialog("open");
-    $('.ui-dialog :button').blur();  
+    $('.ui-dialog :button').blur();
   }else {
     clearProjectData();
   }
@@ -114,17 +119,17 @@ function clearProjectData() {
 
   // bring up organize image tab
   $("#tabs").tabs("select", "tabs-1");
-  
+
   $("#numFrames").text(data.length + " Frames")
   $('#zoom').hide();
   $('#scroll').css({'overflow':'hidden'});
 
   api.setUndoMenu(false);
   api.setRedoMenu(false);
-  saveAction(false);  
+  saveAction(false);
 
   reactivateUI();
-  
+
   rescale();
   refresh();
 }
@@ -174,6 +179,23 @@ function openData(startDirectory) {
   // load video settings
   $("#compression").slider_x("value", tmd["videosets"][0]["compression"]);
   $("#fps").spinner("value", tmd["videosets"][0]["fps"]);
+
+  var foundVideoSize = false;
+  $("select option").each(function() {
+    if ($(this).text() == tmd["videosets"][0]["label"]) {
+      foundVideoSize = true;
+      return false;
+    }
+  });
+
+  if (foundVideoSize) {
+    $('select#videoSize').selectmenu("value", tmd["videosets"][0]["size"][0]+","+tmd["videosets"][0]["size"][1])
+  } else {
+    $('select#videoSize').selectmenu("value", "-1")
+    $('#videoSize_width').val(tmd["videosets"][0]["size"][0])
+    $('#videoSize_height').val(tmd["videosets"][0]["size"][1])
+  }
+
   updateActiveData();
   rescale();
   refresh();
@@ -423,7 +445,7 @@ function refresh() {
 
     var imageObj = new Image();
     var prepend = (navigator.appVersion.indexOf("Win")!=-1) ? "file:///" : "file://"
-    imageObj.src = prepend+activeData["images"][0][filmstripIndex];          
+    imageObj.src = prepend+activeData["images"][0][filmstripIndex];
 
     var maxWidth = $("#canvas").width(); // Max width for the image
     var maxHeight = $("#canvas").height() - 140;    // Max height for the image
@@ -457,7 +479,7 @@ function refresh() {
       context.drawImage(imageObj, x, y, width, height);
       context.fillText(activeData["images"][0][filmstripIndex],x,height+y+8);
       var date = new Date(1000 * activeData["capture_times"][0][filmstripIndex]);
-      var text = date.toLocaleDateString() + " " + date.toLocaleTimeString(); 
+      var text = date.toLocaleDateString() + " " + date.toLocaleTimeString();
       context.fillText(text,x,y-2);
     };
     return;
@@ -631,17 +653,17 @@ function rescale() {
   $("#tabs").css({
     "height": $("body").height()-6 + "px",
     "width": $("body").width()-6 + "px",
-  });        
+  });
 
   $("#tabs-1").css({
     "height": $("body").height()-70 + "px",
     "width": $("body").width()-46 + "px",
-  });  
+  });
 
   $("#tabs-2").css({
     "height": $("body").height()-56 + "px",
     "width": $("body").width()-46 + "px",
-  });          
+  });
 
   if (filmstripMode) {
 
@@ -665,7 +687,7 @@ function rescale() {
     });
 
     $("#canvas").attr("width", $("#canvasdiv").width());
-    $("#canvas").attr("height", $("#canvasdiv").height());        
+    $("#canvas").attr("height", $("#canvasdiv").height());
 
     return;
   }
@@ -691,7 +713,7 @@ function rescale() {
 
   $("#controls").css({
     "height": ($("#tabs").height() - 56) + "px"
-  });    
+  });
 
   $("#canvasdiv").css({
     "height": ($("#controls").outerHeight(true) - $("#top_area").outerHeight(true)-3) + "px",
@@ -803,7 +825,8 @@ function startRender() {
 
   $("#tabs").tabs("disable","tabs-1");
   $("#compression").slider_x("disable");
-  $("#fps").spinner("disable")
+  $("#fps").spinner("disable");
+  $("#videoSize").selectmenu("disable");
   $("#num_jobs").button("disable");
   openProjectAction(false);
   saveAction(false);
@@ -884,15 +907,15 @@ function init() {
             if ($(e.target).is('input') ) { return; }
             e.preventDefault();
             if (e.which==37) {
-              filmstripIndex--; 
+              filmstripIndex--;
               refresh();
             } else {
-              filmstripIndex++; 
+              filmstripIndex++;
               refresh();
             }
         }
       }
-  }); 
+  });
 
   $("#jumpToFrame").keyup(function(event){
       if(event.keyCode == 13){
@@ -959,7 +982,7 @@ function init() {
         $(this).dialog("close");
       }
     }
-  });        
+  });
 
   $("#jobs-dialog-message").dialog({
     autoOpen: false,
@@ -971,7 +994,7 @@ function init() {
         $(this).dialog("close");
       }
     }
-  });        
+  });
 
   $("#compression-dialog-message").dialog({
     autoOpen: false,
@@ -983,7 +1006,19 @@ function init() {
         $(this).dialog("close");
       }
     }
-  });          
+  });
+
+  $("#videoSize-dialog-message").dialog({
+    autoOpen: false,
+    modal: true,
+    width: 430,
+    resizable: false,
+    buttons: {
+      Ok: function () {
+        $(this).dialog("close");
+      }
+    }
+  });
 
   $("#dialog-confirm").dialog({
     autoOpen: false,
@@ -1040,6 +1075,10 @@ function init() {
     $("#compression-dialog-message").dialog("open");
   });
 
+  $("#videoSize_explanation").click(function () {
+    $("#videoSize-dialog-message").dialog("open");
+  });
+
   $("#compression").slider_x({
      change: function(event, ui) {
        projectModified = true;
@@ -1050,7 +1089,40 @@ function init() {
   $('#fps').spinner().change(function(){
     projectModified = true;
     saveAction(true);
-  });        
+  });
+
+  $('#videoSize_width, #videoSize_height').change(function(event,manualTrigger){
+      projectModified = true;
+      if (!isInt(this.value)) {
+        if (!manualTrigger) {
+          alert("Please enter a valid integer");
+        }
+        $("#render_export_btn").button("disable");
+      } else {
+        if (isInt($("#videoSize_width").val()) && isInt($("#videoSize_height").val())) {
+          $("#render_export_btn").button("enable");
+          checkData();
+        } else {
+          $("#render_export_btn").button("disable");
+        }
+      }
+  });
+
+  $('#videoSize').selectmenu({
+    change: function(e, object){
+       projectModified = true;
+      if (object.value == -1) {
+        $("#videoSize_custom").show();
+        $("#job_setting").css("margin-top","0px");
+        $("#render_export_btn").button("disable");
+      } else {
+        $("#videoSize_width").val("");
+        $("#videoSize_height").val("");
+        $("#videoSize_custom").hide();
+        $("#job_setting").css("margin-top","-30px");
+      }
+    }
+  });
 
   $("body").keypress(keypress);
 
@@ -1201,7 +1273,7 @@ function init() {
       for (i = 0; i < data[0].length; i++) {
 
         // There is something wrong with my collision code or something else is at play.
-        // Either way, checking whether the image is currently visible seems to fix this.   
+        // Either way, checking whether the image is currently visible seems to fix this.
         if ((data[0][i].deleted) || !(data[0][i].time >= mintime && data[0][i].time <= maxtime)) continue;
 
         // Determine whether the selection rectangle intersects one of our data objects (also a rectangle)
@@ -1259,8 +1331,9 @@ function reactivateUI() {
 
   $("#tabs").tabs("enable","tabs-1");
   $("#status_window").html("");
-  $("#compression").slider_x("enable")
-  $("#fps").spinner("enable")
+  $("#compression").slider_x("enable");
+  $("#fps").spinner("enable");
+  $("#videoSize").selectmenu("enable");
   $("#num_jobs").button("enable");
   $("#render_export_btn").show();
 }
@@ -1452,13 +1525,25 @@ function dropHandler(evt) {
   addDroppedFiles();
 }
 
+function isInt(value) {
+  return (Math.floor(value) == value && $.isNumeric(value))
+}
+
+function checkDataFields() {
+  checkData();
+  if ($('#videoSize').val() == -1) {
+    $('#videoSize_width').trigger('change', true);
+    $('#videoSize_height').trigger('change', true);
+  }
+}
+
 function checkData() {
-    if (data.length == 0 || data[0].length == 0 || activeData["images"].length == 0 || activeData["images"][0].length == 0) $("#render_export_btn").button("disable");
-    else $("#render_export_btn").button("enable");
+  if (data.length == 0 || data[0].length == 0 || activeData["images"].length == 0 || activeData["images"][0].length == 0) $("#render_export_btn").button("disable");
+  else $("#render_export_btn").button("enable");
 }
 
 function checkNumJobs(val) {
-    if ((val) <= 0 || !isNumber(val)) $("#num_jobs").val(2);
+  if ((val) <= 0 || !isNumber(val)) $("#num_jobs").val(2);
 }
 
 HTMLCanvasElement.prototype.relMouseCoords = function (event) {
