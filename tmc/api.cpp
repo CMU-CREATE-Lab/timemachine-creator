@@ -50,7 +50,7 @@ void API::openBrowser(QString url) {
         QSettings brwCH("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe",QSettings::NativeFormat);
         QString brwPath = brwCH.value( "Default", "0" ).toString();
         if(brwPath!="0") {
-                QProcess::startDetached(brwPath, QStringList() << "--new-window" << "--disable-web-security" << "--disable-accelerated-video" << url);
+                QProcess::startDetached(brwPath, QStringList() << "--new-window" << "--disable-web-security" << url);
                 return;
         }
 
@@ -58,7 +58,7 @@ void API::openBrowser(QString url) {
         QSettings brwCH2("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Google Chrome",QSettings::NativeFormat);
         brwPath = brwCH2.value( "InstallLocation", "0" ).toString();
         if(brwPath!="0") {
-                QProcess::startDetached(brwPath+"\\chrome.exe", QStringList() << "--new-window" << "--disable-web-security" << "--disable-accelerated-video" << url);
+                QProcess::startDetached(brwPath+"\\chrome.exe", QStringList() << "--new-window" << "--disable-web-security" << url);
                 return;
         }
 
