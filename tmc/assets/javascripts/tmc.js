@@ -188,12 +188,14 @@ function openData(startDirectory) {
     }
   });
 
-  if (foundVideoSize) {
-    $('select#videoSize').selectmenu("value", tmd["videosets"][0]["size"][0]+","+tmd["videosets"][0]["size"][1])
-  } else {
-    $('select#videoSize').selectmenu("value", "-1")
-    $('#videoSize_width').val(tmd["videosets"][0]["size"][0])
-    $('#videoSize_height').val(tmd["videosets"][0]["size"][1])
+  if (isInt(tmd["videosets"][0]["size"][0])) {
+    if (foundVideoSize) {
+      $('select#videoSize').selectmenu("value", tmd["videosets"][0]["size"][0]+","+tmd["videosets"][0]["size"][1])
+    } else {
+      $('select#videoSize').selectmenu("value", "-1")
+      $('#videoSize_width').val(tmd["videosets"][0]["size"][0])
+      $('#videoSize_height').val(tmd["videosets"][0]["size"][1])
+    }
   }
 
   updateActiveData();
