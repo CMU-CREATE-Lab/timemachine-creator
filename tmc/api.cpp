@@ -78,7 +78,7 @@ void API::openBrowser(QString url) {
         url = "file://"+url;
         if(QFileInfo("/Applications/Google Chrome.app").exists())
                 //QProcess::startDetached("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", QStringList() << "--new-window" << url);
-                system(string_printf("open -a 'Google Chrome' '%s' --disable-web-security", QUrl(url).toEncoded().replace("'", "%27").constData()).c_str());
+                system(string_printf("open -a 'Google Chrome' --args '--disable-web-security' '%s'", QUrl(url).toEncoded().replace("'", "%27").constData()).c_str());
         else if(QFileInfo("/Applications/Safari.app").exists())
                 QProcess::startDetached("/Applications/Safari.app/Contents/MacOS/Safari", QStringList() << "--disable-web-security" << url);
         else
