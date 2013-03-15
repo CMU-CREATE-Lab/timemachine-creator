@@ -91,6 +91,7 @@ end
 
 $compute_tilestacks = Partial.all
 $compute_videos = Partial.all
+$preserve_source_tiles = false
 
 if profile
   require 'rubygems'
@@ -396,19 +397,15 @@ end
 class VideosetCompiler
   attr_reader :videotype, :vid_width, :vid_height, :overlap_x, :overlap_y, :compression, :label, :fps, :show_frameno, :parent
   attr_reader :id
+
+  # DEPRECATED
+  # We now allow users to pass in an array containing a desired width and height
   @@sizes={
     "large"=>{:vid_size=>[1088,624], :overlap=>[1088/4, 624/4]},
     "small"=>{:vid_size=>[768,432], :overlap=>[768/3, 432/3]}
   }
   @@videotypes={
     "h.264"=>{}
-  }
-
-  @@leader_bytes_per_pixel={
-    30 => 2701656.0 / (1088 * 624 * 90),
-    28 => 2738868.0 / (1088 * 624 * 80),
-    26 => 2676000.0 / (1088 * 624 * 70),
-    24 => 2556606.0 / (1088 * 624 * 60)
   }
   
   def initialize(parent, settings)
@@ -420,14 +417,20 @@ class VideosetCompiler
 
     size = settings["size"] || raise("Video settings must include size")
 
-    overlap = settings["overlap"] || 0.25
-    (@vid_width, @vid_height) = [(size[0] / (1-overlap)).ceil, (size[1] / (1-overlap)).ceil]
-    
-    # Ensure that the width and height are multiples of 2 for ffmpeg
-    @vid_width = ((@vid_width - 1) / 2 + 1) * 2
-    @vid_height = ((@vid_height - 1) / 2 + 1) * 2
+    if size.kind_of?(Array)
+      overlap = settings["overlap"] || 0.25
+      (@vid_width, @vid_height) = [(size[0] / (1-overlap)).ceil, (size[1] / (1-overlap)).ceil]
 
-    (@overlap_x, @overlap_y) = [@vid_width - size[0], @vid_height - size[1]]
+      # Ensure that the width and height are multiples of 2 for ffmpeg
+      @vid_width = ((@vid_width - 1) / 2 + 1) * 2
+      @vid_height = ((@vid_height - 1) / 2 + 1) * 2
+
+      (@overlap_x, @overlap_y) = [@vid_width - size[0], @vid_height - size[1]]
+    else # Backwards compatibility
+      @@sizes.member?(size) || raise("Video size must be one of [#{@@sizes.keys.join(", ")}]. WARNING: This way of declaring sizes is deprecated.")
+      (@vid_width, @vid_height) = @@sizes[size][:vid_size]
+      (@overlap_x, @overlap_y) = @@sizes[size][:overlap]
+    end
 
     (@compression = settings["compression"] || settings["quality"]) or raise "Video settings must include compression"
     @compression = @compression.to_i
@@ -448,11 +451,19 @@ class VideosetCompiler
   end
 
   def compute_leader_length
-    if not @@leader_bytes_per_pixel.member?(@compression)
-      raise "Video compression must be one of [#{@@leader_bytes_per_pixel.keys.join(", ")}]"
+
+    leader_bytes_per_pixel={
+      30 => 2701656.0 / (@vid_width * @vid_height * 90),
+      28 => 2738868.0 / (@vid_width * @vid_height * 80),
+      26 => 2676000.0 / (@vid_width * @vid_height * 70),
+      24 => 2556606.0 / (@vid_width * @vid_height * 60)
+    }
+
+    if not leader_bytes_per_pixel.member?(@compression)
+      raise "Video compression must be one of [#{leader_bytes_per_pixel.keys.join(", ")}]"
     end
 
-    bytes_per_frame = @vid_width * @vid_height * @@leader_bytes_per_pixel[@compression]
+    bytes_per_frame = @vid_width * @vid_height * leader_bytes_per_pixel[@compression]
 
     leader_threshold = 1200000
     estimated_video_size = bytes_per_frame * nframes
@@ -1158,7 +1169,8 @@ class Compiler
     target = raw_tilestack_path(target)
     cmd = tilestacktool_cmd
     cmd << "--create-parent-directories"
-    cmd += ["--delete-source-tiles", "--loadtiles-from-json", path]
+    cmd << "--delete-source-tiles" if !$preserve_source_tiles
+    cmd += ["--loadtiles-from-json", path]
     cmd += ["--save", target]
     Rule.add(target, dependencies, [cmd, ["rm", path]])
   end
@@ -1660,6 +1672,8 @@ while !ARGV.empty?
     $compute_tilestacks = Partial.none
   elsif arg == '--partial-tilestacks'
     $compute_tilestacks = Partial.new(ARGV.shift.to_i, ARGV.shift.to_i)
+  elsif arg == '--preserve-source-tiles'
+    $preserve_source_tiles = true
   elsif arg == '--skip-videos'
     $compute_videos = Partial.none
   elsif arg == '--partial-videos'
