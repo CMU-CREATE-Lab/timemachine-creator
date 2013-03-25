@@ -74,9 +74,6 @@ int main(int argc, char *argv[])
   a.setOrganizationName("Create Lab");
   a.setApplicationName("Time Machine Creator");
 
-  // App Version (used for the creator software and time-machine-explorer)
-  a.setProperty("APP_VERSION", "1.0.8");
-
   // Get root directory
   std::string exedir = filename_directory(executable_path());
   std::string rootdir;
@@ -141,6 +138,12 @@ int main(int argc, char *argv[])
 
   api.setFrame(view.page()->mainFrame());
   api.setWindow(windowMenu);
+
+  // App Version (used for the creator software and time-machine-explorer)
+  // Read in the value from the VERSION file found in the time-machine-explorer directory
+  QString versionFile = api.getRootAppPath().append("/time-machine-explorer/VERSION");
+  QString viewerVersion = api.readFile(versionFile);
+  a.setProperty("APP_VERSION", viewerVersion);
 
   // Signal is emitted before frame loads any web content:
   QObject::connect(view.page()->mainFrame(), SIGNAL(javaScriptWindowObjectCleared()),

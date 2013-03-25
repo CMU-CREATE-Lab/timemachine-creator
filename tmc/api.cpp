@@ -408,12 +408,21 @@ bool API::checkViewerVersion(QString path)
     QString dstPath = path.left(path.lastIndexOf("VERSION"));
 
     QStringList exclude;
-    exclude << "archive" << "cgi-bin" << "htmlets" << "utils" << "tests"
+    exclude << "cgi-bin" << "htmlets" << "utils" << "tests"
             << ".git" << ".gitignore" << "favicon.ico" << "iframe.html"
-            << "integrated-viewer.html" << "save_time_warp.php" << "standalone.html"
-            << "TimeMachineExplorer.iml" << "TimeMachineExplorer.ipr";
+            << "save_time_warp.php" << "TimeMachineExplorer.iml" << "TimeMachineExplorer.ipr";
 
     copyDir(srcPath,dstPath,true,exclude);
+
+    // view.html might have changed, but we don't want to blow away the one currently
+    // in place in the event that the user has modified it. So we rename it.
+    QString oldViewDotHtml = dstPath + "view.html";
+    QString dt = QString::number(QDateTime::currentMSecsSinceEpoch());
+    dir.rename(oldViewDotHtml, oldViewDotHtml + "_" + dt);
+
+    // rename integrated-viewer.html to view.html
+    QString newViewDotHtml = dstPath + "integrated-viewer.html";
+    dir.rename(newViewDotHtml, dstPath + "view.html");
 
     dialog->close();
     delete dialog;
