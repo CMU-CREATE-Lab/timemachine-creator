@@ -145,6 +145,13 @@ int main(int argc, char *argv[])
   QString viewerVersion = api.readFile(versionFile);
   a.setProperty("APP_VERSION", viewerVersion);
 
+  // Ruby path
+  if (os() == "windows") {
+	a.setProperty("RUBY_PATH", QString(rootdir.c_str()).append("/ruby/windows/bin/ruby.exe"));
+  } else {
+	a.setProperty("RUBY_PATH", "/usr/bin/ruby");
+  }
+
   // Signal is emitted before frame loads any web content:
   QObject::connect(view.page()->mainFrame(), SIGNAL(javaScriptWindowObjectCleared()),
 		   &api, SLOT(addJSObject()));

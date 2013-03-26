@@ -424,6 +424,11 @@ bool API::checkViewerVersion(QString path)
     QString newViewDotHtml = dstPath + "integrated-viewer.html";
     dir.rename(newViewDotHtml, dstPath + "view.html");
 
+	// run update_ajax_includes.rb to make sure the latest template/json files are being used
+	QStringList args;
+	args << dstPath + "update_ajax_includes.rb";
+	invokeRubySubprocess(args,0);
+
     dialog->close();
     delete dialog;
     QApplication::restoreOverrideCursor();
@@ -465,17 +470,11 @@ bool API::invokeRubySubprocess(QStringList args, int callback_id)
   process = new APIProcess(this, callback_id);
 
   // Ruby path
-  std::string ruby_path;
-
-  if (os() == "windows") {
-    ruby_path = rootdir + "/ruby/windows/bin/ruby.exe";
-  } else {
-    ruby_path = "/usr/bin/ruby";
-  }
+  QString ruby_path = qApp->property("RUBY_PATH").toString();
 
   //fprintf(stderr, "Invoking ruby with path '%s'\n", ruby_path.c_str());
-  qDebug() << QString("Invoking ruby with path: ").append(ruby_path.c_str());
-  process->process.start(ruby_path.c_str(), args, QIODevice::ReadOnly);
+  qDebug() << QString("Invoking ruby with path: ").append(ruby_path);
+  process->process.start(ruby_path, args, QIODevice::ReadOnly);
   return true;
 }
 
