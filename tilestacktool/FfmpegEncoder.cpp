@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 #include "cpp_utils.h"
 #include "qt-faststart.h"
 
