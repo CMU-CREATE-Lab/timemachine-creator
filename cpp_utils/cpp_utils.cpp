@@ -22,6 +22,7 @@
   #include <sys/utsname.h>
   #include <sys/time.h>
   #include <sys/resource.h>
+  #include <unistd.h>
 #endif
 
 #include "cpp_utils.h"

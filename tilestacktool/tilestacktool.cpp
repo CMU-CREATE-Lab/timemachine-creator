@@ -7,6 +7,10 @@
 #include <sys/stat.h>
 #include <errno.h>
 
+#ifndef _WIN32
+	#include <unistd.h>
+#endif
+
 #include <cmath>
 #include <memory>
 #include <stdexcept>
@@ -30,6 +34,7 @@
 #include "FfmpegEncoder.h"
 
 #define TODO(x) do { fprintf(stderr, "%s:%d: error: TODO %s\n", __FILE__, __LINE__, x); abort(); } while (0)
+const double PI = 4.0*atan(1.0);
 
 unsigned int tilesize = 512;
 bool create_parent_directories = false;
@@ -704,6 +709,22 @@ void tilestack_info() {
   simple_shared_ptr<Tilestack> src(tilestackstack.top());
   fprintf(stderr, "Tilestack information: %s\n", src->info().c_str());
 }
+
+void write_png(std::string dest)
+{
+  simple_shared_ptr<Tilestack> src(tilestackstack.pop());
+  std::string dir = filename_sans_suffix(dest);
+  make_directory(dir);
+
+  for (unsigned i = 0; i < src->nframes; i++) {
+    std::string image_filename = string_printf("%05d.png", i);
+    std::string image_path = dir + "/" + image_filename;
+    fprintf(stderr, "Writing %s\n", image_filename.c_str());
+    write_png(image_path.c_str(), src->tile_width, src->tile_height,
+              src->bands_per_pixel, src->bits_per_band, src->frame_pixels(i));
+  }
+  fprintf(stderr, "Created PNGs\n");
+}
   
 void write_html(std::string dest)
 {
@@ -928,9 +949,7 @@ void image2tiles(std::string dest, std::string format, std::string src)
       std::string path = dest + "/" + GPTileIdx(max_level - 1, left/tilesize, top/tilesize).path() + "." + format;
       std::string directory = filename_directory(path);
       make_directory_and_parents(directory);
-
       std::string temp_path = temporary_path(path);
-
       ImageWriter::write(temp_path, tilesize, tilesize, reader->bands_per_pixel(), reader->bits_per_band(),
                          &tile[0]);
       
@@ -1065,6 +1084,47 @@ public:
                                                       get_pixel_band(p11, band),
                                                       x - x0, y - y0));
     }
+  }
+  
+  // Render an image from tilestak and do appropriate projections
+  // Its source projection is in Plate Carree and its final projection is in equidistant azimuthal
+  // for a half sphere
+  
+  void render_projection(Image &dest, const Frame &frame, const double XR1, const double XR2, const double YR, const double X, const double Y, const double r[3][3]) {
+    if (frame.frameno >= (int)nframes) {
+      throw_error("Attempt to render frame number %d from tilestack (valid frames 0 to %d)",
+                  frame.frameno, nframes-1);
+    }
+    Bbox myb = frame.bounds;
+    
+    double x1, y1, theta1, psi1, x2, y2, z2, x3, y3, z3, psi2, theta2, x, y;
+
+    for (int i = 0; i < dest.height; i++)
+      for (int j = 0; j < dest.width; j++) {
+        x1 = PI*((i+1.0)/dest.height-0.5);
+        y1 = PI*((j+1.0)/dest.width-0.5);
+        theta1 = atan2(y1,x1);
+        psi1 = PI/2.0-sqrt(x1*x1+y1*y1);
+
+        // rotations
+        x2 = cos(psi1)*cos(theta1);
+        y2 = cos(psi1)*sin(theta1);
+        z2 = sin(psi1);
+
+        x3 = r[0][0] * x2 + r[0][1] * y2 + r[0][2] * z2;
+        y3 = r[1][0] * x2 + r[1][1] * y2 + r[1][2] * z2;
+        z3 = r[2][0] * x2 + r[2][1] * y2 + r[2][2] * z2;
+        
+        // returning back to polar coordinates
+        psi2 = atan2(z3,sqrt(x3*x3+y3*y3));
+        theta2 = atan2(y3,x3);
+
+        // finding the coordinates in the original picture
+        x = (X*(XR1-psi2)/(XR1+XR2))+myb.y;
+        y = (Y*(theta2/YR+0.5));//+myb.x;
+
+        interpolate_pixel(dest.pixel(j,i), frame.frameno, nlevels-1,y,x);
+      }
   }
 
   // Render an image from the tilestack
@@ -1229,6 +1289,61 @@ public:
   virtual ~TilestackRenderer() {}
 };
 
+class TilestackFromPathProjected : public LRUTilestack {
+  simple_shared_ptr<Renderer> renderer;
+  std::vector<Frame> frames;
+  
+  double pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, X, Y;
+  double r[3][3]; //rotation matrix
+
+  void init(Renderer *renderer_init, int stack_width_init, int stack_height_init, Json::Value path) {
+    renderer.reset(renderer_init);
+    parse_warp(frames, path, true);
+    set_nframes(frames.size());
+    tile_width = stack_width_init;
+    tile_height = stack_height_init;
+    bands_per_pixel = renderer->bands_per_pixel;
+    bits_per_band = renderer->bits_per_band;
+    pixel_format = renderer->pixel_format;
+    compression_format = 0;
+  }
+
+public:
+  TilestackFromPathProjected(int stack_width, int stack_height, double source_pixelPerRadian, double source_XR1, double source_XR2, double source_YR, double dest_roll, double dest_pitch, double dest_yaw, Json::Value path, const std::string &stackset_path) {
+    pixelPerRadian = source_pixelPerRadian;
+    XR1 = source_XR1;
+    XR2 = source_XR2;
+    YR = source_YR;
+    roll = dest_roll;
+    pitch = dest_pitch;
+    yaw = dest_yaw;
+    X = pixelPerRadian * (XR1 + XR2);
+    Y = pixelPerRadian * YR;
+    
+    // creating the rotation matrix
+    r[0][0] = cos(pitch)*cos(yaw);
+    r[0][1] = -cos(pitch)*sin(yaw);
+    r[0][2] = sin(pitch);
+
+    r[1][0] = cos(yaw)*sin(pitch)*sin(roll) + cos(roll)*sin(yaw);
+    r[1][1] = cos(roll)*cos(yaw) - sin(pitch)*sin(roll)*sin(yaw);
+    r[1][2] = -cos(pitch)*sin(roll);
+
+    r[2][0] = sin(roll)*sin(yaw) - cos(roll)*cos(yaw)*sin(pitch);
+    r[2][1] = cos(yaw)*sin(roll) + cos(roll)*sin(pitch)*sin(yaw);
+    r[2][2] = cos(pitch)*cos(roll);
+    
+    init(new StacksetRenderer(stackset_path), stack_width, stack_height, path);
+  }
+  
+  virtual void instantiate_pixels(unsigned frame) const {
+    assert(!pixels[frame]);
+    create(frame);
+    Image image(*this, tile_width, tile_height, pixels[frame]);
+    renderer->render_projection(image, frames[frame], XR1, XR2, YR, X, Y, r);
+  }
+};
+
 class TilestackFromPath : public LRUTilestack {
   simple_shared_ptr<Renderer> renderer;
   std::vector<Frame> frames;
@@ -1263,6 +1378,11 @@ public:
     renderer->render_image(image, frames[frame], downsize);
   }
 };
+
+void path2stack_projected(int stack_width, int stack_height, double pixelPerRadian, double XR1, double XR2, double YR, double roll, double pitch, double yaw, Json::Value path, const std::string &stackset_path) {
+  simple_shared_ptr<Tilestack> out(new TilestackFromPathProjected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, path, stackset_path));
+  tilestackstack.push(out);
+}
 
 void path2stack(int stack_width, int stack_height, Json::Value path, const std::string &stackset_path, bool downsize) {
   simple_shared_ptr<Tilestack> out(new TilestackFromPath(stack_width, stack_height, path, stackset_path, downsize));
@@ -1363,6 +1483,8 @@ void usage(const char *fmt, ...) {
           "--path2overlay width height [frame1, ... frameN] overlay.html\n"
           "        Create tilestack by rendering overlay.html#FRAMENO for each frame in path.  Leave background in overlay.html unset\n"
           "        to create an overlay with transparent background\n"
+          "--path2stack-projected width height source_pixel_per_radian source_height_above_horizon_radians source_height_below_horizon_radians source_width_radians projection_roll projection_pitch projection_yaw [frame1, ... frameN] stackset\n"
+          "--path2stack-projected-xml width height path_to_stitcher_r.info projection_roll projection_pitch projection_yaw [frame1, ... frameN] stackset\n"
           "--cat\n"
           "        Temporally concatenate all tilestacks on stack into one\n"
           "--composite\n"
@@ -1446,6 +1568,10 @@ int main(int argc, char **argv)
       else if (arg == "--writehtml") {
         std::string dest = args.shift();
         write_html(dest);
+      }
+      else if (arg == "--writepng") {
+        std::string dest = args.shift();
+        write_png(dest);
       }
       else if (arg == "--prependleader") {
         int leader_nframes = args.shift_int();
@@ -1571,6 +1697,47 @@ int main(int argc, char **argv)
       }
       else if (arg == "--render-path") {
         render_js_path_override = args.shift();
+      }
+      else if (arg == "--path2stack-projected") {
+        int stack_width = args.shift_int();
+        int stack_height = args.shift_int();
+        double pixelPerRadian = args.shift_double();
+        double XR1 = args.shift_double();
+        double XR2 = args.shift_double();
+        double YR = args.shift_double();
+        double roll = args.shift_double();
+        double pitch = args.shift_double();
+        double yaw = args.shift_double();
+        Json::Value path = args.shift_json();
+        std::string stackset = args.shift();
+        if (stack_width <= 0 || stack_height <= 0) {
+          usage("--path2stack-projected: width and height must be positive numbers");
+        }
+        path2stack_projected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, path, stackset);
+      }
+      else if (arg == "--path2stack-projected-xml") {
+        int stack_width = args.shift_int();
+        int stack_height = args.shift_int();
+        if (stack_width <= 0 || stack_height <= 0) {
+          usage("--path2stack-projected-xml: width and height must be positive numbers");
+        }
+        
+        std::string xmlPath = args.shift();
+        Rinfo r = parse_xml(xmlPath.c_str());
+        if (r.minx == -1 || r.miny == -1 || r.maxx == -1 || r.maxy == -1 || r.projx <= 0 || r.projy <= 0)
+          usage("--path2stack-projected-xml: stitcher xml file is not correct");
+        
+        double pixelPerRadian = r.projy/PI;
+        double XR1 = PI * (0.5 - r.miny / r.projy);
+        double XR2 = PI * (r.maxy / r.projy - 0.5);
+        double YR = (r.maxx - r.minx) / r.projx * 2 * PI;
+        double roll = args.shift_double();
+        double pitch = args.shift_double();
+        double yaw = args.shift_double();
+        Json::Value path = args.shift_json();
+        std::string stackset = args.shift();
+        
+        path2stack_projected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, path, stackset);
       }
       else if (arg == "--path2stack" || arg == "--path2stack-downsize") {
         int stack_width = args.shift_int();

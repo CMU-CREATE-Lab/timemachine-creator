@@ -135,7 +135,7 @@ leader_%.mp4: $(TILESTACKTOOL)
 	mkdir -p $(LEADERDEST)
 	./tilestacktool --blackstack 1 $(call leader_width,$@) $(call leader_height,$@) 3 8 --prependleader $(call leader_nframes,$@) --writevideo $@ 10 $(call leader_compression,$@)
 
-SOURCES = tilestacktool.cpp FfmpegEncoder.cpp warp.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp qt-faststart.cpp SimpleZlib.cpp $(COMMANDS)
+SOURCES = tilestacktool.cpp FfmpegEncoder.cpp xmlreader.cpp warp.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp qt-faststart.cpp SimpleZlib.cpp $(COMMANDS)
 
 ZLIB_DIR = dependencies/zlib
 

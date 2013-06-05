@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "json/json.h"
+#include "xmlreader.h"
 
 #include "simple_shared_ptr.h"
 #include "Tilestack.h"

@@ -3,7 +3,7 @@
 
 #include <vector>
 
-void parse_warp(std::vector<Frame> &frames, Json::Value path);
+void parse_warp(std::vector<Frame> &frames, Json::Value path, bool isProjection = false);
 
 #endif
 
