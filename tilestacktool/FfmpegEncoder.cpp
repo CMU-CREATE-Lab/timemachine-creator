@@ -23,8 +23,9 @@ FfmpegEncoder::FfmpegEncoder(std::string dest_filename, int width, int height,
   int frames_per_keyframe = 10; // TODO(rsargent): don't hardcode this
   cmdline += " -vcodec libx264";
   //cmdline += string_printf(" -fpre libx264-hq.ffpreset");
-  cmdline += " -coder 1 -flags +loop -cmp +chroma -partitions +parti8x8+parti4x4+partp8x8+partb8x8 -me_method umh -subq 8 -me_range 16 -keyint_min 25 -sc_threshold 40 -i_qfactor 0.71 -b_strategy 2 -qcomp 0.6 -qmin 10 -qmax 51 -qdiff 4 -refs 4 -directpred 3 -trellis 1 -flags2 +wpred+mixed_refs+dct8x8+fastpskip";
-  
+  //cmdline += " -coder 1 -flags +loop -cmp +chroma -partitions +parti8x8+parti4x4+partp8x8+partb8x8 -me_method umh -subq 8 -me_range 16 -keyint_min 25 -sc_threshold 40 -i_qfactor 0.71 -b_strategy 2 -qcomp 0.6 -qmin 10 -qmax 51 -qdiff 4 -refs 4 -directpred 3 -trellis 1 -flags2 +wpred+mixed_refs+dct8x8+fastpskip";
+  cmdline += " -preset slow";
+
   cmdline += string_printf(" -crf %g -g %d -bf 0 \"%s\"",
                            compression, frames_per_keyframe, tmp_filename.c_str());
   fprintf(stderr, "Cmdline: %s\n", cmdline.c_str());
