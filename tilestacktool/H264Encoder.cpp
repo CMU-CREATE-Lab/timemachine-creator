@@ -1,21 +1,13 @@
-#include <stdlib.h>
-#ifndef _WIN32
-	#include <unistd.h>
-#endif
-
-#include "cpp_utils.h"
-#include "qt-faststart.h"
-
-#include "FfmpegEncoder.h"
+#include "H264Encoder.h"
 
 // OSX: Download ffmpeg binary from ffmpegmac.net
 
-FfmpegEncoder::FfmpegEncoder(std::string dest_filename, int width, int height,
-                             double fps, double compression) :
-  width(width), height(height), total_written(0), dest_filename(dest_filename) {
+H264Encoder::H264Encoder(std::string dest_filename, int width, int height, double fps, double compression) :
+  total_written(0), dest_filename(dest_filename), width(width), height(height), fps(fps), compression(compression)  {
   tmp_filename = temporary_path(filename_sans_directory(dest_filename));
   int nthreads = 8;
   std::string cmdline = string_printf("\"%s\" -threads %d -loglevel error -benchmark", path_to_ffmpeg().c_str(), nthreads);
+  
   // Input
   cmdline += string_printf(" -s %dx%d -vcodec rawvideo -f rawvideo -pix_fmt rgb24 -r %g -i pipe:0",
                            width, height, fps);
@@ -45,7 +37,7 @@ FfmpegEncoder::FfmpegEncoder(std::string dest_filename, int width, int height,
   }
 }
 
-void FfmpegEncoder::write_pixels(unsigned char *pixels, size_t len) {
+void H264Encoder::write_pixels(unsigned char *pixels, size_t len) {
   //fprintf(stderr, "Writing %zd bytes to ffmpeg\n", len);
   if (1 != fwrite(pixels, len, 1, out)) {
     throw_error("Error writing to ffmpeg");
@@ -53,7 +45,7 @@ void FfmpegEncoder::write_pixels(unsigned char *pixels, size_t len) {
   total_written += len;
 }
 
-void FfmpegEncoder::close() {
+void H264Encoder::close() {
   if (out) pclose(out);
   fprintf(stderr, "Wrote %ld frames (%ld bytes) to ffmpeg\n", 
           (long) (total_written / (width * height * 3)), (long) total_written);
@@ -62,31 +54,32 @@ void FfmpegEncoder::close() {
   //if (system_utf8(cmd)) {
   //  throw_error("Error running qtfaststart: '%s'", cmd.c_str());
   //}
+  
   qt_faststart(tmp_filename, dest_filename);
   delete_file(tmp_filename);
 }
 
-bool FfmpegEncoder::test() {
+bool H264Encoder::test() {
   std::string cmdline = string_printf("\"%s\" -loglevel error -version", path_to_ffmpeg().c_str());
   FILE *ffmpeg = popen_utf8(cmdline.c_str(), "wb");
   if (!ffmpeg) {
-    fprintf(stderr, "FfmpegEncoder::test: Can't run '%s'.  This is likely due to an installation problem.\n", cmdline.c_str());
+    fprintf(stderr, "H264Encoder::test: Can't run '%s'.  This is likely due to an installation problem.\n", cmdline.c_str());
     return false;
   }
   while (fgetc(ffmpeg) != EOF) {}
   int status = pclose(ffmpeg);
   if (status) {
-    fprintf(stderr, "FfmpegEncoder::test:  pclose '%s' returns status %d.  This is likely due to an installation problem.\n", cmdline.c_str(), status);
+    fprintf(stderr, "H264Encoder::test:  pclose '%s' returns status %d.  This is likely due to an installation problem.\n", cmdline.c_str(), status);
     return false;
   }
   
-  fprintf(stderr, "ffmpeg: success\n");
+  fprintf(stderr, "H264Encoder: success\n");
   
   // No longer using qt-faststart executable;  instead, using internal qt_faststart function    
   // cmdline = string_printf("\"%s\"", path_to_qt_faststart().c_str());
   // status = system(cmdline.c_str());
   // if (status != 0) {
-  //   fprintf(stderr, "FfmpegEncoder::test: Can't run '%s'.  This is likely due to an installation problem.\n", cmdline.c_str());
+  //   fprintf(stderr, "H264Encoder::test: Can't run '%s'.  This is likely due to an installation problem.\n", cmdline.c_str());
   //   return false;
   // }
   // fprintf(stderr, "qt-faststart: success\n");
@@ -94,17 +87,18 @@ bool FfmpegEncoder::test() {
   return true;
 }
 
+std::string H264Encoder::ffmpeg_path_override;
 
-std::string FfmpegEncoder::path_to_ffmpeg() {
+std::string H264Encoder::path_to_ffmpeg() {
   if (ffmpeg_path_override != "") return ffmpeg_path_override; 
   return path_to_executable("ffmpeg");
 }
 
-std::string FfmpegEncoder::path_to_qt_faststart() {
+std::string H264Encoder::path_to_qt_faststart() {
   return path_to_executable("qt-faststart");
 }
 
-std::string FfmpegEncoder::path_to_executable(std::string executable) {
+std::string H264Encoder::path_to_executable(std::string executable) {
   executable += executable_suffix();
   std::vector<std::string> search_path;
   search_path.push_back(string_printf("%s/ffmpeg/%s/%s",
@@ -129,5 +123,3 @@ std::string FfmpegEncoder::path_to_executable(std::string executable) {
   fprintf(stderr, "Using version in PATH, if available\n");
   return executable;
 }
-
-std::string FfmpegEncoder::ffmpeg_path_override;

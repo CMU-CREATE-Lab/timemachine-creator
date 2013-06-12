@@ -31,7 +31,8 @@
 #include "Tilestack.h"
 #include "tilestacktool.h"
 #include "warp.h"
-#include "FfmpegEncoder.h"
+#include "H264Encoder.h"
+#include "VP8Encoder.h"
 
 #define TODO(x) do { fprintf(stderr, "%s:%d: error: TODO %s\n", __FILE__, __LINE__, x); abort(); } while (0)
 const double PI = 4.0*atan(1.0);
@@ -852,7 +853,7 @@ public:
 // Video encoding uses 3 bands (more, e.g. alpha, will be ignored)
 // and uses values 0-255 (values outside this range will be clamped)
 
-void write_video(std::string dest, double fps, double compression, int max_size)
+void write_video(std::string dest, double fps, double compression, int max_size, std::string outputType)
 {
   simple_shared_ptr<Tilestack> src(tilestackstack.pop());
   while (1) {
@@ -864,7 +865,15 @@ void write_video(std::string dest, double fps, double compression, int max_size)
     if (create_parent_directories) make_directory_and_parents(filename_directory(dest));
     
     fprintf(stderr, "Encoding video to %s\n", temp_dest.c_str());
-    FfmpegEncoder encoder(temp_dest, src->tile_width, src->tile_height, fps, compression);
+    
+    VideoEncoder *encoder;
+    if (outputType == "mp4")
+      encoder = new H264Encoder(temp_dest, src->tile_width, src->tile_height, fps, compression);
+    else if (outputType == "webm")
+      encoder = new VP8Encoder(temp_dest, src->tile_width, src->tile_height, fps, compression);
+    else
+      throw_error("Do not support this video output file format");
+     
     assert(src->bands_per_pixel >= 3);
     std::vector<unsigned char> destframe(src->tile_width * src->tile_height * 3);
     
@@ -880,9 +889,10 @@ void write_video(std::string dest, double fps, double compression, int max_size)
           srcptr += src_bytes_per_pixel;
         }
       }
-      encoder.write_pixels(&destframe[0], destframe.size());
+      encoder->write_pixels(&destframe[0], destframe.size());
     }
-    encoder.close();
+    encoder->close();
+    delete encoder;
     int filelen = (int) file_size(temp_dest);
     if (max_size > 0 && filelen > max_size) {
       compression += 2;
@@ -1465,6 +1475,9 @@ void usage(const char *fmt, ...) {
           "--writehtml dest.html\n"
           "--writevideo dest.mp4 fps compression\n"
           "              28=typical, 24=high quality, 32=low quality\n"
+          "--ffmpeg-path path_to_ffmpeg\n"
+          "--vpxenc-path path_to_vpxenc\n"
+          "--writewebm dest.webm fps targetBitsPerPixel\n"
           "--image2tiles dest_dir format src_image\n"
           "              Be sure to set tilesize earlier in the commandline\n"
           "--tilesize N\n"
@@ -1511,10 +1524,10 @@ bool self_test() {
   bool success = true;
   fprintf(stderr, "tilestacktool self-test: ");
   {
-    fprintf(stderr, "ffmpeg/qt-faststart:\n");
-    bool ffmpeg_ok = FfmpegEncoder::test();
-    fprintf(stderr, "%s\n", ffmpeg_ok ? "success" : "FAIL");
-    success = success && ffmpeg_ok;
+    fprintf(stderr, "ffmpeg/vpxenc/qt-faststart:\n");
+    bool encoder_ok = H264Encoder::test() && VP8Encoder::test();
+    fprintf(stderr, "%s\n", encoder_ok ? "success" : "FAIL");
+    success = success && encoder_ok;
   }
   fprintf(stderr, "Self-test %s\n", success ? "succeeded" : "FAILED");
   return success;
@@ -1589,20 +1602,27 @@ int main(int argc, char **argv)
 
         tilestackstack.push(blacktilestack);
       }
+      else if (arg == "--writewebm") {
+        std::string dest = args.shift();
+        double fps = args.shift_double();
+        double targetBitsPerPixel = args.shift_double();
+        int max_size = 0;
+        write_video(dest, fps, targetBitsPerPixel, max_size, "webm");
+      }
       else if (arg == "--writevideo") {
         std::string dest = args.shift();
         double fps = args.shift_double();
         double compression = args.shift_double();
         //int max_size = 1000000;
         int max_size = 0; // TODO(rsargent):  don't hardcode this
-        write_video(dest, fps, compression, max_size);
+        write_video(dest, fps, compression, max_size, "mp4");
       }
       else if (arg == "--writevideou") {
         std::string dest = args.shift();
         double fps = args.shift_double();
         double compression = args.shift_double();
         int max_size = 0;
-        write_video(dest, fps, compression, max_size);
+        write_video(dest, fps, compression, max_size, "mp4");
       }
       else if (arg == "--tilesize") {
         tilesize = args.shift_int();
@@ -1693,7 +1713,11 @@ int main(int argc, char **argv)
         create_parent_directories = true;
       }
       else if (arg == "--ffmpeg-path") {
-        FfmpegEncoder::ffmpeg_path_override = args.shift();
+        H264Encoder::ffmpeg_path_override = args.shift();
+        VP8Encoder::ffmpeg_path_override = H264Encoder::ffmpeg_path_override;
+      }
+      else if (arg == "--vpxenc-path") {
+        VP8Encoder::vpxenc_path_override = args.shift();
       }
       else if (arg == "--render-path") {
         render_js_path_override = args.shift();
