@@ -7,6 +7,8 @@ test-patp-out
 testresults
 *.obj
 *.exe
+!vpxenc.exe
+!ffmpeg.exe
 *.ilk
 *.pdb
 .DS_Store

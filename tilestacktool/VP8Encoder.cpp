@@ -40,7 +40,7 @@ void VP8Encoder::close() {
           (long) (total_written / (width * height * 3)), (long) total_written);
   out = NULL;
   
-  std::string cmdcommon = string_printf("\"%s\" %s.yuv -o %s -w %d -h %d --fps=%ld/1 -p 2 --codec=vp8 --fpf=%s.fpf --cpu-used=0 --target-bitrate=%ld --auto-alt-ref=1 -v --min-q=4 --max-q=52 --drop-frame=0 --lag-in-frames=25 --kf-min-dist=0 --kf-max-dist=120 --static-thresh=0 --tune=psnr", path_to_vpxenc().c_str(), tmp_filename.c_str(), dest_filename.c_str(), width, height, lrint(fps), tmp_filename.c_str(), lrint(width * height * fps * targetBitsPerPixel / 8000.0));
+  std::string cmdcommon = string_printf("\"%s\" %s.yuv -o %s -w %d -h %d --fps=%ld/1 -p 2 --codec=vp8 --fpf=%s.fpf --cpu-used=0 --target-bitrate=%ld --auto-alt-ref=1 -v --min-q=4 --max-q=52 --drop-frame=0 --lag-in-frames=25 --kf-min-dist=0 --kf-max-dist=120 --static-thresh=0 --tune=psnr", path_to_vpxenc().c_str(), tmp_filename.c_str(), dest_filename.c_str(), width, height, lround(fps), tmp_filename.c_str(), lround(width * height * fps * targetBitsPerPixel / 8000.0));
   
   std::string pass1 = cmdcommon + string_printf(" --pass=1 --minsection-pct=0 --maxsection-pct=800 -t 0");
   std::string pass2 = cmdcommon + string_printf(" --pass=2 --minsection-pct=5 --maxsection-pct=1000 --bias-pct=50 -t 6 --end-usage=vbr --good --profile=0 --arnr-maxframes=7 --arnr-strength=5 --arnr-type=3 --psnr");

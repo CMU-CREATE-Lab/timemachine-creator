@@ -4,7 +4,7 @@
 #include "VideoEncoder.h"
 #include <string>
 #include <stdlib.h>
-#include <math.h>
+#include "mathutils.h"
 #ifndef _WIN32
 	#include <unistd.h>
 #endif
