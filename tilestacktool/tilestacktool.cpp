@@ -1100,7 +1100,7 @@ public:
   // Its source projection is in Plate Carree and its final projection is in equidistant azimuthal
   // for a half sphere
   
-  void render_projection(Image &dest, const Frame &frame, const double XR1, const double XR2, const double YR, const double X, const double Y, const double r[3][3]) {
+  void render_projection(Image &dest, const Frame &frame, const double XR1, const double XR2, const double YR, const double X, const double Y, const double r[3][3], const double wf, const double wb, const double wt) {
     if (frame.frameno >= (int)nframes) {
       throw_error("Attempt to render frame number %d from tilestack (valid frames 0 to %d)",
                   frame.frameno, nframes-1);
@@ -1115,6 +1115,11 @@ public:
         y1 = PI*((j+1.0)/dest.width-0.5);
         theta1 = atan2(y1,x1);
         psi1 = PI/2.0-sqrt(x1*x1+y1*y1);
+        
+        if (theta1 > wf || theta1 < -1.*wf || wb > psi1 || psi1 > wt) {
+          memset(dest.pixel(j,i), 0, bytes_per_pixel());
+          continue;
+        }
 
         // rotations
         x2 = cos(psi1)*cos(theta1);
@@ -1304,7 +1309,7 @@ class TilestackFromPathProjected : public LRUTilestack {
   std::vector<Frame> frames;
   
   double pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, X, Y;
-  double r[3][3]; //rotation matrix
+  double r[3][3]; // rotation matrix
 
   void init(Renderer *renderer_init, int stack_width_init, int stack_height_init, Json::Value path) {
     renderer.reset(renderer_init);
@@ -1319,6 +1324,8 @@ class TilestackFromPathProjected : public LRUTilestack {
   }
 
 public:
+  static double wt, wb, wf; // window top, window bottom, window field
+  
   TilestackFromPathProjected(int stack_width, int stack_height, double source_pixelPerRadian, double source_XR1, double source_XR2, double source_YR, double dest_roll, double dest_pitch, double dest_yaw, Json::Value path, const std::string &stackset_path) {
     pixelPerRadian = source_pixelPerRadian;
     XR1 = source_XR1;
@@ -1350,9 +1357,13 @@ public:
     assert(!pixels[frame]);
     create(frame);
     Image image(*this, tile_width, tile_height, pixels[frame]);
-    renderer->render_projection(image, frames[frame], XR1, XR2, YR, X, Y, r);
+    renderer->render_projection(image, frames[frame], XR1, XR2, YR, X, Y, r, wf, wb, wt);
   }
 };
+
+double TilestackFromPathProjected::wt = PI/2; // window top
+double TilestackFromPathProjected::wb = 0; // window bottom
+double TilestackFromPathProjected::wf = PI; // window field
 
 class TilestackFromPath : public LRUTilestack {
   simple_shared_ptr<Renderer> renderer;
@@ -1498,6 +1509,8 @@ void usage(const char *fmt, ...) {
           "        to create an overlay with transparent background\n"
           "--path2stack-projected width height source_pixel_per_radian source_height_above_horizon_radians source_height_below_horizon_radians source_width_radians projection_roll projection_pitch projection_yaw [frame1, ... frameN] stackset\n"
           "--path2stack-projected-xml width height path_to_stitcher_r.info projection_roll projection_pitch projection_yaw [frame1, ... frameN] stackset\n"
+          "--projection-window window_field_radian window_bottom_radian window_top_radian\n"
+          "        crops visible window on dome. must be set before --path2stack-projected\n"
           "--cat\n"
           "        Temporally concatenate all tilestacks on stack into one\n"
           "--composite\n"
@@ -1721,6 +1734,23 @@ int main(int argc, char **argv)
       }
       else if (arg == "--render-path") {
         render_js_path_override = args.shift();
+      }
+      else if (arg == "--projection-window") {
+        double wf = args.shift_double();
+        double wb = args.shift_double();
+        double wt = args.shift_double();
+        if (wb < 0 || wb > PI/2) {
+          usage("--projection-window: window bottom should be between 0 and PI/2");
+        }
+        if (wt < 0 || wt > PI/2) {
+          usage("--projection-window: window top should be between 0 and PI/2");
+        }
+        if (wf < 0 || wf > PI) {
+          usage("--projection-window: window field should be between 0 and PI");
+        }
+        TilestackFromPathProjected::wb = wb;
+        TilestackFromPathProjected::wt = wt;
+        TilestackFromPathProjected::wf = wf;
       }
       else if (arg == "--path2stack-projected") {
         int stack_width = args.shift_int();

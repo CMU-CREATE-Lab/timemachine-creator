@@ -15,10 +15,10 @@ Rinfo parse_xml(const char *filename) {
     buf=(char *)malloc(len); //malloc buffer
     fread(buf,len,1,in); //read into buffer
     fclose(in);
-    
+
     rapidxml::xml_document<> doc;
     doc.parse<0>(buf);
-    
+
     rapidxml::xml_node<> *node;
     
     if ((node = doc.first_node("QuadTreeInfo")) && (node = node->first_node("bounding_box")) && (node = node->first_node("bbox")) &&
