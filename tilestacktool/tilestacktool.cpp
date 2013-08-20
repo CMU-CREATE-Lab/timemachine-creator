@@ -1106,8 +1106,15 @@ public:
                   frame.frameno, nframes-1);
     }
     Bbox myb = frame.bounds;
-    
+
     double x1, y1, theta1, psi1, x2, y2, z2, x3, y3, z3, psi2, theta2, x, y;
+
+    // zoom parameters
+    //double zx = myb.height/2. + myb.y; // zooming on x
+    //double zy = myb.width/2. + myb.x; // zooming on y
+    //double zlx = X/myb.height; // zooming level on x
+    //double zly = Y/myb.width; // zooming level on y
+    double zoom = std::max(Y/myb.width, X/myb.height);
 
     for (int i = 0; i < dest.height; i++)
       for (int j = 0; j < dest.width; j++) {
@@ -1135,9 +1142,16 @@ public:
         theta2 = atan2(y3,x3);
 
         // finding the coordinates in the original picture
-        x = (X*(XR1-psi2)/(XR1+XR2))+myb.y;
+        x = (X*(XR1-psi2)/(XR1+XR2));//+myb.y;
         y = (Y*(theta2/YR+0.5));//+myb.x;
+        
+        // taking care of zoom        
+          //x = (x-zx)/zlx + zx;
+          //y = (y-zy)/zly + zy;
+        x = x / zoom + myb.y;
+        y = y / zoom + myb.x;
 
+        // calculate the pixel
         interpolate_pixel(dest.pixel(j,i), frame.frameno, nlevels-1,y,x);
       }
   }
@@ -1313,7 +1327,7 @@ class TilestackFromPathProjected : public LRUTilestack {
 
   void init(Renderer *renderer_init, int stack_width_init, int stack_height_init, Json::Value path) {
     renderer.reset(renderer_init);
-    parse_warp(frames, path, true);
+    parse_warp(frames, path);
     set_nframes(frames.size());
     tile_width = stack_width_init;
     tile_height = stack_height_init;
