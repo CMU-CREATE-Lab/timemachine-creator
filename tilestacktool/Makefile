@@ -21,7 +21,7 @@ endif
 
 build: $(TILESTACKTOOL)
 
-test: selftest patp4_1x1_small
+test: units selftest patp4_1x1_small
 
 test-clean:
 	$(call RM_R,testresults)
@@ -135,7 +135,9 @@ leader_%.mp4: $(TILESTACKTOOL)
 	mkdir -p $(LEADERDEST)
 	./tilestacktool --blackstack 1 $(call leader_width,$@) $(call leader_height,$@) 3 8 --prependleader $(call leader_nframes,$@) --writevideo $@ 10 $(call leader_compression,$@)
 
-SOURCES = tilestacktool.cpp H264Encoder.cpp VP8Encoder.cpp xmlreader.cpp warp.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp qt-faststart.cpp SimpleZlib.cpp $(COMMANDS)
+JSON_SOURCES = JSON.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp
+
+SOURCES = tilestacktool.cpp H264Encoder.cpp VP8Encoder.cpp xmlreader.cpp warp.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp $(JSON_SOURCES) png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp qt-faststart.cpp SimpleZlib.cpp $(COMMANDS)
 
 ZLIB_DIR = dependencies/zlib
 
@@ -227,9 +229,9 @@ tilestacktool.exe: $(SOURCES) $(ZLIB) $(LIBPNG) $(LIBJPEG)
 tilestacktool: $(SOURCES) $(LIBPNG) $(ZLIB) $(LIBJPEG)
 	g++ $(PLATFORM_CXX_FLAGS) $(OPTIMIZATION) -g -Ijsoncpp -I$(ZLIB_DIR) -I$(LIBJPEG_DIR) -I$(LIBPNG_DIR) -I$(CPP_UTILS_DIR) -Wall $^ -o $@
 
-units: test_GPTileIdx test_SimpleZlib
+units: test_GPTileIdx test_SimpleZlib test_JSON
 
-test_%: unit_tests/test_%.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp SimpleZlib.cpp GPTileIdx.cpp $(LIBPNG) $(ZLIB) $(LIBJPEG) 
+test_%: unit_tests/test_%.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp SimpleZlib.cpp GPTileIdx.cpp $(JSON_SOURCES) $(LIBPNG) $(ZLIB) $(LIBJPEG) 
 	g++ $(PLATFORM_CXX_FLAGS) -g -Ijsoncpp -I. -I$(LIBJPEG_DIR) -I$(LIBPNG_DIR) -I$(CPP_UTILS_DIR) -Wall $^ -o unit_tests/$@
 	unit_tests/$@
 
