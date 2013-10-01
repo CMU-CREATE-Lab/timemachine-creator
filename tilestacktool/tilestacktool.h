@@ -82,29 +82,6 @@ public:
   }
 };
 
-struct Bbox {
-  double x, y;
-  double width, height;
-  Bbox(double x, double y, double width, double height) : x(x), y(y), width(width), height(height) {}
-  Bbox &operator*=(double scale) {
-    x *= scale;
-    y *= scale;
-    width *= scale;
-    height *= scale;
-    return *this;
-  }
-  std::string to_string() {
-    return string_printf("[bbox x=%g y=%g width=%g height=%g]",
-                         x, y, width, height);
-  }
-};
-
-struct Frame {
-  int frameno;
-  Bbox bounds;
-  Frame(int frameno, const Bbox &bounds) : frameno(frameno), bounds(bounds) {}
-};
-
 extern AutoPtrStack<Tilestack> tilestackstack;
 
 typedef bool (*Command)(const std::string &flag, Arglist &arglist);

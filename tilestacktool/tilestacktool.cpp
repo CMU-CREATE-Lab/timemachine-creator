@@ -1099,9 +1099,10 @@ public:
   // for a half sphere
   
   void render_projection(Image &dest, const Frame &frame, const double XR1, const double XR2, const double YR, const double X, const double Y, const double r[3][3]) {
-    if (frame.frameno >= (int)nframes) {
+    int frameno = (int) frame.frameno;
+    if (frameno >= (int) nframes) {
       throw_error("Attempt to render frame number %d from tilestack (valid frames 0 to %d)",
-                  frame.frameno, nframes-1);
+                  frameno, nframes-1);
     }
     Bbox myb = frame.bounds;
     
@@ -1131,7 +1132,7 @@ public:
         x = (X*(XR1-psi2)/(XR1+XR2))+myb.y;
         y = (Y*(theta2/YR+0.5));//+myb.x;
 
-        interpolate_pixel(dest.pixel(j,i), frame.frameno, nlevels-1,y,x);
+        interpolate_pixel(dest.pixel(j,i), frameno, nlevels-1,y,x);
       }
   }
 
@@ -1156,9 +1157,10 @@ public:
   // The upper left corner of the upper left pixel is 0,0
   
   void render_image(Image &dest, const Frame &frame, bool downsize) {
-    if (frame.frameno >= (int)nframes) {
+    int frameno = (int) frame.frameno;
+    if (frameno >= (int)nframes) {
       throw_error("Attempt to render frame number %d from tilestack (valid frames 0 to %d)",
-                  frame.frameno, nframes-1);
+                  frameno, nframes-1);
     }
 
     // scale between original pixels and desination frame.  If less than one, we subsample (sharp), or greater than
@@ -1173,7 +1175,7 @@ public:
     //fprintf(stderr, "nlevels = %d, source_level_d = %g, source_level = %d\n", nlevels, source_level_d, source_level);
     Bbox bounds = frame.bounds;
     if (source_level != nlevels-1) {
-      bounds *= (1.0 / (1 << (nlevels-1-source_level)));
+      bounds = bounds / (1 << (nlevels-1-source_level));
     }
     if (dest.height == bounds.height && 
         dest.width == bounds.width &&
@@ -1186,7 +1188,7 @@ public:
       int bounds_y = (int)bounds.y;
       for (int y = 0; y < dest.height; y++) {
         for (int x = 0; x < dest.width; x++) {
-          get_pixel(dest.pixel(x, y), frame.frameno, source_level, bounds_x + x, bounds_y + y);
+          get_pixel(dest.pixel(x, y), frameno, source_level, bounds_x + x, bounds_y + y);
         }
       }
     } else {
@@ -1196,7 +1198,7 @@ public:
         double source_y = interpolate(y + 0.5, 0, dest.height, bounds.y, bounds.y + bounds.height);
         for (int x = 0; x < dest.width; x++) {
           double source_x = interpolate(x + 0.5, 0, dest.width, bounds.x, bounds.x + bounds.width);
-          interpolate_pixel(dest.pixel(x,y), frame.frameno, source_level, source_x, source_y);
+          interpolate_pixel(dest.pixel(x,y), frameno, source_level, source_x, source_y);
         }
       }
     }
@@ -1300,7 +1302,7 @@ class TilestackFromPathProjected : public LRUTilestack {
 
   void init(Renderer *renderer_init, int stack_width_init, int stack_height_init, JSON path) {
     renderer.reset(renderer_init);
-    parse_warp(frames, path, true, 0); // TODO: fps
+    parse_warp(frames, path, true, JSON("{}")); // TODO: settings
     set_nframes(frames.size());
     tile_width = stack_width_init;
     tile_height = stack_height_init;
@@ -1351,9 +1353,9 @@ class TilestackFromPath : public LRUTilestack {
   std::vector<Frame> frames;
   bool downsize;
 
-  void init(Renderer *renderer_init, int stack_width_init, int stack_height_init, JSON path, bool downsize_init, double fps) {
+  void init(Renderer *renderer_init, int stack_width_init, int stack_height_init, JSON path, bool downsize_init, JSON warp_settings) {
     renderer.reset(renderer_init);
-    parse_warp(frames, path, false, fps);
+    parse_warp(frames, path, false, warp_settings);
     set_nframes(frames.size());
     tile_width = stack_width_init;
     tile_height = stack_height_init;
@@ -1365,12 +1367,12 @@ class TilestackFromPath : public LRUTilestack {
   }
 
 public:
-  TilestackFromPath(int stack_width, int stack_height, JSON path, const std::string &stackset_path, bool downsize, double fps) {
-    init(new StacksetRenderer(stackset_path), stack_width, stack_height, path, downsize, fps);
+  TilestackFromPath(int stack_width, int stack_height, JSON path, const std::string &stackset_path, bool downsize, JSON warp_settings) {
+    init(new StacksetRenderer(stackset_path), stack_width, stack_height, path, downsize, warp_settings);
   }
   
-  TilestackFromPath(int stack_width, int stack_height, JSON path, simple_shared_ptr<Tilestack> &tilestack, bool downsize, double fps) {
-    init(new TilestackRenderer(tilestack), stack_width, stack_height, path, downsize, fps);
+  TilestackFromPath(int stack_width, int stack_height, JSON path, simple_shared_ptr<Tilestack> &tilestack, bool downsize, JSON warp_settings) {
+    init(new TilestackRenderer(tilestack), stack_width, stack_height, path, downsize, warp_settings);
   }
   
   virtual void instantiate_pixels(unsigned frame) const {
@@ -1386,14 +1388,14 @@ void path2stack_projected(int stack_width, int stack_height, double pixelPerRadi
   tilestackstack.push(out);
 }
 
-void path2stack(int stack_width, int stack_height, JSON path, const std::string &stackset_path, bool downsize, double fps) {
-  simple_shared_ptr<Tilestack> out(new TilestackFromPath(stack_width, stack_height, path, stackset_path, downsize, fps));
+void path2stack(int stack_width, int stack_height, JSON path, const std::string &stackset_path, bool downsize, JSON warp_settings) {
+  simple_shared_ptr<Tilestack> out(new TilestackFromPath(stack_width, stack_height, path, stackset_path, downsize, warp_settings));
   tilestackstack.push(out);
 }
 
-void path2stack_from_stack(int stack_width, int stack_height, JSON path, double fps) {
+void path2stack_from_stack(int stack_width, int stack_height, JSON path, JSON warp_settings) {
   simple_shared_ptr<Tilestack> src(tilestackstack.pop());
-  simple_shared_ptr<Tilestack> out(new TilestackFromPath(stack_width, stack_height, path, src, false, fps));
+  simple_shared_ptr<Tilestack> out(new TilestackFromPath(stack_width, stack_height, path, src, false, warp_settings));
   tilestackstack.push(out);
 }
 
@@ -1402,9 +1404,9 @@ class OverlayFromPath : public LRUTilestack {
   std::string overlay_html_path;
 
 public:
-  OverlayFromPath(int stack_width, int stack_height, JSON path, const std::string &overlay_html_path, double fps) :
+  OverlayFromPath(int stack_width, int stack_height, JSON path, const std::string &overlay_html_path, JSON warp_settings) :
     overlay_html_path(overlay_html_path) {
-    parse_warp(frames, path, false, fps);
+    parse_warp(frames, path, false, warp_settings);
     set_nframes(frames.size());
     tile_width = stack_width;
     tile_height = stack_height;
@@ -1450,8 +1452,8 @@ public:
   }
 };
 
-void path2overlay(int stack_width, int stack_height, JSON path, const std::string &overlay_html_path, double fps) {
-  simple_shared_ptr<Tilestack> out(new OverlayFromPath(stack_width, stack_height, path, overlay_html_path, fps));
+void path2overlay(int stack_width, int stack_height, JSON path, const std::string &overlay_html_path, JSON warp_settings) {
+  simple_shared_ptr<Tilestack> out(new OverlayFromPath(stack_width, stack_height, path, overlay_html_path, warp_settings));
   tilestackstack.push(out);
 }
 
@@ -1477,14 +1479,27 @@ void usage(const char *fmt, ...) {
           "--loadtiles-from-json path.json\n"
           "--delete-source-tiles\n"
           "--create-parent-directories\n"
-          "--path2stack width height path-or-warp-json stackset-path [fps]\n"
-          "        Path format [frame1, frame2, ... frameN]\n"
-          "        Frame format {\"frameno\":N, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
-          "        Multiframe with single bounds. from and to are both inclusive.  step defaults to 1:\n"
-          "          {\"frames\":{\"from\":N, \"to\":N, \"step\":N}, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
-          "        stackset-path is directory name for root of stackset;  stackset-path/r.json should exist and contain metainfo\n"
-          "        fps is only used when warp is specified, and specifies the number of frames created per second of warp\n"
-          "--path2stack-from-stack width height [frame1, ... frameN]\n"
+          "--path2stack width height path-or-warp-json stackset-path [warp-settings-json]\n"
+          "        width, height:  size, in pixels, of output stack\n"
+          "        path-or-warp-json:\n"
+          "           Path, or warp, in JSON format.  Can be inline JSON, or a filename prefixed with @ (e.g. @filename.json)\n"
+          "              Path format [frame1, frame2, ... frameN]\n"
+          "              Frame format {\"frameno\":N, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
+          "              Multiframe with single bounds. from and to are both inclusive.  step defaults to 1:\n"
+          "              {\"frames\":{\"from\":N, \"to\":N, \"step\":N}, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\n"
+          "           Warp format is standard format output by tour editor\n"
+          "\n"
+          "        stackset-path:\n"
+          "           Directory name for root of stackset;  stackset-path/r.json should exist and contain metainfo\n"
+          "\n"
+          "        warp-settings-json:\n"
+          "           Only used with warp is specified.\n"
+          "           Form: {\"sourceFPS\": N, \"destFPS\": N, \"smoothingDuration\": N}\n"
+          "              sourceFPS: frames per second from Time Machine source.  Can be found in its r.json\n"
+          "              destFPS: frames per second to render in output tilestack.  OK to be different from source FPS\n"
+          "              smoothingDuration: amount of time, in seconds, to smooth motion.  1.0 is a good number\n"
+          "\n"
+          "--path2stack-from-stack width height [frame1, ... frameN] [warp-settings-json]\n"
           "        Frame format {\"frameno\":N, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
           "        Multiframe with single bounds. from and to are both inclusive.  step defaults to 1:\n"
           "          {\"frames\":{\"from\":N, \"to\":N, \"step\":N}, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
@@ -1754,15 +1769,17 @@ int main(int argc, char **argv)
         int stack_height = args.shift_int();
         JSON path = args.shift_json();
         std::string stackset = (arg != "--path2stack-from-stack") ? args.shift() : "";
-        double fps = args.next_is_non_flag() ? args.shift_double() : 0;
+        JSON warp_settings = 
+          (args.next_is_non_flag()) ? args.shift_json() : JSON("{}");
         if (stack_width <= 0 || stack_height <= 0) {
           usage("--path2stack: width and height must be positive numbers");
         }
         bool downsize = (arg == "--path2stack-downsize");
         if (arg == "--path2stack-from-stack") {
-          path2stack_from_stack(stack_width, stack_height, path, fps);
+          path2stack_from_stack(stack_width, stack_height, path, warp_settings);
         } else {
-          path2stack(stack_width, stack_height, path, stackset, downsize, fps);
+          path2stack(stack_width, stack_height, path, stackset, downsize, 
+                     warp_settings);
         }
       }
       else if (arg == "--path2overlay") {
@@ -1770,8 +1787,10 @@ int main(int argc, char **argv)
         int stack_height = args.shift_int();
         JSON path = args.shift_json();
         std::string overlay_html_path = args.shift();
-        double fps = args.next_is_non_flag() ? args.shift_double() : 0;
-        path2overlay(stack_width, stack_height, path, overlay_html_path, fps);
+        JSON warp_settings = 
+          (args.next_is_non_flag()) ? args.shift_json() : JSON("{}");
+        path2overlay(stack_width, stack_height, path, 
+                     overlay_html_path, warp_settings);
       }
       else if (arg == "--createfile") {
         simple_shared_ptr<FileWriter> out(FileWriter::open(args.shift()));

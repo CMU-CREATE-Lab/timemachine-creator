@@ -1,4 +1,6 @@
 #include "tilestacktool.h"
+#include "WarpKeyframe.h"
+#include "Frame.h"
 
 #include "warp.h"
 
@@ -17,7 +19,7 @@ void parse_framelist(std::vector<Frame> &frames, JSON path, bool isProjection) {
     }
     Bbox bounds(x,y,width,height);
     if (frame_desc.hasKey("frames")) {
-      int step = frame_desc["frames"].hasKey("step") ? frame_desc["frames"]["step"].integer() : 1;
+      int step = frame_desc["frames"].get("step", 1);
       for (int j = frame_desc["frames"]["start"].integer(); true; j += step) {
         frames.push_back(Frame(j, bounds));
         if (j == frame_desc["frames"]["end"].integer()) break;
@@ -31,22 +33,70 @@ void parse_framelist(std::vector<Frame> &frames, JSON path, bool isProjection) {
   }
 }
 
-void parse_timewarp(std::vector<Frame> &frames, JSON path, double fps) {
-  JSON timewarp;
-  //  if (!json.isMember("snaplapse")) throw_error("Timewarp missing 'snaplapse' field");
+// Returns null if beyond end of warp
+Frame computeFrame(std::vector<WarpKeyframe> &keyframes, double time, double sourceFPS, double smoothing) {
+  // Find keyframe range and compute relative time to start of 
+  // the transition
+  
+  if (smoothing == 0) {
+    for (unsigned i = 0; i < keyframes.size() - 1; i++) {
+      WarpKeyframe start = keyframes[i];
+      WarpKeyframe end = keyframes[i + 1];
+      if (time <= start.duration(end)) {
+        Bbox bounds = Bbox::scaled_interpolate(time, 0, start.bounds, start.duration(end), end.bounds);
+        double sourceTime = start.computeSourceTime(time, end);
+        return Frame(sourceTime * sourceFPS, bounds);
+      }
+      time -= start.duration(end);
+    }
+    // time is beyond end of last keyframe
+    return Frame(-1, Bbox());
+  } else {
+    Frame ret = computeFrame(keyframes, time, sourceFPS, 0);
+    if (ret.frameno >= 0) {
+      Bbox sum = ret.bounds;
+      int n = 1;
+      for (int i = 1; i <= 50; i++) {
+        Frame a = computeFrame(keyframes, time - smoothing * i / 50.0, sourceFPS, 0);
+        Frame b = computeFrame(keyframes, time + smoothing * i / 50.0, sourceFPS, 0);
+        // Add surrounding samples symmetrically;  if one side goes 
+        // "off the end", discount the other side too, so that at the limit,
+        // the edge of the tour will exactly match the input with no filtering.
+        if (a.frameno >= 0 && b.frameno >= 0) {
+          sum = sum + a.bounds + b.bounds;
+          n += 2;
+        }
+      }
+      ret.bounds = sum / n;
+    }
+    return ret;
+  }
 }
 
-void parse_warp(std::vector<Frame> &frames, JSON path, bool isProjection, double fps) {
+void parse_timewarp(std::vector<Frame> &frames, JSON path, JSON settings) {
+  JSON jsonKeyFrames = path["snaplapse"]["keyframes"];
+
+  double sourceFPS = settings["sourceFPS"].doub();
+  double destFPS = settings["destFPS"].doub();
+  double smoothingDuration = settings.get("smoothingDuration", 0.0);
+  fprintf(stderr, "smoothingDuration = %g\n", smoothingDuration);
+  
+  std::vector<WarpKeyframe> keyframes;
+  for (unsigned i = 0; i < jsonKeyFrames.size(); i++) {
+    keyframes.push_back(WarpKeyframe::fromJson(jsonKeyFrames[i]));
+  }
+  
+  for (double time = 0; 1; time += 1.0 / destFPS) {
+    Frame f = computeFrame(keyframes, time, sourceFPS, smoothingDuration);
+    if (f.frameno < 0) break;
+    frames.push_back(f);
+  }
+}
+
+void parse_warp(std::vector<Frame> &frames, JSON path, bool isProjection, JSON settings) {
   if (path.isObject() && (path.hasKey("snaplapse") || path.hasKey("timewarp"))) {
-    if (fps == 0) {
-      throw_error("warp JSON given, but fps not given in command");
-    }
-    throw_error("timewarp not supported yet");
-    parse_timewarp(frames, path, fps);
+    parse_timewarp(frames, path, settings);
   } else {
-    if (fps != 0) {
-      fprintf(stderr, "Warning: ignoring fps specified for path2warp as explicit frames were provided");
-    }
     parse_framelist(frames, path, isProjection);
   }
 }

@@ -1,0 +1,58 @@
+{
+   "snaplapse": {
+      "keyframes": [
+         {
+            "id": "3FOLBDsYV5WOkbclJEEX",
+            "time": 0,
+            "bounds": {
+               "xmin": -480,
+               "ymin": 0,
+               "xmax": 5664,
+               "ymax": 3456
+            },
+            "duration": 1,
+            "description": "",
+            "is-description-visible": false
+         },
+         {
+            "id": "4btnb3nixNwmBFT667zx",
+            "time": 0.212,
+            "bounds": {
+               "xmin": -480,
+               "ymin": 0,
+               "xmax": 5664,
+               "ymax": 3456
+            },
+            "duration": 4,
+            "description": "",
+            "is-description-visible": false
+         },
+         {
+            "id": "IhhEeVnI4XKLFaGabxeC",
+            "time": 0.932,
+            "bounds": {
+               "xmin": 1343.0596456161015,
+               "ymin": 1259.4582020011017,
+               "xmax": 2681.140657640223,
+               "ymax": 2012.12877126467
+            },
+            "duration": 1,
+            "description": "",
+            "is-description-visible": false
+         },
+         {
+            "id": "j3YefqtxhnTpupR4LLDe",
+            "time": 1.172,
+            "bounds": {
+               "xmin": 1343.0596456161015,
+               "ymin": 1259.4582020011017,
+               "xmax": 2681.140657640223,
+               "ymax": 2012.12877126467
+            },
+            "duration": null,
+            "description": "",
+            "is-description-visible": false
+         }
+      ]
+   }
+}

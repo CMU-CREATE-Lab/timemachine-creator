@@ -35,6 +35,11 @@ class JSON {
   std::string str() const;
   bool boolean() const;
 
+  double get(const std::string &key, double deflt) const;
+  int get(const std::string &key, int deflt) const;
+  std::string get(const std::string &key, std::string deflt) const;
+  bool get(const std::string &key, bool deflt) const;
+
   bool isArray() const;
   bool isObject() const;
   bool isNumeric() const;

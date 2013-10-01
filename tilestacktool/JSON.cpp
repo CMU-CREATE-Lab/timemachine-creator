@@ -100,6 +100,22 @@ bool JSON::boolean() const {
   return json.asBool();
 }
 
+double JSON::get(const std::string &key, double deflt) const {
+  return hasKey(key) ? (*this)[key].doub() : deflt;
+}
+
+int JSON::get(const std::string &key, int deflt) const {
+  return hasKey(key) ? (*this)[key].integer() : deflt;
+}
+
+std::string JSON::get(const std::string &key, std::string deflt) const {
+  return hasKey(key) ? (*this)[key].str() : deflt;
+}
+
+bool JSON::get(const std::string &key, bool deflt) const {
+  return hasKey(key) ? (*this)[key].boolean() : deflt;
+}
+
 bool JSON::isArray() const {
   return json.isArray();
 }
