@@ -1502,7 +1502,8 @@ void usage(const char *fmt, ...) {
           "              28=typical, 24=high quality, 32=low quality\n"
           "--ffmpeg-path path_to_ffmpeg\n"
           "--vpxenc-path path_to_vpxenc\n"
-          "--writewebm dest.webm fps targetBitsPerPixel\n"
+          "--writewebm dest.webm fps cqLevel\n"
+          "              10=high quality, 30=typical, 50=low quality\n"
           "--image2tiles dest_dir format src_image\n"
           "              Be sure to set tilesize earlier in the commandline\n"
           "--tilesize N\n"
@@ -1632,9 +1633,9 @@ int main(int argc, char **argv)
       else if (arg == "--writewebm") {
         std::string dest = args.shift();
         double fps = args.shift_double();
-        double targetBitsPerPixel = args.shift_double();
+        double cqLevel = args.shift_double();
         int max_size = 0;
-        write_video(dest, fps, targetBitsPerPixel, max_size, "webm");
+        write_video(dest, fps, cqLevel, max_size, "webm");
       }
       else if (arg == "--writevideo") {
         std::string dest = args.shift();

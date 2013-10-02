@@ -16,11 +16,11 @@ class VP8Encoder : public VideoEncoder {
   std::string tmp_filename;
   std::string dest_filename;
   int width, height;
-  double fps, targetBitsPerPixel;
+  double fps, targetBitsPerPixel, cqLevel;
   FILE *out;
 
 public:
-  VP8Encoder(std::string dest_filename, int width, int height, double fps, double targetBitsPerPixel);
+  VP8Encoder(std::string dest_filename, int width, int height, double fps, double cqLevel);
   void write_pixels(unsigned char *pixels, size_t len);
   void close();
 
