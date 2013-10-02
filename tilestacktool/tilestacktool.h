@@ -2,11 +2,13 @@
 #define TILESTACKTOOL_H
 
 #include <cstdlib>
+#include <fstream>
 #include <list>
-#include <string>
 #include <memory>
+#include <streambuf>
+#include <string>
 
-#include "json/json.h"
+#include "JSON.h"
 #include "xmlreader.h"
 
 #include "simple_shared_ptr.h"
@@ -43,14 +45,13 @@ public:
     }
     return ret;
   }
-  Json::Value shift_json() {
+  JSON shift_json() {
     std::string arg = shift();
-    Json::Reader reader;
-    Json::Value ret;
-    if (!reader.parse(arg, ret)) {
-      usage("Can't parse '%s' as json", arg.c_str());
+    if (arg.size() > 0 && arg[0] == '@') {
+      return JSON::fromFile(arg.c_str() + 1);
+    } else {
+      return JSON(arg);
     }
-    return ret;
   }
   bool next_is_non_flag() const {
     if (empty()) return false;
@@ -79,29 +80,6 @@ public:
   int size() { 
     return stack.size(); 
   }
-};
-
-struct Bbox {
-  double x, y;
-  double width, height;
-  Bbox(double x, double y, double width, double height) : x(x), y(y), width(width), height(height) {}
-  Bbox &operator*=(double scale) {
-    x *= scale;
-    y *= scale;
-    width *= scale;
-    height *= scale;
-    return *this;
-  }
-  std::string to_string() {
-    return string_printf("[bbox x=%g y=%g width=%g height=%g]",
-                         x, y, width, height);
-  }
-};
-
-struct Frame {
-  int frameno;
-  Bbox bounds;
-  Frame(int frameno, const Bbox &bounds) : frameno(frameno), bounds(bounds) {}
 };
 
 extern AutoPtrStack<Tilestack> tilestackstack;
