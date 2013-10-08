@@ -4,19 +4,16 @@
 
 #include "warp.h"
 
-void parse_framelist(std::vector<Frame> &frames, JSON path, bool isProjection) {
+void parse_framelist(std::vector<Frame> &frames, JSON path) {
   // Iterate through an array of frames.  If we don't receive an array, assume we have a single frame path
   int len = path.isArray() ? path.size() : 1;
   for (int i = 0; i < len; i++) {
     JSON frame_desc = path.isArray() ? path[i] : path;
     
-    double x=0,y=0,width=0,height=0;
-    if (!isProjection) {
-      x = frame_desc["bounds"]["xmin"].doub();
-      y = frame_desc["bounds"]["ymin"].doub();
-      width = frame_desc["bounds"]["width"].doub();
-      height = frame_desc["bounds"]["height"].doub();
-    }
+    double x = frame_desc["bounds"]["xmin"].doub();
+    double y = frame_desc["bounds"]["ymin"].doub();
+    double width = frame_desc["bounds"]["width"].doub();
+    double height = frame_desc["bounds"]["height"].doub();
     Bbox bounds(x,y,width,height);
     if (frame_desc.hasKey("frames")) {
       int step = frame_desc["frames"].get("step", 1);
@@ -93,11 +90,11 @@ void parse_timewarp(std::vector<Frame> &frames, JSON path, JSON settings) {
   }
 }
 
-void parse_warp(std::vector<Frame> &frames, JSON path, bool isProjection, JSON settings) {
+void parse_warp(std::vector<Frame> &frames, JSON path, JSON settings) {
   if (path.isObject() && (path.hasKey("snaplapse") || path.hasKey("timewarp"))) {
     parse_timewarp(frames, path, settings);
   } else {
-    parse_framelist(frames, path, isProjection);
+    parse_framelist(frames, path);
   }
 }
 

@@ -1319,10 +1319,9 @@ class TilestackFromPathProjected : public LRUTilestack {
   double pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, X, Y;
   double r[3][3]; // rotation matrix
 
-  void init(Renderer *renderer_init, int stack_width_init, int stack_height_init, JSON path) {
+  void init(Renderer *renderer_init, int stack_width_init, int stack_height_init, JSON path, JSON warp_settings) {
     renderer.reset(renderer_init);
-    //parse_warp(frames, path);
-    parse_warp(frames, path, true, JSON("{}")); // TODO: settings
+    parse_warp(frames, path, warp_settings);
     set_nframes(frames.size());
     tile_width = stack_width_init;
     tile_height = stack_height_init;
@@ -1335,7 +1334,7 @@ class TilestackFromPathProjected : public LRUTilestack {
 public:
   static double wt, wb, wf; // window top, window bottom, window field
   
-  TilestackFromPathProjected(int stack_width, int stack_height, double source_pixelPerRadian, double source_XR1, double source_XR2, double source_YR, double dest_roll, double dest_pitch, double dest_yaw, JSON path, const std::string &stackset_path) {
+  TilestackFromPathProjected(int stack_width, int stack_height, double source_pixelPerRadian, double source_XR1, double source_XR2, double source_YR, double dest_roll, double dest_pitch, double dest_yaw, JSON path, const std::string &stackset_path, JSON warp_settings) {
     pixelPerRadian = source_pixelPerRadian;
     XR1 = source_XR1;
     XR2 = source_XR2;
@@ -1359,7 +1358,7 @@ public:
     r[2][1] = cos(yaw)*sin(roll) + cos(roll)*sin(pitch)*sin(yaw);
     r[2][2] = cos(pitch)*cos(roll);
     
-    init(new StacksetRenderer(stackset_path), stack_width, stack_height, path);
+    init(new StacksetRenderer(stackset_path), stack_width, stack_height, path, warp_settings);
   }
   
   virtual void instantiate_pixels(unsigned frame) const {
@@ -1381,7 +1380,7 @@ class TilestackFromPath : public LRUTilestack {
 
   void init(Renderer *renderer_init, int stack_width_init, int stack_height_init, JSON path, bool downsize_init, JSON warp_settings) {
     renderer.reset(renderer_init);
-    parse_warp(frames, path, false, warp_settings);
+    parse_warp(frames, path, warp_settings);
     set_nframes(frames.size());
     tile_width = stack_width_init;
     tile_height = stack_height_init;
@@ -1409,8 +1408,8 @@ public:
   }
 };
 
-void path2stack_projected(int stack_width, int stack_height, double pixelPerRadian, double XR1, double XR2, double YR, double roll, double pitch, double yaw, JSON path, const std::string &stackset_path) {
-  simple_shared_ptr<Tilestack> out(new TilestackFromPathProjected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, path, stackset_path));
+void path2stack_projected(int stack_width, int stack_height, double pixelPerRadian, double XR1, double XR2, double YR, double roll, double pitch, double yaw, JSON path, const std::string &stackset_path, JSON warp_settings) {
+  simple_shared_ptr<Tilestack> out(new TilestackFromPathProjected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, path, stackset_path, warp_settings));
   tilestackstack.push(out);
 }
 
@@ -1432,7 +1431,7 @@ class OverlayFromPath : public LRUTilestack {
 public:
   OverlayFromPath(int stack_width, int stack_height, JSON path, const std::string &overlay_html_path, JSON warp_settings) :
     overlay_html_path(overlay_html_path) {
-    parse_warp(frames, path, false, warp_settings);
+    parse_warp(frames, path, warp_settings);
     set_nframes(frames.size());
     tile_width = stack_width;
     tile_height = stack_height;
@@ -1511,7 +1510,7 @@ void usage(const char *fmt, ...) {
           "        path-or-warp-json:\n"
           "           Path, or warp, in JSON format.  Can be inline JSON, or a filename prefixed with @ (e.g. @filename.json)\n"
           "              Path format [frame1, frame2, ... frameN]\n"
-          "              Frame format {\"frameno\":N, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
+          "              Frame format {\"frame\":N, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
           "              Multiframe with single bounds. from and to are both inclusive.  step defaults to 1:\n"
           "              {\"frames\":{\"from\":N, \"to\":N, \"step\":N}, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\n"
           "           Warp format is standard format output by tour editor\n"
@@ -1520,23 +1519,23 @@ void usage(const char *fmt, ...) {
           "           Directory name for root of stackset;  stackset-path/r.json should exist and contain metainfo\n"
           "\n"
           "        warp-settings-json:\n"
-          "           Only used with warp is specified.\n"
+          "           Only used when warp is specified.\n"
           "           Form: {\"sourceFPS\": N, \"destFPS\": N, \"smoothingDuration\": N}\n"
           "              sourceFPS: frames per second from Time Machine source.  Can be found in its r.json\n"
           "              destFPS: frames per second to render in output tilestack.  OK to be different from source FPS\n"
           "              smoothingDuration: amount of time, in seconds, to smooth motion.  1.0 is a good number\n"
           "\n"
           "--path2stack-from-stack width height [frame1, ... frameN] [warp-settings-json]\n"
-          "        Frame format {\"frameno\":N, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
+          "        Frame format {\"frame\":N, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
           "        Multiframe with single bounds. from and to are both inclusive.  step defaults to 1:\n"
           "          {\"frames\":{\"from\":N, \"to\":N, \"step\":N}, \"bounds\": {\"xmin\":N, \"ymin\":N, \"xmax\":N, \"ymax\":N}\n"
           "--path2overlay width height [frame1, ... frameN] overlay.html\n"
           "        Create tilestack by rendering overlay.html#FRAMENO for each frame in path.  Leave background in overlay.html unset\n"
           "        to create an overlay with transparent background\n"
-          "--path2stack-projected width height source_pixel_per_radian source_height_above_horizon_radians source_height_below_horizon_radians source_width_radians projection_roll projection_pitch projection_yaw [frame1, ... frameN] stackset\n"
-          "--path2stack-projected-xml width height path_to_stitcher_r.info projection_roll projection_pitch projection_yaw [frame1, ... frameN] stackset\n"
+          "--path2stack-projected width height source_pixel_per_radian source_height_above_horizon_radians source_height_below_horizon_radians source_width_radians projection_roll projection_pitch projection_yaw path-or-warp-json stackset-path [warp-settings-json]\n"
+          "--path2stack-projected-xml width height path_to_stitcher_r.info projection_roll projection_pitch projection_yaw path-or-warp-json stackset-path [warp-settings-json]\n"
           "--projection-window window_field_radian window_bottom_radian window_top_radian\n"
-          "        crops visible window on dome. must be set before --path2stack-projected\n"
+          "        crops visible window on dome. must be set before --path2stack-projected or --path2stack-projected-xml\n"
           "--cat\n"
           "        Temporally concatenate all tilestacks on stack into one\n"
           "--composite\n"
@@ -1781,10 +1780,12 @@ int main(int argc, char **argv)
         double yaw = args.shift_double();
         JSON path = args.shift_json();
         std::string stackset = args.shift();
+        JSON warp_settings = 
+          (args.next_is_non_flag()) ? args.shift_json() : JSON("{}");
         if (stack_width <= 0 || stack_height <= 0) {
           usage("--path2stack-projected: width and height must be positive numbers");
         }
-        path2stack_projected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, path, stackset);
+        path2stack_projected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, path, stackset, warp_settings);
       }
       else if (arg == "--path2stack-projected-xml") {
         int stack_width = args.shift_int();
@@ -1806,9 +1807,11 @@ int main(int argc, char **argv)
         double pitch = args.shift_double();
         double yaw = args.shift_double();
         JSON path = args.shift_json();
-        std::string stackset = args.shift();
-        
-        path2stack_projected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, path, stackset);
+        std::string stackset = args.shift(); 
+        JSON warp_settings = 
+          (args.next_is_non_flag()) ? args.shift_json() : JSON("{}");
+
+        path2stack_projected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, path, stackset, warp_settings);
       }
       else if (arg == "--path2stack" || arg == "--path2stack-downsize" || arg == "--path2stack-from-stack") {
         int stack_width = args.shift_int();
