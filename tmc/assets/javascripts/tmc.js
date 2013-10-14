@@ -830,6 +830,9 @@ function startRender() {
   $("#fps").spinner("disable");
   $("#videoSize").selectmenu("disable");
   $("#num_jobs").button("disable");
+  $("#videoSize_width").prop('disabled', true);
+  $("#videoSize_height").prop('disabled', true);
+
   openProjectAction(false);
   saveAction(false);
   saveAsAction(false);
@@ -1122,6 +1125,7 @@ function init() {
         $("#videoSize_height").val("");
         $("#videoSize_custom").hide();
         $("#job_setting").css("margin-top","-30px");
+        checkData();
       }
     }
   });
@@ -1338,6 +1342,8 @@ function reactivateUI() {
   $("#videoSize").selectmenu("enable");
   $("#num_jobs").button("enable");
   $("#render_export_btn").show();
+  $("#videoSize_width").prop('disabled', false);
+  $("#videoSize_height").prop('disabled', false);
 }
 
 function ct_out(out) {
