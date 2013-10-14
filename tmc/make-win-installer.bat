@@ -5,6 +5,7 @@ for %%I in (index.html test.html) do copy %%I installer\tmc
 xcopy ..\ct\backports installer\ct\backports /E /C /R /I /K /Y
 xcopy ..\ct\json installer\ct\json /E /C /R /I /K /Y
 xcopy ..\ct\exifr installer\ct\exifr /E /C /R /I /K /Y
+cp ..\ct\g10.response installer\ct\
 for %%I in (..\ct\*.rb) do copy %%I installer\ct
 echo Making tilestacktool.exe
 cd ..\tilestacktool

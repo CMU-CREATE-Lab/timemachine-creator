@@ -50,7 +50,7 @@ void API::openBrowser(QString url) {
         QSettings brwCH("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\chrome.exe",QSettings::NativeFormat);
         QString brwPath = brwCH.value( "Default", "0" ).toString();
         if(brwPath!="0") {
-                QProcess::startDetached(brwPath, QStringList() << "--new-window" << "--disable-web-security" << url);
+                QProcess::startDetached(brwPath, QStringList() << "--new-window" << url);
                 return;
         }
 
@@ -58,7 +58,7 @@ void API::openBrowser(QString url) {
         QSettings brwCH2("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Google Chrome",QSettings::NativeFormat);
         brwPath = brwCH2.value( "InstallLocation", "0" ).toString();
         if(brwPath!="0") {
-                QProcess::startDetached(brwPath+"\\chrome.exe", QStringList() << "--new-window" << "--disable-web-security" << url);
+                QProcess::startDetached(brwPath+"\\chrome.exe", QStringList() << "--new-window" << url);
                 return;
         }
 
@@ -78,9 +78,9 @@ void API::openBrowser(QString url) {
         url = "file://"+url;
         if(QFileInfo("/Applications/Google Chrome.app").exists())
                 //QProcess::startDetached("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", QStringList() << "--new-window" << url);
-                system(string_printf("open -a 'Google Chrome' --args '--disable-web-security' '%s'", QUrl(url).toEncoded().replace("'", "%27").constData()).c_str());
+                system(string_printf("open -a 'Google Chrome' '%s'", QUrl(url).toEncoded().replace("'", "%27").constData()).c_str());
         else if(QFileInfo("/Applications/Safari.app").exists())
-                QProcess::startDetached("/Applications/Safari.app/Contents/MacOS/Safari", QStringList() << "--disable-web-security" << url);
+                QProcess::startDetached("/Applications/Safari.app/Contents/MacOS/Safari", QStringList() << url);
         else
                 QDesktopServices::openUrl(url);
 
@@ -91,7 +91,7 @@ void API::openBrowser(QString url) {
         if (QProcess::startDetached("chromium-browser", QStringList() << "--new-window" << url))
 	        return;*/
 
-        if (QProcess::startDetached("google-chrome", QStringList() << "--new-window" << "--disable-web-security" << url))
+        if (QProcess::startDetached("google-chrome", QStringList() << "--new-window" << url))
             return;
 
         // go with the default browser
