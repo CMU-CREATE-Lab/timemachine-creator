@@ -1,7 +1,7 @@
 #include "WarpKeyframe.h"
 
 Bbox parseBounds(JSON bounds) {
-  return Bbox(bounds["xmin"].doub(), 
+  return Bbox(bounds["xmin"].doub(),
               bounds["ymin"].doub(),
               bounds["xmax"].doub() - bounds["xmin"].doub(),
               bounds["ymax"].doub() - bounds["ymin"].doub());
@@ -13,12 +13,16 @@ WarpKeyframe WarpKeyframe::fromJson(JSON json) {
   k.bounds = parseBounds(json["bounds"]);
   k.dur = json.hasKey("duration") && json["duration"].isNumeric() ? json["duration"].doub() : NAN;
   k.speed = json.get("speed", NAN);
-  if (!isnan(k.speed)) k.speed /= 100.0;
+  #ifndef _WIN32
+    if (!isnan(k.speed)) k.speed /= 100.0;
+  #else
+    if (!_isnan(k.speed)) k.speed /= 100.0;
+  #endif
   k.looped = json.get("is-loop", false);
   k.loopCount = json.get("loopTimes", 0);
   k.loopDwellStart = json.get("waitStart", 0.0);
   k.loopDwellEnd = json.get("waitEnd", 0.0);
-  
+
   return k;
 }
 
@@ -43,23 +47,23 @@ double WarpKeyframe::computeSourceTime(double t, const WarpKeyframe &next) const
 double WarpKeyframe::sourcePeriod() const {
   return looped ? 2.9 : 1e100;
 }
- 
+
 double WarpKeyframe::playbackPeriod() const {
   return loopDwellStart + sourcePeriod() / speed + loopDwellEnd;
 }
- 
+
 double WarpKeyframe::playbackOffset() const {
   return playbackOffset(time);
 }
-    
+
 double WarpKeyframe::playbackOffset(double sourceTime) const {
   double ret = sourceTime / speed;
   if (time > 0) {
-    ret += loopDwellStart; 
+    ret += loopDwellStart;
   }
   return ret;
 }
-    
+
 double WarpKeyframe::duration(const WarpKeyframe &next) const {
   if (looped) {
     double ret = playbackOffset(next.time) - playbackOffset();
