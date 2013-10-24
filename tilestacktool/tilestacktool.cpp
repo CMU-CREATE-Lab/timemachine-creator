@@ -1098,7 +1098,7 @@ public:
   // Its source projection is in Plate Carree and its final projection is in equidistant azimuthal
   // for a half sphere
   
-  void render_projection(Image &dest, const Frame &frame, const double XR1, const double XR2, const double YR, const double X, const double Y, const double r[3][3], const double wf, const double wb, const double wt) {
+  void render_projection(Image &dest, const Frame &frame, const double XR1, const double XR2, const double YR, const double X, const double Y, const double Pitch, const double Yaw, const double wf, const double wb, const double wt) {
     int frameno = (int) frame.frameno;
     if (frameno >= (int) nframes) {
       throw_error("Attempt to render frame number %d from tilestack (valid frames 0 to %d)",
@@ -1108,12 +1108,34 @@ public:
 
     double x1, y1, theta1, psi1, x2, y2, z2, x3, y3, z3, psi2, theta2, x, y;
 
-    // zoom parameters
-    //double zx = myb.height/2. + myb.y; // zooming on x
-    //double zy = myb.width/2. + myb.x; // zooming on y
-    //double zlx = X/myb.height; // zooming level on x
-    //double zly = Y/myb.width; // zooming level on y
+    // center of tour editor bounding box
+    double yc = myb.width / 2.0 + myb.x;
+    double xc = myb.height / 2.0 + myb.y;
+
+    // center of horizon
+    double xh = XR1 / (XR1 + XR2) * X;
+    double yh = Y / 2.0;
+
+    // zoom parameter
     double zoom = std::max(Y/myb.width, X/myb.height);
+
+    // rotations needed to center picture based on the initial bounding box
+    double yaw = Yaw + (yc - yh) / Y * YR;
+    double pitch = Pitch + (xc - xh) / X * (XR1 + XR2);
+    double r[3][3];
+
+    // creating the rotation matrix
+    r[0][0] = cos(pitch) * cos(yaw);
+    r[0][1] = -sin(yaw);
+    r[0][2] = cos(yaw) * sin(pitch);
+
+    r[1][0] = cos(pitch) * sin(yaw);
+    r[1][1] = cos(yaw);
+    r[1][2] = sin(pitch) * sin(yaw);
+
+    r[2][0] = -sin(pitch);
+    r[2][1] = 0;
+    r[2][2] = cos(pitch);
 
     for (int i = 0; i < dest.height; i++)
       for (int j = 0; j < dest.width; j++) {
@@ -1135,21 +1157,19 @@ public:
         x3 = r[0][0] * x2 + r[0][1] * y2 + r[0][2] * z2;
         y3 = r[1][0] * x2 + r[1][1] * y2 + r[1][2] * z2;
         z3 = r[2][0] * x2 + r[2][1] * y2 + r[2][2] * z2;
-        
+       
         // returning back to polar coordinates
         psi2 = atan2(z3,sqrt(x3*x3+y3*y3));
         theta2 = atan2(y3,x3);
 
         // finding the coordinates in the original picture
-        x = (X*(XR1-psi2)/(XR1+XR2));//+myb.y;
-        y = (Y*(theta2/YR+0.5));//+myb.x;
-        
-        // taking care of zoom        
-          //x = (x-zx)/zlx + zx;
-          //y = (y-zy)/zly + zy;
-        x = x / zoom + myb.y;
-        y = y / zoom + myb.x;
+        x = xh - psi2 * X / (XR1 + XR2);
+        y = theta2 * Y / YR + yh;
 
+        // accounting for zoom
+        x = (x - xc) / zoom + xc;
+        y = (y - yc) / zoom + yc;
+        
         // calculate the pixel
         interpolate_pixel(dest.pixel(j,i), frameno, nlevels-1, y, x);
       }
@@ -1316,8 +1336,7 @@ class TilestackFromPathProjected : public LRUTilestack {
   simple_shared_ptr<Renderer> renderer;
   std::vector<Frame> frames;
   
-  double pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, X, Y;
-  double r[3][3]; // rotation matrix
+  double pixelPerRadian, XR1, XR2, YR, pitch, yaw, X, Y;
 
   void init(Renderer *renderer_init, int stack_width_init, int stack_height_init, JSON path, JSON warp_settings) {
     renderer.reset(renderer_init);
@@ -1334,29 +1353,15 @@ class TilestackFromPathProjected : public LRUTilestack {
 public:
   static double wt, wb, wf; // window top, window bottom, window field
   
-  TilestackFromPathProjected(int stack_width, int stack_height, double source_pixelPerRadian, double source_XR1, double source_XR2, double source_YR, double dest_roll, double dest_pitch, double dest_yaw, JSON path, const std::string &stackset_path, JSON warp_settings) {
+  TilestackFromPathProjected(int stack_width, int stack_height, double source_pixelPerRadian, double source_XR1, double source_XR2, double source_YR, double dest_pitch, double dest_yaw, JSON path, const std::string &stackset_path, JSON warp_settings) {
     pixelPerRadian = source_pixelPerRadian;
     XR1 = source_XR1;
     XR2 = source_XR2;
     YR = source_YR;
-    roll = dest_roll;
     pitch = dest_pitch;
     yaw = dest_yaw;
     X = pixelPerRadian * (XR1 + XR2);
     Y = pixelPerRadian * YR;
-    
-    // creating the rotation matrix
-    r[0][0] = cos(pitch)*cos(yaw);
-    r[0][1] = -cos(pitch)*sin(yaw);
-    r[0][2] = sin(pitch);
-
-    r[1][0] = cos(yaw)*sin(pitch)*sin(roll) + cos(roll)*sin(yaw);
-    r[1][1] = cos(roll)*cos(yaw) - sin(pitch)*sin(roll)*sin(yaw);
-    r[1][2] = -cos(pitch)*sin(roll);
-
-    r[2][0] = sin(roll)*sin(yaw) - cos(roll)*cos(yaw)*sin(pitch);
-    r[2][1] = cos(yaw)*sin(roll) + cos(roll)*sin(pitch)*sin(yaw);
-    r[2][2] = cos(pitch)*cos(roll);
     
     init(new StacksetRenderer(stackset_path), stack_width, stack_height, path, warp_settings);
   }
@@ -1365,7 +1370,7 @@ public:
     assert(!pixels[frame]);
     create(frame);
     Image image(*this, tile_width, tile_height, pixels[frame]);
-    renderer->render_projection(image, frames[frame], XR1, XR2, YR, X, Y, r, wf, wb, wt);
+    renderer->render_projection(image, frames[frame], XR1, XR2, YR, X, Y, pitch, yaw, wf, wb, wt);
   }
 };
 
@@ -1408,8 +1413,8 @@ public:
   }
 };
 
-void path2stack_projected(int stack_width, int stack_height, double pixelPerRadian, double XR1, double XR2, double YR, double roll, double pitch, double yaw, JSON path, const std::string &stackset_path, JSON warp_settings) {
-  simple_shared_ptr<Tilestack> out(new TilestackFromPathProjected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, path, stackset_path, warp_settings));
+void path2stack_projected(int stack_width, int stack_height, double pixelPerRadian, double XR1, double XR2, double YR, double pitch, double yaw, JSON path, const std::string &stackset_path, JSON warp_settings) {
+  simple_shared_ptr<Tilestack> out(new TilestackFromPathProjected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, pitch, yaw, path, stackset_path, warp_settings));
   tilestackstack.push(out);
 }
 
@@ -1532,8 +1537,8 @@ void usage(const char *fmt, ...) {
           "--path2overlay width height [frame1, ... frameN] overlay.html\n"
           "        Create tilestack by rendering overlay.html#FRAMENO for each frame in path.  Leave background in overlay.html unset\n"
           "        to create an overlay with transparent background\n"
-          "--path2stack-projected width height source_pixel_per_radian source_height_above_horizon_radians source_height_below_horizon_radians source_width_radians projection_roll projection_pitch projection_yaw path-or-warp-json stackset-path [warp-settings-json]\n"
-          "--path2stack-projected-xml width height path_to_stitcher_r.info projection_roll projection_pitch projection_yaw path-or-warp-json stackset-path [warp-settings-json]\n"
+          "--path2stack-projected width height source_pixel_per_radian source_height_above_horizon_radians source_height_below_horizon_radians source_width_radians projection_pitch projection_yaw path-or-warp-json stackset-path [warp-settings-json]\n"
+          "--path2stack-projected-xml width height path_to_stitcher_r.info projection_pitch projection_yaw path-or-warp-json stackset-path [warp-settings-json]\n"
           "--projection-window window_field_radian window_bottom_radian window_top_radian\n"
           "        crops visible window on dome. must be set before --path2stack-projected or --path2stack-projected-xml\n"
           "--cat\n"
@@ -1775,7 +1780,6 @@ int main(int argc, char **argv)
         double XR1 = args.shift_double();
         double XR2 = args.shift_double();
         double YR = args.shift_double();
-        double roll = args.shift_double();
         double pitch = args.shift_double();
         double yaw = args.shift_double();
         JSON path = args.shift_json();
@@ -1785,7 +1789,7 @@ int main(int argc, char **argv)
         if (stack_width <= 0 || stack_height <= 0) {
           usage("--path2stack-projected: width and height must be positive numbers");
         }
-        path2stack_projected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, path, stackset, warp_settings);
+        path2stack_projected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, pitch, yaw, path, stackset, warp_settings);
       }
       else if (arg == "--path2stack-projected-xml") {
         int stack_width = args.shift_int();
@@ -1803,7 +1807,6 @@ int main(int argc, char **argv)
         double XR1 = PI * (0.5 - r.miny / r.projy);
         double XR2 = PI * (r.maxy / r.projy - 0.5);
         double YR = (r.maxx - r.minx) / r.projx * 2 * PI;
-        double roll = args.shift_double();
         double pitch = args.shift_double();
         double yaw = args.shift_double();
         JSON path = args.shift_json();
@@ -1811,7 +1814,7 @@ int main(int argc, char **argv)
         JSON warp_settings = 
           (args.next_is_non_flag()) ? args.shift_json() : JSON("{}");
 
-        path2stack_projected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, roll, pitch, yaw, path, stackset, warp_settings);
+        path2stack_projected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, pitch, yaw, path, stackset, warp_settings);
       }
       else if (arg == "--path2stack" || arg == "--path2stack-downsize" || arg == "--path2stack-from-stack") {
         int stack_width = args.shift_int();
