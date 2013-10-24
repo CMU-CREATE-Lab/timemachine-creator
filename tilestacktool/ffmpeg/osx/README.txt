@@ -1,3 +1,2 @@
-Fetched from http://ffmpegmac.net/ on 5-May-2012
-64-bit 18.03.2012
-
+Fetched from http://ffmpegmac.net/ on 14-Oct-2013
+64-bit 10.10.2013

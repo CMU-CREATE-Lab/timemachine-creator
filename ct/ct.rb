@@ -100,7 +100,7 @@ if profile
   RubyProf.start
 end
 
-if $check_mem 
+if $check_mem
   require 'check-mem'
 end
 
@@ -113,6 +113,7 @@ end
 $run_remotely = nil
 $run_remotely_json = false
 $run_remotely_json_dir = nil
+$cache_folder = nil
 $dry_run = false
 
 if RUBY_VERSION < '1.8.5' || RUBY_VERSION > '1.9.'
@@ -129,6 +130,7 @@ end
 
 if $os == 'windows'
   require 'win32/registry'
+  require File.join(File.dirname(__FILE__), 'shortcut')
 end
 
 def temp_file_unique_fragment
@@ -139,14 +141,14 @@ def self_test(stitch = true)
   success = true
   STDERR.puts "Testing tilestacktool...\n"
   status = Kernel.system(*(tilestacktool_cmd + ['--selftest']))
-  
+
   if status
     STDERR.puts "tilestacktool: succeeded\n"
   else
     STDERR.puts "tilestacktool: FAILED\n"
     success = false
   end
-    
+
   if stitch
     STDERR.puts "Testing stitch..."
     status = Kernel.system($stitch, '--batch-mode', '--version')
@@ -165,7 +167,7 @@ def self_test(stitch = true)
   end
 
   STDERR.puts "ct.rb self-test #{success ? 'succeeded' : 'FAILED'}."
-  
+
   return success
 end
 
@@ -182,9 +184,9 @@ end
 
 $tilestacktool_args = []
 
-def tilestacktool_cmd 
+def tilestacktool_cmd
   [$tilestacktool] + $tilestacktool_args
-end  
+end
 
 def stitch_cmd
   cmd = [$stitch]
@@ -215,7 +217,7 @@ class Filesystem
   def self.exists?(path)
     File.exists? path
   end
-    
+
   def self.cached_exists?(path)
     File.exists? path
   end
@@ -282,6 +284,7 @@ def usage(msg=nil)
   STDERR.puts "--remote [script]:  Use script to submit remote jobs"
   STDERR.puts "--remote_json [script]:  Use script to submit remote jobs"
   STDERR.puts "--tilestacktool path: full path of tilestacktool"
+  STDERR.puts "--cache_folder path: Path of cache folder. Usefull in cluster mode"
   exit 1
 end
 
@@ -297,7 +300,7 @@ class TemporalFragment
     @end_frame = end_frame
     @fragment_seq = fragment_seq
   end
-end  
+end
 
 class VideoTile
   attr_reader :c, :r, :level, :x, :y, :subsample, :fragment
@@ -335,11 +338,11 @@ class Rule
   @@all = []
   @@all_targets = Set.new
   @@n = 0
-  
+
   def self.clear_all
     @@all = []
   end
-  
+
   def self.all
     @@all
   end
@@ -347,7 +350,7 @@ class Rule
   def self.has_target?(target)
     @@all_targets.member? target
   end
-  
+
   def array_of_strings?(a)
     a.class == Array && a.all? {|e| e.class == String}
   end
@@ -359,7 +362,7 @@ class Rule
         CheckMem.logvm("Created #{@@n} rules")
       end
     end
-    
+
     if targets.class == String
       targets = [targets]
     end
@@ -372,7 +375,7 @@ class Rule
     @@all << self
     targets.each { |target| @@all_targets << target }
   end
-  
+
   def self.add(targets, dependencies, commands, options={})
     Rule.new(targets, dependencies, commands, options).targets
   end
@@ -380,7 +383,7 @@ class Rule
   def self.touch(target, dependencies)
     Rule.add(target, dependencies, [tilestacktool_cmd + ['--createfile', target]], {:local => true})
   end
-  
+
   def to_make
     ret = "#{@targets.join(" ")}: #{@dependencies.join(" ")}\n"
     if @commands.size
@@ -388,7 +391,7 @@ class Rule
     end
     ret
   end
-  
+
   def to_s
     "[Rule: #{targets.join(" ")}]"
   end
@@ -407,7 +410,7 @@ class VideosetCompiler
   @@videotypes={
     "h.264"=>{}
   }
-  
+
   def initialize(parent, settings)
     @parent = parent
     @@global_parent = parent
@@ -471,7 +474,7 @@ class VideosetCompiler
       # No leader needed
       return 0
     end
-      
+
     minimum_leader_length = 2500000
     leader_nframes = minimum_leader_length / bytes_per_frame
 
@@ -502,15 +505,15 @@ class VideosetCompiler
     while true do
       input_width = @vid_width * subsample
       input_height = @vid_height * subsample
-      
+
       levels << {:subsample => subsample, :input_width => input_width, :input_height => input_height}
-      
+
       if input_width >= @parent.source.width and input_height >= @parent.source.height
         break
       end
       subsample *= 2
     end
-    
+
     levels.reverse!
     for level in 0...levels.size do
       levels[level][:level] = level
@@ -518,14 +521,14 @@ class VideosetCompiler
 
     if @frames_per_fragment
       @temporal_fragments = (nframes / @frames_per_fragment).floor.times.map do |i|
-        TemporalFragment.new(i * @frames_per_fragment, 
+        TemporalFragment.new(i * @frames_per_fragment,
                              [(i + 1) * @frames_per_fragment, nframes].min - 1,
                              i)
       end
     else
       @temporal_fragments = [TemporalFragment.new(0, nframes - 1)]
     end
-    
+
     @videotiles = []
 
     levels.each do |level|
@@ -548,7 +551,7 @@ class VideosetCompiler
       end
     end
   end
-  
+
   def rules(dependencies)
     if not $compute_videos
       STDERR.puts "#{id}: skipping video creation"
@@ -559,16 +562,16 @@ class VideosetCompiler
         target = "#{@parent.videosets_dir}/#{id}/#{vt.path}.mp4"
         cmd = tilestacktool_cmd
         cmd << "--create-parent-directories"
-        
+
         cmd << '--path2stack'
         cmd += [@vid_width, @vid_height]
         frames = {'frames' => vt.frames,
                   'bounds' => vt.source_bounds(@vid_width, @vid_height)};
         cmd << JSON.generate(frames)
         cmd << @parent.tilestack_dir
-        
+
         cmd += @parent.video_filter || []
-        
+
         @leader > 0 and cmd += ["--prependleader", @leader]
 
         cmd += ["--blackstack",
@@ -582,12 +585,12 @@ class VideosetCompiler
         cmd << "--cat";
 
         cmd += ['--writevideo', target, @fps, @compression]
-        
+
         Rule.add(target, dependencies, [cmd])
       end
     end
   end
-    
+
   def info
     ret = {
       "level_info"   => @levelinfo,
@@ -614,11 +617,19 @@ class VideosetCompiler
 end
 
 # Looks for images in one or two levels below dir, and sorts them alphabetically
+# Supports Windows shortcuts
 def find_images_in_directory(dir)
-  valid_image_extensions = Set.new [".jpg",".jpeg",".png",".tif",".tiff", ".raw", ".kro"]
-  (Dir.glob("#{dir}/*.*")+Dir.glob("#{dir}/*/*.*")).sort.select do |image|
-    valid_image_extensions.include? File.extname(image).downcase
+  valid_image_extensions = Set.new [".jpg",".jpeg",".png",".tif",".tiff", ".raw", ".kro", ".lnk"]
+  images = []
+  (Dir.glob("#{dir}/*.*")+Dir.glob("#{dir}/*/*.*")).sort.each do |image|
+    next unless valid_image_extensions.include? File.extname(image).downcase
+    if $os == 'windows' && File.extname(image) == ".lnk"
+      images << Win32::Shortcut.open(image).path
+    else
+      images << image
+    end
   end
+  images
 end
 
 class ImagesSource
@@ -634,8 +645,8 @@ class ImagesSource
     @subsample = settings["subsample"] || 1
     @images = settings["images"] ? settings["images"].flatten : nil
     @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
-    @capture_time_parser = settings["capture_time_parser"] || "/home/rsargent/bin/extract_exif_capturetimes.rb"
-    @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0100-unstitched/"    
+    @capture_time_parser = settings["capture_time_parser"] || "/bin/extract_exif_capturetimes.rb"
+    @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0100-unstitched/"
     initialize_images
     initialize_framenames
     @tilesize = settings["tilesize"] || ideal_tilesize(@framenames.size)
@@ -672,7 +683,7 @@ class ImagesSource
     @width /= @subsample
     @height /= @subsample
   end
-  
+
   def initialize_framenames
     frames = @images.map {|filename| File.expand_path(without_extension(filename)).split('/')}
     # Remove common prefixes
@@ -683,14 +694,14 @@ class ImagesSource
     @image_framenames = {}
     @framenames.size.times {|i| @image_framenames[@images[i]] = @framenames[i]}
   end
-  
+
   def image_to_tiles_rule(image)
     fn = @image_framenames[image]
     target = "#{@parent.tiles_dir}/#{fn}.data/tiles"
     cmd = tilestacktool_cmd + ['--tilesize', @tilesize, '--image2tiles', target, @tileformat, image]
     Rule.add(target, [image], [cmd])
   end
- 
+
   def tiles_rules
     @images.flat_map {|image| image_to_tiles_rule(image)}
   end
@@ -702,14 +713,14 @@ $sourcetypes['images'] = ImagesSource;
 class GigapanOrgSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :framenames, :subsample
   attr_reader :capture_time_parser, :capture_time_parser_inputs
-  
+
   def initialize(parent, settings)
     @parent = parent
     @@global_parent = parent
     @urls = settings["urls"]
     @ids = @urls.map{|url| id_from_url(url)}
     @subsample = settings["subsample"] || 1
-    @capture_time_parser = "/home/rsargent/bin/extract_gigapan_capturetimes.rb"
+    @capture_time_parser = "/bin/extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
     @tileformat = "jpg"
     initialize_dimensions
@@ -717,7 +728,7 @@ class GigapanOrgSource
 
   def initialize_dimensions
     @tilesize = 256
-    
+
     id = @ids[0]
     api_url = "http://api.gigapan.org/beta/gigapans/#{id}.json"
     gigapan = open(api_url) { |fh| JSON.load(fh) }
@@ -727,7 +738,7 @@ class GigapanOrgSource
     @height = @height.to_i / @subsample
     @framenames = (0...@ids.size).map {|i| framename(i)}
   end
-  
+
   def framename(i)
     "#{"%06d"%i}-#{@ids[i]}"
   end
@@ -743,19 +754,19 @@ class GigapanOrgSource
     url.match(/(\d+)/) {|id| return id[0]}
     raise "Can't find ID in url #{url}"
   end
-end    
+end
 
 $sourcetypes['gigapan.org'] = GigapanOrgSource;
 
 class PrestitchedSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :framenames, :subsample
   attr_reader :capture_time_parser, :capture_time_parser_inputs
-  
+
   def initialize(parent, settings)
     @parent = parent
     @@global_parent = parent
     @subsample = settings["subsample"] || 1
-    @capture_time_parser = "/home/rsargent/bin/extract_gigapan_capturetimes.rb"
+    @capture_time_parser = "/bin/extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
     initialize_frames
   end
@@ -764,10 +775,10 @@ class PrestitchedSource
     @framenames = Dir.glob("#{@parent.store}/0200-tiles/*.data").map {|dir| File.basename(without_extension(dir))}.sort
 
     data = XmlSimple.xml_in("#{@parent.store}/0200-tiles/#{framenames[0]}.data/tiles/r.info")
-    @width = 
+    @width =
 			data["bounding_box"][0]["bbox"][0]["max"][0]["vector"][0]["elt"][0].to_i -
 			data["bounding_box"][0]["bbox"][0]["min"][0]["vector"][0]["elt"][0].to_i
-    @height = 
+    @height =
 			data["bounding_box"][0]["bbox"][0]["max"][0]["vector"][0]["elt"][1].to_i -
 			data["bounding_box"][0]["bbox"][0]["min"][0]["vector"][0]["elt"][1].to_i
     @tilesize = data["tile_size"][0].to_i
@@ -788,7 +799,7 @@ class StitchSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :framenames, :subsample
   attr_reader :align_to, :stitcher_args, :camera_response_curve, :cols, :rows, :rowfirst
   attr_reader :directory_per_position, :capture_times, :capture_time_parser, :capture_time_parser_inputs
-  
+
   def initialize(parent, settings)
     @parent = parent
     @@global_parent = parent
@@ -797,7 +808,7 @@ class StitchSource
     @height = settings["height"] || 1
     @align_to = settings["align_to"] or raise "Must include align-to"
     settings["align_to_comment"] or raise "Must include align-to-comment"
-    @stitcher_args = settings["stitcher_args"] or raise "Must include stitcher args"
+    @stitcher_args = settings["stitcher_args"] || ""
     @camera_response_curve = settings["camera_response_curve"]
     if !@camera_response_curve
       response_curve_path = [File.expand_path("#{File.dirname(__FILE__)}/g10.response"),
@@ -818,7 +829,7 @@ class StitchSource
     @images = settings["images"]
     @directory_per_position = settings["directory_per_position"] || false
 	@capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
-    @capture_time_parser = "/home/rsargent/bin/extract_gigapan_capturetimes.rb"
+    @capture_time_parser = "/bin/extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
     initialize_frames
   end
@@ -829,26 +840,26 @@ class StitchSource
     dirs.empty? and raise 'Found no directories in 0100-unstitched'
     dirs
   end
-    
+
   def find_images_dpp
     directories = find_directories
     if @cols * @rows != directories.size
       raise "Found #{directories.size} directories in #{@parent.store}/0100-unstitched, but expected #{@cols}x#{@rows}=#{@cols*@rows}"
     end
     dpp_images = []
-    
+
     directories.each do |dir|
       dpp_images << find_images_in_directory(dir)
       if dpp_images[0].size != dpp_images[-1].size
         raise "Directory #{directories[0]} has #{dpp_images[0].size} images, but directory #{dir} has #{dpp_images[-1].size} images"
       end
     end
-    
+
     dpp_images[0].size.times.map do |i|
       dpp_images.map {|images| images[i]}
     end
   end
-  
+
   def find_images
     directories = find_directories
     @framenames = directories.map {|dir| File.basename(dir)}
@@ -858,7 +869,7 @@ class StitchSource
       images
     end
   end
-    
+
   def initialize_frames
     if @images
       @images.size > 0 or raise "'images' is an empty list"
@@ -867,7 +878,7 @@ class StitchSource
     else
       @images = find_images
     end
-    
+
     @images.each_with_index do |frame, i|
       if @cols * @rows != frame.size
         raise "Found #{frame.size} images in 'images' index #{i}, but expected #{@cols}x#{@rows}=#{@cols*@rows}"
@@ -880,7 +891,7 @@ class StitchSource
 
     @tilesize = 256
     @tileformat = "jpg"
-    
+
     # Read in .gigapan if it exists and we actually need the dimensions from it
     # 1x1 are the dummy dimensions we feed the json file
     first_gigapan = "#{@parent.store}/0200-tiles/#{framenames[0]}.gigapan"
@@ -900,24 +911,24 @@ class StitchSource
         end
       end
     end
-    
+
     @width /= @subsample
     @height /= @subsample
   end
 
   class Copy
     attr_reader :target
-  
+
     def initialize(target)
       @target = target
     end
   end
-  
+
   def copy(x)
     return Copy.new(x)
   end
 
-  def tiles_rules
+def tiles_rules
     targetsets = []
     @framenames.size.times do |i|
       framename = @framenames[i]
@@ -944,29 +955,53 @@ class StitchSource
         end
       end
       target_prefix = "#{@parent.store}/0200-tiles/#{framename}"
+      if $cache_folder
+        cache_prefix = "#{$cache_folder}/#{framename}"
+      end
       cmd = stitch_cmd
       cmd += @rowfirst ? ["--rowfirst", "--ncols", @cols] : ["--nrows", @rows]
       # Stitch 1.x:
       # stitch_cmd << "--license-key AATG-F89N-XPW4-TUBU"
       # Stitch 2.x:
       cmd += ['--license-key', 'ACTG-F8P9-AJY3-6733']
-      
+
       cmd += @stitcher_args.split
       if @camera_response_curve
         cmd += ["--load-camera-response-curve", @camera_response_curve]
       end
-      
+
       suffix = "tmp-#{temp_file_unique_fragment}"
 
-      cmd += ["--save-as", "#{target_prefix}-#{suffix}.gigapan"]
+      if $cache_folder
+        cmd += ["--save-as", "#{cache_prefix}-#{suffix}.gigapan"]
+      else
+        cmd += ["--save-as", "#{target_prefix}-#{suffix}.gigapan"]
+      end
       # Only get files with extensions.  Organizer creates a subdir called "cache",
       # which this pattern will ignore
       images = @images[i]
-        
+      cached_images = []
+      cache_cmd = ["sed"] + ["-i"]
+      if $cache_folder
+        cp_cmd = ["cp"]
+        images.each do |orig_image|
+          temp_string = "#{cache_prefix}-photos/"+File.basename(orig_image)
+          cached_images << temp_string
+          cp_cmd += ["#{orig_image}"]
+          cache_cmd += ["-e"] + ["'s/#{temp_string.gsub('/','\/')}/#{orig_image.gsub('/','\/')}/g'"]
+        end
+        cache_cmd += ["#{cache_prefix}-#{suffix}.gigapan"]
+        cp_cmd += ["#{cache_prefix}-photos"]
+      end
+
       if images.size != @rows * @cols
         raise "There should be #{@rows}x#{@cols}=#{@rows*@cols} images for frame #{i}, but in fact there are #{images.size}"
       end
-      cmd += ["--images"] + images
+      if $cache_folder
+        cmd += ["--images"] + cached_images
+      else
+        cmd += ["--images"] + images
+    end
       if copy_master_geometry_exactly
         cmd << "--copy-master-geometry-exactly"
       end
@@ -975,15 +1010,31 @@ class StitchSource
       end
       cmd << "--stitch-quit"
 
-      targetsets << Rule.add("#{target_prefix}.gigapan", 
-                             align_to, 
+      if $cache_folder
+        targetsets << Rule.add("#{target_prefix}.gigapan",
+                             align_to,
+                             [
+                              ['mkdir','-p',"#{cache_prefix}-photos"],
+                              cp_cmd,
+                              cmd,
+                              cache_cmd,
+                              ['rm','-rf',"#{target_prefix}.gigapan"],
+                              ['rm','-rf',"#{target_prefix}.data"],
+                              ['mv', "#{cache_prefix}-#{suffix}.gigapan", "#{target_prefix}.gigapan"],
+                              ['mv', "#{cache_prefix}-#{suffix}.data", "#{target_prefix}.data"],
+                              ['rm','-rf',"#{cache_prefix}-photos"]
+                             ])
+      else
+        targetsets << Rule.add("#{target_prefix}.gigapan",
+                             align_to,
                              [cmd,
                               ['mv', "#{target_prefix}-#{suffix}.gigapan", "#{target_prefix}.gigapan"],
                               ['mv', "#{target_prefix}-#{suffix}.data", "#{target_prefix}.data"]
                              ])
+      end
     end
     targetsets.flatten(1)
-  end    
+  end
 end
 
 $sourcetypes['stitch'] = StitchSource;
@@ -991,11 +1042,11 @@ $sourcetypes['stitch'] = StitchSource;
 class Compiler
   attr_reader :source, :tiles_dir, :raw_tilestack_dir, :tilestack_dir, :videosets_dir, :urls, :store, :video_filter
   attr_reader :id, :versioned_id
-  
+
   def to_s
     "#<Compiler name=#{name} width=#{@width} height=#{@height}>"
   end
-  
+
   def initialize(settings)
     @urls = settings["urls"] || {}
     # @id = settings["id"] || raise("Time Machine must have unique ID")
@@ -1028,7 +1079,7 @@ class Compiler
       STDERR.puts "No destination specified;  defaulting to #{JSON.pretty_generate(destination_info)}"
     end
     initialize_destination(destination_info)
-    
+
     STDERR.puts "#{(@source.framenames.size*@source.width*@source.height/1e+9).round(1)} gigapixels total video content"
     STDERR.puts "#{@source.framenames.size} frames"
     STDERR.puts "#{(@source.width*@source.height/1e6).round(1)} megapixels per frame (#{@source.width}px x #{@source.height}px)"
@@ -1042,7 +1093,7 @@ class Compiler
     include_ajax_file("time_warp_composer.html")
     include_ajax_file("browser_not_supported_template.html")
     include_ajax_file("annotation_editor.html") if File.exist?("#{$explorer_source_dir}/annotation_editor.html")
-    
+
   end
 
   def initialize_source(source_info)
@@ -1129,10 +1180,10 @@ class Compiler
     target = tilestack_path(target_idx)
     rule_dependencies = children.flat_map {|child| tilestack_rule(child, dependencies)}
     rule_dependencies << tilestack_path(metadata_tilestack)
-    
+
     cmd = tilestacktool_cmd
     cmd << "--create-parent-directories"
-    frames = {'frames' => {'start' => 0, 'end' => @source.framenames.size - 1}, 
+    frames = {'frames' => {'start' => 0, 'end' => @source.framenames.size - 1},
               'bounds' => target_idx.bounds(@source.tilesize, @max_level)}
     cmd += ['--path2stack-downsize', @source.tilesize, @source.tilesize, JSON.generate(frames), @tilestack_dir]
     cmd += ['--save', target]
@@ -1159,7 +1210,7 @@ class Compiler
       # raw tilestacks are produced by the source directly
       return dependencies
     end
-    
+
     # Build tilestacks from source tiles
     inputs = @source.framenames.map {|frame| "#{@tiles_dir}/#{frame}.data/tiles/#{target.path}.#{@source.tileformat}"}
 
@@ -1185,7 +1236,7 @@ class Compiler
   # levels = 0 (root) down to max_level-1:
   #    Stored in @tilestacks_dir (0300-tilestacks)
   #    Computed by subsampled_tilestack_rule from up to 4 children each
-  # 
+  #
   # max_level (base level):
   #    These are computed in one of several ways, depending on whether your image
   #    source can natively produce tilestacks, and whether you have a stack filter
@@ -1198,7 +1249,7 @@ class Compiler
   #         is simply the raw base tilestack (no copy is performed, but rather @raw_tilestack_dir
   #         is set to 0300-tilestacks instead of 0250-raw-tilestacks)
   #
-  #    raw base tilestack:  
+  #    raw base tilestack:
   #         Stored in @raw_tilestack_dir (0250-raw-tilestacks or 0300-tilestacks)
   #         A base-level tilestack, created by tilestacktool directly from image source tiles,
   #         or, if supported by the image source, created directly by the image source.
@@ -1221,19 +1272,19 @@ class Compiler
       Rule.touch("#{@tilestack_dir}/COMPLETE", targets)
     end
   end
-    
+
   # def tilestack_cleanup_rule
   #   #remove remaining .jpgs leftover and all sub directories
   #   #leave the top-most directory (*.data/tiles/r.info)
   #   #do not do anything if subsmaple is not 1 for the tiling
-  #   cmd = @@global_parent.source.subsample == 1 ? ["find #{@tiles_dir} -name *.jpg | xargs rm -f", 
+  #   cmd = @@global_parent.source.subsample == 1 ? ["find #{@tiles_dir} -name *.jpg | xargs rm -f",
   #                                                  "find #{@tiles_dir} -type d | xargs rmdir --ignore-fail-on-non-empty"] : ["echo"]
   #   dependencies = all_tilestacks_rule.targets
-  #   Rule.new(["tilestack-cleanup"], dependencies, 
-  #            cmd, 
+  #   Rule.new(["tilestack-cleanup"], dependencies,
+  #            cmd,
   #            {:local=>true})
   # end
-  
+
   def videoset_rules
     # dependencies=tilestack_cleanup_rule.targets
     dependencies = all_tilestacks_rule
@@ -1249,7 +1300,7 @@ class Compiler
 
   def capture_times_rule
     source = @@global_parent.source.capture_times.nil? ? @@global_parent.source.capture_time_parser_inputs : @@jsonfile
-    ruby_path = ($os == 'windows') ? File.dirname(__FILE__)+"/../ruby/windows/bin/ruby.exe" : "/usr/bin/ruby"
+    ruby_path = ($os == 'windows') ? File.dirname(__FILE__)+"/../ruby/windows/bin/ruby.exe" : "ruby"
     Rule.add("capture_times", videoset_rules, [[ruby_path, "#{@@global_parent.source.capture_time_parser}", source, "#{@videosets_dir}/tm.json"]])
   end
 
@@ -1259,7 +1310,7 @@ class Compiler
 
   def info
     ret = {
-      'datasets' => @videoset_compilers.map do |vc| 
+      'datasets' => @videoset_compilers.map do |vc|
         {
           'id' => vc.id,
           'name' => vc.label
@@ -1281,11 +1332,11 @@ class Compiler
 
   def write_rules
     grouped_rules = Rule.all
-    
+
     #STDERR.puts "Combined #{Rule.all.size-grouped_rules.size} rules to #{grouped_rules.size}"
-    
+
     all_targets = grouped_rules.flat_map &:targets
-    
+
     rules = []
     rules << "# generated by ct.rb"
     rules << "all: #{all_targets.join(" ")}"
@@ -1302,7 +1353,7 @@ end
 #       Loop over @rules_waiting_for_dependency[target] and
 #          remove target from @dependencies_holding_up_rule[rule]
 #          if @dependencies_holding_up_rule[rule] is empty, and rule is :waiting, label rule :ready
-#          
+#
 
 class Maker
   def initialize(rules)
@@ -1311,15 +1362,15 @@ class Maker
     @ready = []
     @dependencies_holding_up_rule = {}
     @rules_waiting_for_dependency = {}
-    
+
     # Does target exist?  true or false
     @targets={}
-    
+
     # Status of each rule.  :waiting, :ready, :executing, :done
     @status = {}
-    
+
     STDERR.write "Checking targets from #{rules.size} rules...  0%"
-    rules.each_with_index do |rule, i| 
+    rules.each_with_index do |rule, i|
       if i*100/rules.size > (i-1)*100/rules.size
         STDERR.write("\b\b\b\b%3d%%" % (i*100/rules.size))
       end
@@ -1336,7 +1387,7 @@ class Maker
   #    For each dependency that doesn't exist:
   #      add rule to @rules_waiting_for_dependency[dep]
   #      add dep to @dependencies_holding_up_rule[rule]
-  #  
+  #
   def compute_rule_status(rule)
     @dependencies_holding_up_rule[rule] = Set.new
     if rule.targets.all? { |target| target_exists? target }
@@ -1354,7 +1405,7 @@ class Maker
       if @dependencies_holding_up_rule[rule].empty?
         @status[rule] =  :ready
         @ready << rule
-      else 
+      else
         @status[rule] = :waiting
       end
     end
@@ -1375,7 +1426,7 @@ class Maker
     @ndone += 1
     @status[rule] = :done
     rule.targets.each { |target| create_target target }
-  end  
+  end
 
   def create_target(target)
     if not @targets[target]
@@ -1433,7 +1484,7 @@ class Maker
           command = "#{$run_remotely} '#{command}'"
         end
         STDERR.write "#{date} Job #{job_no} #{$dry_run ? "would execute" : "executing"} #{command}\n"
-    
+
         if $dry_run
           result = true
         else
@@ -1444,7 +1495,7 @@ class Maker
           end
         end
       end
-    
+
       if !result
         @failed_jobs << job_no
         STDERR.write "#{date} Job #{job_no} failed too many times; aborting\n"
@@ -1464,7 +1515,7 @@ class Maker
   end
 
   # Returns true if success, false if failed or need to retry (e.g. now have first image dimensions)
-  
+
   def make(max_jobs, max_rules_per_job)
     begin_time = Time.now
     # build all rules
@@ -1484,7 +1535,7 @@ class Maker
     jobs_executing = 0
     rules_executing = 0
     response = Queue.new
-    
+
     @failed_jobs = []
     @aborting = false
     current_job_no = 0
@@ -1514,7 +1565,7 @@ class Maker
             # Make sure to_run is inside this closure
             to_run = @ready.shift(rules_per_job)
             to_run.size > 0 or raise("assert")
-            to_run.each do |rule| 
+            to_run.each do |rule|
               @status[rule] == :ready or raise("assert")
               @status[rule]=:executing
             end
@@ -1631,7 +1682,7 @@ if stitchpath.nil?
   end
   if search
     # If multiple versions, grab the path of the latest release
-    found = Dir.glob(search).sort{|a,b| stitch_version_from_path(a) <=> stitch_version_from_path(b)}.reverse[0] 
+    found = Dir.glob(search).sort{|a,b| stitch_version_from_path(a) <=> stitch_version_from_path(b)}.reverse[0]
     if not found
       STDERR.puts "Could not find stitch in default installation path: #{search}"
     elsif stitch_version_from_path(found) > '00002' # Look for at least version 2.x
@@ -1648,7 +1699,7 @@ $stitch = (stitchpath && File.exists?(stitchpath)) ? stitchpath : 'stitch'
 
 explorer_source_search_path = [File.expand_path("#{File.dirname(__FILE__)}/time-machine-explorer"),
 			       File.expand_path("#{File.dirname(__FILE__)}/../time-machine-explorer")]
-			    
+
 $explorer_source_dir = explorer_source_search_path.find {|x| File.exists? x}
 if $explorer_source_dir
   STDERR.puts "Found explorer sources at #{$explorer_source_dir}"
@@ -1700,6 +1751,8 @@ while !ARGV.empty?
     exit self_test ? 0 : 1
   elsif arg == '--selftest-no-stitch'
     exit self_test(false) ? 0 : 1
+  elsif arg == '--cache_folder'
+    $cache_folder = File.expand_path ARGV.shift
   else
     STDERR.puts "Unknown arg #{arg}"
     usage
@@ -1708,7 +1761,7 @@ end
 
 $partial_vidoes = Partial.new(1, 10)
 
-if !@@jsonfile 
+if !@@jsonfile
   usage "Must give path to description.tmc"
 end
 
@@ -1722,7 +1775,7 @@ end
 # Normally, the definition file is in a path foo.tmc/definition.tmc.  In this case,
 # the store is foo.tmc
 #
-# If no description is 
+# If no description is
 #
 # The store directory can be overridden in the .tmc file itself, using the "store" field
 
@@ -1755,7 +1808,7 @@ compiler = nil
 3.times do
   compiler = Compiler.new(definition)
   compiler.write_json
-  Filesystem.write_file("#{@@global_parent.videosets_dir}/ajax_includes.js", 
+  Filesystem.write_file("#{@@global_parent.videosets_dir}/ajax_includes.js",
                     ajax_includes_to_javascript)
   STDERR.puts "Wrote initial #{@@global_parent.videosets_dir}/ajax_includes.js"
   compiler.compute_rules # Creates rules, which will be accessible from Rule.all
@@ -1772,7 +1825,7 @@ Filesystem.rm("#{@@global_parent.tiles_dir}/tiles-*.json")
 # Add tm.json to ajax_includes.js again to include the addition of capture times
 include_ajax("./tm.json", JSON.parse(Filesystem.read_file("#{@@global_parent.videosets_dir}/tm.json")))
 
-Filesystem.write_file("#{@@global_parent.videosets_dir}/ajax_includes.js", 
+Filesystem.write_file("#{@@global_parent.videosets_dir}/ajax_includes.js",
                       ajax_includes_to_javascript)
 STDERR.puts "Wrote final #{@@global_parent.videosets_dir}/ajax_includes.js"
 
@@ -1788,7 +1841,7 @@ if profile
   result = RubyProf.stop
   printer = RubyProf::GraphPrinter.new(result)
   STDERR.puts "Writing profile to #{profile}"
-  open(profile, "w") do |out| 
+  open(profile, "w") do |out|
     out.puts "Profile #{Time.new}"
     out.puts cmdline
     out.puts "Execution took #{end_time-start_time} seconds"

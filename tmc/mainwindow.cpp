@@ -8,7 +8,7 @@ MainWindow::MainWindow()
 
 	// creating status bar
 	createStatusBar();
-	
+
 	// creating actions
 	newAction = new QAction(tr("&New Project"), this);
 	newAction->setShortcuts(QKeySequence::New);
@@ -28,14 +28,14 @@ MainWindow::MainWindow()
 	addFoldersAction = new QAction(tr("Add Fo&lders"), this);
 	addFoldersAction->setShortcut(Qt::ControlModifier + Qt::ShiftModifier + Qt::Key_F);
 	addFoldersAction->setStatusTip(tr("Add folders containing your image files"));
-	
+
 	for (int i = 0; i < MaxRecentFiles; ++i) {
         recentFileActs[i] = new QAction(this);
         recentFileActs[i]->setVisible(false);
         connect(recentFileActs[i], SIGNAL(triggered()),
                 this, SLOT(openRecentFile()));
     }
-	
+
 	exitAction = new QAction(tr("E&xit"), this);
 	exitAction->setShortcuts(QKeySequence::Close);
 	exitAction->setStatusTip(tr("Close the software"));
@@ -43,18 +43,18 @@ MainWindow::MainWindow()
         deleteAction = new QAction(tr("&Delete"), this);
         deleteAction->setShortcut(Qt::Key_Delete);
         deleteAction->setStatusTip(tr("Delete selected images"));
-	
+
 	undoAction = new QAction(tr("&Undo"), this);
 	undoAction->setShortcuts(QKeySequence::Undo);
 	undoAction->setStatusTip(tr("Undo your previous deletes"));
 	redoAction = new QAction(tr("&Redo"), this);
 	redoAction->setShortcuts(QKeySequence::Redo);
 	redoAction->setStatusTip(tr("Redo your previous deletes"));
-	
+
 	aboutAction = new QAction(tr("&About"), this);
 	aboutAction->setShortcut(Qt::Key_F1);
 	aboutAction->setStatusTip(tr("About time machine creator software"));
-	
+
 	// creating connections
 	connect(newAction, SIGNAL(triggered()), this, SLOT(newProject()));
 	connect(openAction, SIGNAL(triggered()), this, SLOT(open()));
@@ -67,9 +67,9 @@ MainWindow::MainWindow()
         connect(deleteAction, SIGNAL(triggered()), this, SLOT(deleteImages()));
 	connect(undoAction, SIGNAL(triggered()), this, SLOT(undo()));
 	connect(redoAction, SIGNAL(triggered()), this, SLOT(redo()));
-	
+
 	connect(aboutAction, SIGNAL(triggered()), this, SLOT(about()));
-	
+
 	// creating the menu bar
 	fileMenu = menuBar()->addMenu(tr("&File"));
 	fileMenu->addAction(newAction);
@@ -85,7 +85,7 @@ MainWindow::MainWindow()
 	fileMenu->addSeparator();
 	fileMenu->addAction(exitAction);
 	updateRecentFileActions();
-	
+
 	fileMenu = menuBar()->addMenu(tr("&Edit"));
         fileMenu->addAction(deleteAction);
         setDeleteMenu(false);
@@ -94,7 +94,7 @@ MainWindow::MainWindow()
 	setUndoMenu(false);
 	fileMenu->addAction(redoAction);
 	setRedoMenu(false);
-	
+
 	fileMenu = menuBar()->addMenu(tr("&Help"));
 	fileMenu->addAction(aboutAction);
 }
@@ -113,7 +113,7 @@ void MainWindow::setCurrentFile(const QString &fileName)
         files.removeLast();
 
     settings.setValue("recentFileList", files);
-	
+
     /*foreach (QWidget *widget, QApplication::topLevelWidgets()) {
         MainWindow *mainWin = qobject_cast<MainWindow *>(widget);
         if (mainWin)
@@ -249,7 +249,7 @@ void MainWindow::open()
 
 void MainWindow::addImages()
 {
-  
+
 	QFileDialog dialog(this);
 	dialog.setFileMode(QFileDialog::ExistingFiles);
 	dialog.setNameFilter("Image files (*.jpg *.jpeg)");
@@ -306,5 +306,5 @@ void MainWindow::redo()
 
 void MainWindow::about()
 {
-  QMessageBox::about(this,"About","Time Machine Creator " + qApp->property("APP_VERSION").toString() + "\nCREATE Lab, 2012");
+  QMessageBox::about(this,"About","Time Machine Creator " + qApp->property("APP_VERSION").toString() + "\nCREATE Lab, " + QDate::currentDate().toString("yyyy"));
 }

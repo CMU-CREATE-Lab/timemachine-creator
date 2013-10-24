@@ -15,6 +15,7 @@ make
 cd ../tmc
 cp -a index.html test.html assets installer/tmc.app/Contents/tmc
 cp -a ../ct/{*.rb,backports,json,exifr} installer/tmc.app/Contents/ct
+cp -a ../ct/g10.response installer/tmc.app/Contents/ct
 cp -a ../tilestacktool/tilestacktool installer/tmc.app/Contents/tilestacktool
 cp -a ../tilestacktool/ffmpeg/osx/ffmpeg installer/tmc.app/Contents/tilestacktool/ffmpeg/osx
 cp -a ../time-machine-explorer/* installer/tmc.app/Contents/time-machine-explorer
