@@ -799,6 +799,7 @@ class StitchSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :framenames, :subsample
   attr_reader :align_to, :stitcher_args, :camera_response_curve, :cols, :rows, :rowfirst
   attr_reader :directory_per_position, :capture_times, :capture_time_parser, :capture_time_parser_inputs
+  attr_reader :master_gigapan
 
   def initialize(parent, settings)
     @parent = parent
@@ -806,29 +807,29 @@ class StitchSource
     @subsample = settings["subsample"] || 1
     @width = settings["width"] || 1
     @height = settings["height"] || 1
-    @align_to = settings["align_to"] or raise "Must include align-to"
-    settings["align_to_comment"] or raise "Must include align-to-comment"
+    unless settings["master_gigapan"]
+      @align_to = settings["align_to"] or raise "Must include align-to in 'source' section of definition.tmc"
+    else
+      @align_to = []
+      @master_gigapan = settings["master_gigapan"]
+      File.exists?(@master_gigapan) or raise "Can't find the master align .gigapan file at path: #{@master_gigapan}"
+    end
+    #settings["align_to_comment"] or raise "Must include align-to-comment"
     @stitcher_args = settings["stitcher_args"] || ""
     @camera_response_curve = settings["camera_response_curve"]
-    if !@camera_response_curve
-      response_curve_path = [File.expand_path("#{File.dirname(__FILE__)}/g10.response"),
-  			     File.expand_path("#{File.dirname(__FILE__)}/ctlib/g10.response")]
+    unless @camera_response_curve
+      response_curve_path = [File.expand_path("#{File.dirname(__FILE__)}/g10.response"), File.expand_path("#{File.dirname(__FILE__)}/ctlib/g10.response")]
       @camera_response_curve = response_curve_path.find {|file| File.exists? file}
-      if !@camera_response_curve
-        raise "Can't find camera response curve in search path #{response_curve_path.join(':')}"
-      end
+      @camera_response_curve or raise "Can't find camera response curve in search path #{response_curve_path.join(':')}"
+    else
+      File.exists?(@camera_response_curve) or raise "Camera response curve set to #{@camera_response_curve} but the file doesn't exist"
     end
-
-    if !File.exists?(@camera_response_curve)
-      raise "Camera response curve set to #{@camera_response_curve} but the file doesn't exist"
-    end
-
-    @cols = settings["cols"] or raise "Must include cols"
-    @rows = settings["rows"] or raise "Must include rows"
+    @cols = settings["cols"] or raise "Must include cols in 'source' section of definition.tmc"
+    @rows = settings["rows"] or raise "Must include rows in 'source' section of definition.tmc"
     @rowfirst = settings["rowfirst"] || false
     @images = settings["images"]
     @directory_per_position = settings["directory_per_position"] || false
-	@capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
+    @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
     @capture_time_parser = "/bin/extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
     initialize_frames
@@ -928,37 +929,57 @@ class StitchSource
     return Copy.new(x)
   end
 
-def tiles_rules
+  def tiles_rules
     targetsets = []
+    align_to_eval = nil
     @framenames.size.times do |i|
       framename = @framenames[i]
       align_to = []
       copy_master_geometry_exactly = false
-      align_to_eval = eval(@align_to)
-
-      if align_to_eval.class == Copy
-        if align_to_eval.target != i
-          align_to += targetsets[align_to_eval.target]
-          copy_master_geometry_exactly = true
+      cmd = stitch_cmd
+      unless @master_gigapan
+        proc {
+          # Change level only inside this proc
+          # Security error will be thrown if a user
+          # attempts to pass in system calls, etc
+          $SAFE = 4
+          align_to_eval = eval(@align_to)
+        }.call
+        if align_to_eval.class == Copy
+          if align_to_eval.target != i
+            align_to += targetsets[align_to_eval.target]
+            copy_master_geometry_exactly = true
+          end
+        else
+          align_to_eval.each do |align_to_index|
+            if align_to_index >= i
+              raise "align_to for index #{i} yields #{align_to_index}, which >= #{i}"
+            end
+            if align_to_index >= 0
+              align_to += targetsets[align_to_index]
+            end
+          end
+          if align_to == [] && i > 0
+            raise "align_to is empty for index #{i} but can only be empty for index 0"
+          end
         end
       else
-        align_to_eval.each do |align_to_index|
-          if align_to_index >= i
-            raise "align_to for index #{i} yields #{align_to_index}, which >= #{i}"
+        align_to << @master_gigapan
+        copy_master_geometry_exactly = true
+        data = XmlSimple.xml_in(@master_gigapan)
+        if data
+          vignette_curve = data["vignette_curve"]
+          if vignette_curve
+            c1 = vignette_curve[0]['vector'][0]['elt'][0]
+            c2 = vignette_curve[0]['vector'][0]['elt'][1]
+            cmd += ["--vignette-curve", c1, c2]
           end
-          if align_to_index >= 0
-            align_to += targetsets[align_to_index]
-          end
-        end
-        if align_to == [] && i > 0
-          raise "align_to is empty for index #{i} but can only be empty for index 0"
         end
       end
       target_prefix = "#{@parent.store}/0200-tiles/#{framename}"
       if $cache_folder
         cache_prefix = "#{$cache_folder}/#{framename}"
       end
-      cmd = stitch_cmd
       cmd += @rowfirst ? ["--rowfirst", "--ncols", @cols] : ["--nrows", @rows]
       # Stitch 1.x:
       # stitch_cmd << "--license-key AATG-F89N-XPW4-TUBU"
@@ -966,6 +987,7 @@ def tiles_rules
       cmd += ['--license-key', 'ACTG-F8P9-AJY3-6733']
 
       cmd += @stitcher_args.split
+
       if @camera_response_curve
         cmd += ["--load-camera-response-curve", @camera_response_curve]
       end
@@ -1001,7 +1023,7 @@ def tiles_rules
         cmd += ["--images"] + cached_images
       else
         cmd += ["--images"] + images
-    end
+      end
       if copy_master_geometry_exactly
         cmd << "--copy-master-geometry-exactly"
       end
