@@ -645,7 +645,7 @@ class ImagesSource
     @subsample = settings["subsample"] || 1
     @images = settings["images"] ? settings["images"].flatten : nil
     @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
-    @capture_time_parser = settings["capture_time_parser"] || "/bin/extract_exif_capturetimes.rb"
+    @capture_time_parser = settings["capture_time_parser"] || "extract_exif_capturetimes.rb"
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0100-unstitched/"
     initialize_images
     initialize_framenames
@@ -720,7 +720,7 @@ class GigapanOrgSource
     @urls = settings["urls"]
     @ids = @urls.map{|url| id_from_url(url)}
     @subsample = settings["subsample"] || 1
-    @capture_time_parser = "/bin/extract_gigapan_capturetimes.rb"
+    @capture_time_parser = settings["capture_time_parser"] || "extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
     @tileformat = "jpg"
     initialize_dimensions
@@ -766,7 +766,7 @@ class PrestitchedSource
     @parent = parent
     @@global_parent = parent
     @subsample = settings["subsample"] || 1
-    @capture_time_parser = "/bin/extract_gigapan_capturetimes.rb"
+    @capture_time_parser = settings["capture_time_parser"] || "extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
     initialize_frames
   end
@@ -776,11 +776,11 @@ class PrestitchedSource
 
     data = XmlSimple.xml_in("#{@parent.store}/0200-tiles/#{framenames[0]}.data/tiles/r.info")
     @width =
-			data["bounding_box"][0]["bbox"][0]["max"][0]["vector"][0]["elt"][0].to_i -
-			data["bounding_box"][0]["bbox"][0]["min"][0]["vector"][0]["elt"][0].to_i
+      data["bounding_box"][0]["bbox"][0]["max"][0]["vector"][0]["elt"][0].to_i -
+      data["bounding_box"][0]["bbox"][0]["min"][0]["vector"][0]["elt"][0].to_i
     @height =
-			data["bounding_box"][0]["bbox"][0]["max"][0]["vector"][0]["elt"][1].to_i -
-			data["bounding_box"][0]["bbox"][0]["min"][0]["vector"][0]["elt"][1].to_i
+      data["bounding_box"][0]["bbox"][0]["max"][0]["vector"][0]["elt"][1].to_i -
+      data["bounding_box"][0]["bbox"][0]["min"][0]["vector"][0]["elt"][1].to_i
     @tilesize = data["tile_size"][0].to_i
     @tileformat = "jpg"
 
@@ -830,7 +830,7 @@ class StitchSource
     @images = settings["images"]
     @directory_per_position = settings["directory_per_position"] || false
     @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
-    @capture_time_parser = "/bin/extract_gigapan_capturetimes.rb"
+    @capture_time_parser = settings["capture_time_parser"] || "extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
     initialize_frames
   end
@@ -1566,7 +1566,7 @@ class Maker
     print_status(rules_executing, nil)
 
     while @ndone < @rules.size
-    	# Restart the process if we are stitching from source and we have not gotten dimensions from the first gigapan
+      # Restart the process if we are stitching from source and we have not gotten dimensions from the first gigapan
       if @@global_parent.source.class.to_s == "StitchSource" && @ndone > 0 && @@global_parent.source.width == 1 && @@global_parent.source.height == 1
         STDERR.write "Initial .gigapan file created. We now have enough info to get the dimensions.\n"
         STDERR.write "Clearing all old rules...\n"
@@ -1643,7 +1643,7 @@ destination = nil
 exe_suffix = ($os == 'windows') ? '.exe' : ''
 
 tilestacktool_search_path = [File.expand_path("#{File.dirname(__FILE__)}/tilestacktool#{exe_suffix}"),
-  			     File.expand_path("#{File.dirname(__FILE__)}/../tilestacktool/tilestacktool#{exe_suffix}")];
+             File.expand_path("#{File.dirname(__FILE__)}/../tilestacktool/tilestacktool#{exe_suffix}")];
 
 
 
@@ -1720,7 +1720,7 @@ end
 $stitch = (stitchpath && File.exists?(stitchpath)) ? stitchpath : 'stitch'
 
 explorer_source_search_path = [File.expand_path("#{File.dirname(__FILE__)}/time-machine-explorer"),
-			       File.expand_path("#{File.dirname(__FILE__)}/../time-machine-explorer")]
+             File.expand_path("#{File.dirname(__FILE__)}/../time-machine-explorer")]
 
 $explorer_source_dir = explorer_source_search_path.find {|x| File.exists? x}
 if $explorer_source_dir
