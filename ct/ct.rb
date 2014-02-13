@@ -646,7 +646,7 @@ class ImagesSource
     @images = settings["images"] ? settings["images"].flatten : nil
     @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
     @capture_time_parser = settings["capture_time_parser"] || "extract_exif_capturetimes.rb"
-    @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0100-unstitched/"
+    @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0100-original-images/"
     initialize_images
     initialize_framenames
     @tilesize = settings["tilesize"] || ideal_tilesize(@framenames.size)
@@ -721,7 +721,7 @@ class GigapanOrgSource
     @ids = @urls.map{|url| id_from_url(url)}
     @subsample = settings["subsample"] || 1
     @capture_time_parser = settings["capture_time_parser"] || "extract_gigapan_capturetimes.rb"
-    @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
+    @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0200-tiles"
     @tileformat = "jpg"
     initialize_dimensions
   end
@@ -767,7 +767,7 @@ class PrestitchedSource
     @@global_parent = parent
     @subsample = settings["subsample"] || 1
     @capture_time_parser = settings["capture_time_parser"] || "extract_gigapan_capturetimes.rb"
-    @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
+    @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0200-tiles"
     initialize_frames
   end
 
@@ -831,7 +831,7 @@ class StitchSource
     @directory_per_position = settings["directory_per_position"] || false
     @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
     @capture_time_parser = settings["capture_time_parser"] || "extract_gigapan_capturetimes.rb"
-    @capture_time_parser_inputs = "#{@parent.store}/0200-tiles"
+    @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0200-tiles"
     initialize_frames
   end
 
