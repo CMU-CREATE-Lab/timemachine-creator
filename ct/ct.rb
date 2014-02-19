@@ -72,7 +72,7 @@ class Partial
 
   def apply(seq)
     none? and return []
-    seq = seq.map
+    seq = seq.to_a
     len = seq.size
     start = len * (@n - 1) / @total
     finish = len * @n / @total
@@ -116,8 +116,8 @@ $run_remotely_json_dir = nil
 $cache_folder = nil
 $dry_run = false
 
-if RUBY_VERSION < '1.8.5' || RUBY_VERSION > '1.9.'
-  raise "Ruby version is #{RUBY_VERSION}, but must be >= 1.8.6, and must be < 1.9 because of threading bugs in 1.9"
+if RUBY_VERSION < '1.8.5' || RUBY_VERSION == '1.9.1' || RUBY_VERSION == '1.9.2'
+  raise "Ruby version is #{RUBY_VERSION}, but must be >= 1.8.6, and also must not be 1.9.1 or 1.9.2 because of threading bugs in < 1.9.3"
 end
 
 if `echo %PATH%`.chomp != '%PATH%'
