@@ -1,0 +1,110 @@
+#!/usr/bin/python
+# Similar to submit_synchronous_pbs, only reads from json instead of command line arguments
+
+import glob
+import os
+import re
+import signal
+import string
+import subprocess
+import sys
+import time
+import json
+from pprint import pprint
+
+if __name__ == "__main__":
+	if (len(sys.argv) < 3 or sys.argv[1] != '--jobs' or sys.argv[2][0] != '@'):
+		print "Usage: %s --jobs @json_file_name ..." % (sys.argv[0])
+		sys.exit(1)
+		
+	timestamp = time.time()
+
+	logdir = time.strftime(os.environ['HOME']+"/jobs/%Y-%m-%d", time.localtime())
+	try:
+		os.makedirs(logdir)
+	except:
+		pass
+
+	if not os.path.exists(sys.argv[2][1:]):
+		print "json file doesn't exist"
+		sys.exit(1)
+	
+	json_data=open(sys.argv[2][1:])
+	rules = json.load(json_data)
+	json_data.close()
+	
+	cmdline = " "
+	for i in range(len(rules)):
+		rule = rules[i]
+		for j in range(len(rule)):
+			cmd = rule[j]
+			for args in cmd:
+				if (args[0] == "'"):
+					cmdline += args + " "
+				else:
+					cmdline += "'" + args + "' "
+			if (j < len(rule)-1):
+				cmdline += "&& "
+		if (i < len(rules)-1):
+			cmdline += "&& "
+	
+	script = "export PATH=$PBS_O_PATH\n"
+	script += "export LANG=C\n"
+	script += "echo JOB_START `date +%s` >&2\n"
+	script += "date >&2\n"
+	script += "echo HOSTNAME `hostname` >&2\n"
+	script += "cd %s\n" % os.getcwd()
+	script += cmdline + "\n"
+	script += "echo JOB_COMPLETE_WITH_EXIT_CODE $? `date +%s` >&2\n"
+
+	s = subprocess.Popen(["qsub", "-e", "localhost:/"+logdir+"/", "-o", "localhost:/"+logdir+"/"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	submit_output = s.communicate(script)
+	if s.returncode != 0:
+		print "Sorry, qsub returned with nonzero exit code %d" % s.returncode
+		print "stdout was >%s<" % submit_output[0]
+		print "stderr was >%s<" % submit_output[1]
+		sys.exit(1)
+	proc = submit_output[0].split(".")[0]
+	outfile = "%s/STDIN.o%s" % (logdir, proc)
+	errfile = "%s/STDIN.e%s" % (logdir, proc)
+	print "%s: Started %s..." % (proc, cmdline[0:120])
+	print "%s: stdout=%s, stderr=%s" % (proc, outfile, errfile)
+	
+	while not os.path.exists(errfile):
+		time.sleep(1)
+
+	counter = 0;
+	while counter < 4:
+		try:
+			log = open(errfile, "r")
+			break
+		except Exception:
+			time.sleep(1)
+			counter = counter + 1
+	line = ""
+	execution_start_time = 0
+	while True:
+		c = log.read(1)
+		if c == "\n":
+			match=re.search('JOB_START (\d+)', line)
+			if match:
+				execution_start_time = int(match.group(1))
+			match=re.search('JOB_COMPLETE_WITH_EXIT_CODE (\d+) (\d+)', line)
+			if match:
+				elapsed = time.time() - timestamp
+				execution_time = int(match.group(2)) - execution_start_time
+				exit_value = int(match.group(1))
+				print "%s: Normal termination after %.1f seconds (execution time %d seconds), exit value %d at %s" % (proc, elapsed, execution_time, exit_value, time.ctime())
+				if exit_value != 0:
+					print "%s: *** Non-zero exit value.  Contents of %s follows:" % (proc, errfile)
+					for line in open(errfile, "r"):
+						sys.stdout.write("%s: %s" % (proc, line))
+				sys.exit(exit_value)
+			line=""
+		elif c == "":
+			time.sleep(1)
+			log.seek(0, 1) # os.SEEK_CUR sometimes gives an error??
+		else:
+			line += c
+    
+    

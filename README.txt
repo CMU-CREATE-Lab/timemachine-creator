@@ -61,3 +61,12 @@ Setup:
 Run:
 1. cd to tmca/tmc
 2. ./tmc
+
+
+
+Remote: (setup for Ubuntu 12.04)
+--------------------------------
+
+Setup:
+1. Install Ruby >= 1.9.3, Python >= 2.7.3
+2. Copy the stitcher folder (gigapan-*-linux) to the main tmca folder.

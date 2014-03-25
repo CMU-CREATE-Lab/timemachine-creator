@@ -1155,9 +1155,8 @@ class Compiler
     if not Filesystem.cached_exists? @videosets_dir
       videosets_tmp = "#{@videosets_dir}.#{temp_file_unique_fragment}"
       Filesystem.mkdir_p videosets_tmp
-      Filesystem.cp_r ['css', 'images', 'js', 'player_template.html', 'time_warp_composer.html', 'browser_not_supported_template.html', 'update_ajax_includes.rb', 'VERSION'].map{|path|"#{$explorer_source_dir}/#{path}"}, videosets_tmp
+      Filesystem.cp_r ['css', 'images', 'js', 'view.html', 'player_template.html', 'time_warp_composer.html', 'browser_not_supported_template.html', 'update_ajax_includes.rb', 'VERSION'].map{|path|"#{$explorer_source_dir}/#{path}"}, videosets_tmp
       Filesystem.cp "#{$explorer_source_dir}/annotation_editor.html", videosets_tmp if File.exist?("#{$explorer_source_dir}/annotation_editor.html")
-      Filesystem.cp "#{$explorer_source_dir}/integrated-viewer.html", "#{videosets_tmp}/view.html"
       Filesystem.mv videosets_tmp, @videosets_dir
     end
   end

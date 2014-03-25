@@ -12,17 +12,17 @@ end
 def clean
   FileUtils.rm_rf Dir.glob("*/0???-*")
   FileUtils.rm_rf Dir.glob("*.timemachine")
+  FileUtils.rm_rf Dir.glob("job*")
 end
 
 def setup
   clean
-  FileUtils.cp_r "../datasets/carnival4_2x2_small", "carnival4_2x2_small.tmc/0100-unstitched"
+  FileUtils.cp_r "../../datasets/carnival4_2x2_small", "carnival4_2x2_small.tmc/0100-unstitched"
 end
 
 def create
   setup
-  sys_print "../ct/ct.rb carnival4_2x2_small.tmc carnival4_2x2_small.timemachine"
-  sys_print "../ct/ct.rb carnival4_2x2_listed_small.tmc carnival4_2x2_listed_small.timemachine"
+  sys_print "../../ct/ct.rb --remote ../../remote-cluster-scripts/run_remote --remote-json -j 8 -r 10 carnival4_2x2_small.tmc carnival4_2x2_small.timemachine"
 end
 
 case ARGV[0]
