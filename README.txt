@@ -71,8 +71,8 @@ Setup:
 0. sudo apt-get install autoconf libboost1.48-all-dev libcurl4-openssl-dev libexif-dev libglu-dev libjpeg-turbo8-dev liblapack-dev libpng12-dev libqt4-dev libtiff4-dev xvfb -y
 1. Install Ruby >= 1.9.3, Python >= 2.7.3
 2. Copy the stitcher folder (gigapan-*-linux) to the main tmca folder. (download from https://drive.google.com/uc?id=0B2n3EeJJWXTBUWU1SnMxak5VSjg&export=download)
-3. Install stitcher dependecies:
- 3.a sudo apt-get install autoconf libboost1.48-all-dev libcurl4-openssl-dev libexif-dev libglu-dev libjpeg-turbo8-dev liblapack-dev libpng12-dev libqt4-dev libtiff4-dev xvfb
+3. Install stitcher dependecies on all computers:
+ 3.a sudo apt-get install autoconf libboost1.48-all-dev libcurl4-openssl-dev libexif-dev libglu-dev libjpeg-turbo8-dev liblapack-dev libpng12-dev libqt4-dev libtiff4-dev xvfb -y
 4. Install tmca
 
 Setup Torque (task scheduler):
