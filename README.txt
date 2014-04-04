@@ -134,5 +134,7 @@ This is the shared file system, creating a shared folder for your server (e.g. h
 3. On both server and clients:
  3.a mkdir ~/jobs
  3.b sudo mount -t glusterfs hal:/hal-shared-disk ~/jobs
+4. On server, give write permissions to everybody
+ 4.a sudo chmod -R a+rwx ~/jobs
 Now put the tmca files and datasets inside ~/jobs.
 
