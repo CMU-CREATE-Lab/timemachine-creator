@@ -20,6 +20,8 @@ if __name__ == "__main__":
 	timestamp = time.time()
 
 	logdir = time.strftime(os.environ['HOME']+"/jobs/%Y-%m-%d", time.localtime())
+  #if your shared network folder is not on ~/jobs, then replace the previous line with something like this:
+	#logdir = time.strftime("/mnt/hal-shared-disk/jobs/%Y-%m-%d", time.localtime())
 	try:
 		os.makedirs(logdir)
 	except:
