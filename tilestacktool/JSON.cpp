@@ -21,7 +21,7 @@ JSON::JSON() {
 JSON JSON::fromFile(const std::string &filename) {
   std::ifstream in(filename.c_str());
   if (!in.is_open()) {
-    assert(0);
+//    assert(0);
     throw std::runtime_error(string_printf("Can't open %s for input", filename.c_str()));
   }
   return JSON(std::string((std::istreambuf_iterator<char>(in)),
