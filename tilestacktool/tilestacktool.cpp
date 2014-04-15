@@ -33,6 +33,7 @@
 #include "warp.h"
 #include "H264Encoder.h"
 #include "VP8Encoder.h"
+#include "ProresHQEncoder.h"
 
 #define TODO(x) do { fprintf(stderr, "%s:%d: error: TODO %s\n", __FILE__, __LINE__, x); abort(); } while (0)
 const double PI = 4.0*atan(1.0);
@@ -53,7 +54,7 @@ class LRUTilestack : public Tilestack {
 
 public:
   LRUTilestack() : lru_size(5) {}
-  
+
   // Not really deleting the LRU, but rather the least recently created
   // (to avoid the overhead of recording use)
   void delete_lru() const {
@@ -243,25 +244,25 @@ class VizTilestack : public LRUTilestack {
 
 public:
   VizTilestack(simple_shared_ptr<Tilestack> src, JSON params) : src(src) {
-    
+
     (*(TilestackInfo*)this) = (*(TilestackInfo*)this->src.get());
     for (unsigned i = 0; i < bands_per_pixel; i++) {
       viz_bands.push_back(VizBand(params, i));
     }
     set_nframes(this->src->nframes);
   }
-  
+
   virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
-    
+
     toc[frame].timestamp = src->toc[frame].timestamp;
 
     unsigned char *srcptr = src->frame_pixels(frame);
     int src_bytes_per_pixel = src->bytes_per_pixel();
     unsigned char *destptr = pixels[frame];
     int dest_bytes_per_pixel = bytes_per_pixel();
-    
+
     for (unsigned y = 0; y < tile_height; y++) {
       for (unsigned x = 0; x < tile_width; x++) {
         for (unsigned band = 0; band < bands_per_pixel; band++) {
@@ -282,7 +283,7 @@ void viz(JSON params) {
 
 class CastTilestack : public LRUTilestack {
   simple_shared_ptr<Tilestack> src;
-  
+
 public:
   CastTilestack(simple_shared_ptr<Tilestack> src, int pixel_format, int bits_per_band) : src(src) {
     (*(TilestackInfo*)this) = (*(TilestackInfo*)src.get());
@@ -290,18 +291,18 @@ public:
     this->bits_per_band = bits_per_band;
     set_nframes(nframes);
   }
-  
+
   virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
-    
+
     toc[frame].timestamp = src->toc[frame].timestamp;
-    
+
     unsigned char *srcptr = src->frame_pixels(frame);
     int src_bytes_per_pixel = src->bytes_per_pixel();
     unsigned char *destptr = pixels[frame];
     int dest_bytes_per_pixel = bytes_per_pixel();
-    
+
     for (unsigned y = 0; y < tile_height; y++) {
       for (unsigned x = 0; x < tile_width; x++) {
         for (unsigned band = 0; band < bands_per_pixel; band++) {
@@ -328,7 +329,7 @@ simple_shared_ptr<Tilestack> ensure_resident(simple_shared_ptr<Tilestack> src) {
     return copy;
   }
 }
-  
+
 simple_shared_ptr<Tilestack> cast_pixel_format(simple_shared_ptr<Tilestack> src, unsigned int pixel_format, unsigned int bits_per_band) {
   if (src->pixel_format == pixel_format && src->bits_per_band == bits_per_band) {
     return src;
@@ -409,14 +410,14 @@ protected:
   simple_shared_ptr<Tilestack> src;
   mutable std::vector<float> kernel;
   virtual void compute(unsigned frame) const = 0;
-  
+
 public:
   LRUConvolve(simple_shared_ptr<Tilestack> src, std::vector<float> kernel) : kernel(kernel) {
     this->src = cast_pixel_format(src, PIXEL_FORMAT_FLOATING_POINT, 32);
     (*(TilestackInfo*)this) = (*(TilestackInfo*)this->src.get());
     set_nframes(nframes);
   }
-  
+
   virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
@@ -429,11 +430,11 @@ public:
 class HConvolve : public LRUConvolve {
 public:
   HConvolve(simple_shared_ptr<Tilestack> src, std::vector<float> kernel) : LRUConvolve(src, kernel) {}
-  
+
 protected:
   virtual void compute(unsigned frame) const {
     VecRef kernel_ref(kernel);
-    
+
     for (unsigned y = 0; y < tile_height; y++) {
       for (unsigned band = 0; band < bands_per_pixel; band++) {
         normalized_convolution(VecRef((float*)get_pixel_band_ptr(frame_pixel(frame, 0, y), band), tile_width, bands_per_pixel),
@@ -447,11 +448,11 @@ protected:
 class VConvolve : public LRUConvolve {
 public:
   VConvolve(simple_shared_ptr<Tilestack> src, std::vector<float> kernel) : LRUConvolve(src, kernel) {}
-  
+
 protected:
   virtual void compute(unsigned frame) const {
     VecRef kernel_ref(kernel);
-    
+
     for (unsigned x = 0; x < tile_width; x++) {
       for (unsigned band = 0; band < bands_per_pixel; band++) {
         normalized_convolution(VecRef((float*)get_pixel_band_ptr(frame_pixel(frame, x, 0), band), tile_width, bands_per_pixel * tile_height),
@@ -474,10 +475,10 @@ simple_shared_ptr<Tilestack> tconvolve(simple_shared_ptr<Tilestack> src, std::ve
   for (unsigned y = 0; y < src->tile_height; y++) {
     for (unsigned x = 0; x < src->tile_width; x++) {
       for (unsigned band = 0; band < src->bands_per_pixel; band++) {
-        normalized_convolution(VecRef((float*)dest->get_pixel_band_ptr(dest->frame_pixel(0, x, y), band), 
+        normalized_convolution(VecRef((float*)dest->get_pixel_band_ptr(dest->frame_pixel(0, x, y), band),
                                       dest->nframes, dest->bands_per_pixel * dest->tile_width * dest->tile_height),
                                kernel_ref,
-                               VecRef((float*)src->get_pixel_band_ptr(src->frame_pixel(0, x, y), band), 
+                               VecRef((float*)src->get_pixel_band_ptr(src->frame_pixel(0, x, y), band),
                                       src->nframes, src->bands_per_pixel * src->tile_width * src->tile_height));
       }
     }
@@ -495,11 +496,11 @@ std::vector<float> gaussian_kernel(double sigma)
   for (size_t i = 0; i <= radius; i++) {
     kernel[radius - i] = kernel[radius + i] = exp(-0.5*(i*i)/(sigma*sigma));
   }
-  
+
   // Normalize
   double sum = VecRef(kernel).sum();
   for (size_t i = 0; i < kernel.size(); i++) kernel[i] /= sum;
-  
+
   return kernel;
 }
 
@@ -516,11 +517,11 @@ public:
     }
     set_nframes(nframes);
   }
-  
+
   virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
-    
+
     unsigned start_frame = 0;
     for (unsigned i = 0; i < srcs.size(); i++) {
       if (frame - start_frame < srcs[i]->nframes) {
@@ -570,15 +571,15 @@ public:
     }
     set_nframes(base->nframes);
   }
-  
+
   virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
-    
+
     unsigned char *base_pixel = base->frame_pixels(frame);
     unsigned char *overlay_pixel = overlay->frame_pixels(frame);
     unsigned char *composite_pixel = pixels[frame];
-    
+
     for (unsigned y = 0; y < tile_height; y++) {
       for (unsigned x = 0; x < tile_width; x++) {
         double alpha = overlay->get_pixel_band(overlay_pixel, overlay->bands_per_pixel-1) / ((1 << overlay->bits_per_band) - 1);
@@ -593,7 +594,7 @@ public:
     }
   }
 };
-  
+
 void composite() {
     simple_shared_ptr<Tilestack> overlay(tilestackstack.pop());
   simple_shared_ptr<Tilestack> base(tilestackstack.pop());
@@ -627,15 +628,15 @@ public:
     }
     set_nframes(a->nframes);
   }
-  
+
   virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
-    
+
     unsigned char *a_pixel = a->frame_pixels(frame);
     unsigned char *b_pixel = b->frame_pixels(frame);
     unsigned char *result_pixel = pixels[frame];
-    
+
     for (unsigned y = 0; y < tile_height; y++) {
       for (unsigned x = 0; x < tile_width; x++) {
         for (unsigned band = 0; band < bands_per_pixel; band++) {
@@ -649,7 +650,7 @@ public:
     }
   }
 };
-  
+
 double subtract_op(double a, double b) { return a-b; }
 double add_op(double a, double b) { return a+b; }
 
@@ -664,20 +665,20 @@ template <class T>
 class UnopTilestack : public LRUTilestack {
   simple_shared_ptr<Tilestack> a;
   T op;
-  
+
 public:
   UnopTilestack(simple_shared_ptr<Tilestack> &a, T op) : a(a), op(op) {
     (*(TilestackInfo*)this) = (TilestackInfo&)(*a);
     set_nframes(a->nframes);
   }
-  
+
   virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
-    
+
     unsigned char *a_pixel = a->frame_pixels(frame);
     unsigned char *result_pixel = pixels[frame];
-    
+
     for (unsigned y = 0; y < tile_height; y++) {
       for (unsigned x = 0; x < tile_width; x++) {
         for (unsigned band = 0; band < bands_per_pixel; band++) {
@@ -689,21 +690,21 @@ public:
     }
   }
 };
-  
+
 class scale_unop {
   double scale;
 public:
   scale_unop(double scale) : scale(scale) {}
   double operator()(double a) const { return scale*a; }
 };
-  
+
 template <class T>
 void unop(T op) {
   simple_shared_ptr<Tilestack> a(tilestackstack.pop());
   simple_shared_ptr<Tilestack> result(new UnopTilestack<T>(a, op));
   tilestackstack.push(result);
 }
-  
+
 void tilestack_info() {
   simple_shared_ptr<Tilestack> src(tilestackstack.top());
   fprintf(stderr, "Tilestack information: %s\n", src->info().c_str());
@@ -724,7 +725,7 @@ void write_png(std::string dest)
   }
   fprintf(stderr, "Created PNGs\n");
 }
-  
+
 void write_html(std::string dest)
 {
   simple_shared_ptr<Tilestack> src(tilestackstack.pop());
@@ -783,16 +784,16 @@ class PrependLeaderTilestack : public LRUTilestack {
   unsigned leader_nframes;
 
 public:
-  PrependLeaderTilestack(simple_shared_ptr<Tilestack> source, int leader_nframes)  
+  PrependLeaderTilestack(simple_shared_ptr<Tilestack> source, int leader_nframes)
     : source(source), leader_nframes(leader_nframes) {
     (*(TilestackInfo*)this) = (*(TilestackInfo*)this->source.get());
     set_nframes(leader_nframes + this->source->nframes);
   }
-  
+
   virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
-    
+
     if (frame >= leader_nframes) {
       // Beyond leader -- use source frame
       memcpy(pixels[frame], source->frame_pixels(frame - leader_nframes), bytes_per_frame());
@@ -839,11 +840,11 @@ public:
     pixel_format = 0;
     compression_format = 0;
   }
-  
+
   virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
-    
+
     memset(pixels[frame], 0, bytes_per_frame());
   }
 };
@@ -851,7 +852,7 @@ public:
 // Video encoding uses 3 bands (more, e.g. alpha, will be ignored)
 // and uses values 0-255 (values outside this range will be clamped)
 
-void write_video(std::string dest, double fps, double compression, int max_size, std::string outputType)
+void write_video(std::string dest, double fps, double compression, int max_size, std::string codec)
 {
   simple_shared_ptr<Tilestack> src(tilestackstack.pop());
   while (1) {
@@ -859,22 +860,24 @@ void write_video(std::string dest, double fps, double compression, int max_size,
     if (!src->nframes) {
       throw_error("Tilestack has no frames in write_video");
     }
-    
+
     if (create_parent_directories) make_directory_and_parents(filename_directory(dest));
-    
+
     fprintf(stderr, "Encoding video to %s\n", temp_dest.c_str());
-    
+
     VideoEncoder *encoder;
-    if (outputType == "mp4")
+    if (codec == "h264")
       encoder = new H264Encoder(temp_dest, src->tile_width, src->tile_height, fps, compression);
-    else if (outputType == "webm")
+    else if (codec == "vp8")
       encoder = new VP8Encoder(temp_dest, src->tile_width, src->tile_height, fps, compression);
+    else if (codec == "proreshq")
+      encoder = new ProresHQEncoder(temp_dest, src->tile_width, src->tile_height, fps, compression);
     else
-      throw_error("Do not support this video output file format");
-     
+      throw_error("Codec '%s' not supported", codec.c_str());
+
     assert(src->bands_per_pixel >= 3);
     std::vector<unsigned char> destframe(src->tile_width * src->tile_height * 3);
-    
+
     for (unsigned frame = 0; frame < src->nframes; frame++) {
       unsigned char *srcptr = src->frame_pixels(frame);
       int src_bytes_per_pixel = src->bytes_per_pixel();
@@ -894,7 +897,7 @@ void write_video(std::string dest, double fps, double compression, int max_size,
     int filelen = (int) file_size(temp_dest);
     if (max_size > 0 && filelen > max_size) {
       compression += 2;
-      fprintf(stderr, "Size is too large: %d > %d;  increasing compression to crf=%g and reencoding\n", 
+      fprintf(stderr, "Size is too large: %d > %d;  increasing compression to crf=%g and reencoding\n",
               filelen, max_size, compression);
       delete_file(temp_dest);
     } else {
@@ -960,7 +963,7 @@ void image2tiles(std::string dest, std::string format, std::string src)
       std::string temp_path = temporary_path(path);
       ImageWriter::write(temp_path, tilesize, tilesize, reader->bands_per_pixel(), reader->bits_per_band(),
                          &tile[0]);
-      
+
       rename_file(temp_path, path);
     }
   }
@@ -995,11 +998,11 @@ private:
     assert(tile->height() == tile_height);
     assert(tile->bands_per_pixel() == bands_per_pixel);
     assert(tile->bits_per_band() == bits_per_band);
-      
+
     tile->read_rows(pixels[frame], tile->height());
   }
 };
-  
+
 void load_tiles(const std::vector<std::string> &srcs)
 {
   simple_shared_ptr<Tilestack> tilestack(new TilestackFromTiles(srcs));
@@ -1049,7 +1052,7 @@ public:
   // .81 vs .182: 4.5x more CPU than ffmpeg
   // .5 vs .182: 2.75x more CPU than ffmpeg
   // .41 vs .182: 2.25x more CPU than ffmpeg
-  
+
   void get_pixel(unsigned char *dest, int frame, int level, int x, int y) {
     if (x >= 0 && y >= 0) {
       int tile_x = x / tile_width;
@@ -1066,7 +1069,7 @@ public:
   // Pixels are centered at +.5
   void interpolate_pixel(unsigned char *dest, int frame, int level, double x, double y) {
     // Convert to pixels centered at +.0
-    x -= 0.5; 
+    x -= 0.5;
     y -= 0.5;
 
     const unsigned int MAX_BYTES_PER_PIXEL = 128;
@@ -1093,11 +1096,11 @@ public:
                                                       x - x0, y - y0));
     }
   }
-  
+
   // Render an image from tilestak and do appropriate projections
   // Its source projection is in Plate Carree and its final projection is in equidistant azimuthal
   // for a half sphere
-  
+
   void render_projection(Image &dest, const Frame &frame, const double XR1, const double XR2, const double YR, const double X, const double Y, const double Pitch, const double Yaw, const double wf, const double wb, const double wt) {
     int frameno = (int) frame.frameno;
     if (frameno >= (int) nframes) {
@@ -1143,7 +1146,7 @@ public:
         y1 = PI*((j+1.0)/dest.width-0.5);
         theta1 = atan2(y1,x1);
         psi1 = PI/2.0-sqrt(x1*x1+y1*y1);
-        
+
         if (theta1 > wf || theta1 < -1.*wf || wb > psi1 || psi1 > wt) {
           memset(dest.pixel(j,i), 0, bytes_per_pixel());
           continue;
@@ -1157,7 +1160,7 @@ public:
         x3 = r[0][0] * x2 + r[0][1] * y2 + r[0][2] * z2;
         y3 = r[1][0] * x2 + r[1][1] * y2 + r[1][2] * z2;
         z3 = r[2][0] * x2 + r[2][1] * y2 + r[2][2] * z2;
-       
+
         // returning back to polar coordinates
         psi2 = atan2(z3,sqrt(x3*x3+y3*y3));
         theta2 = atan2(y3,x3);
@@ -1169,7 +1172,7 @@ public:
         // accounting for zoom
         x = (x - xc) / zoom + xc;
         y = (y - yc) / zoom + yc;
-        
+
         // calculate the pixel
         interpolate_pixel(dest.pixel(j,i), frameno, nlevels-1, y, x);
       }
@@ -1188,13 +1191,13 @@ public:
   // line with pixels at this level, to not introduce blurring
   //
   // A: We use this routine for rendering tours.  In this case, we're grabbing pixels at a wide variety of fractional pixel
-  // offsets.  Grabbing pixels from a level that has higher resolution is good.  Grabbing pixels from exactly the same 
+  // offsets.  Grabbing pixels from a level that has higher resolution is good.  Grabbing pixels from exactly the same
   // resolution isn't great, since we may be grabbing in-between pixels and making something more blurry than it needs to be.
 
   // frame coords are similar to OpenGL texture coords, but with positive Y going downwards
   // The center of the upper left pixel is 0.5, 0.5
   // The upper left corner of the upper left pixel is 0,0
-  
+
   void render_image(Image &dest, const Frame &frame, bool downsize) {
     int frameno = (int) frame.frameno;
     if (frameno >= (int)nframes) {
@@ -1216,7 +1219,7 @@ public:
     if (source_level != nlevels-1) {
       bounds = bounds / (1 << (nlevels-1-source_level));
     }
-    if (dest.height == bounds.height && 
+    if (dest.height == bounds.height &&
         dest.width == bounds.width &&
         bounds.x == (int)bounds.x &&
         bounds.y == (int)bounds.y &&
@@ -1242,7 +1245,7 @@ public:
       }
     }
   }
-    
+
   virtual ~Renderer() {}
 
   static std::string stats() {
@@ -1298,7 +1301,7 @@ public:
 
     nlevels = compute_tile_nlevels(width, height, tile_width, tile_height);
     Tilestack *tilestack = get_tilestack(nlevels-1, 0, 0);
-    if (!tilestack) throw_error("Initializing stackset but couldn't find tilestack at path %s", 
+    if (!tilestack) throw_error("Initializing stackset but couldn't find tilestack at path %s",
                                 path(nlevels-1, 0, 0).c_str());
     (TilestackInfo&)(*this) = (TilestackInfo&)(*tilestack);
   }
@@ -1325,7 +1328,7 @@ public:
     width = tile_width = tilestack->tile_width;
     height = tile_height = tilestack->tile_height;
     nlevels = 1;
-    
+
     (TilestackInfo&)(*this) = (TilestackInfo&)(*tilestack);
   }
 
@@ -1335,7 +1338,7 @@ public:
 class TilestackFromPathProjected : public LRUTilestack {
   simple_shared_ptr<Renderer> renderer;
   std::vector<Frame> frames;
-  
+
   double pixelPerRadian, XR1, XR2, YR, pitch, yaw, X, Y;
 
   void init(Renderer *renderer_init, int stack_width_init, int stack_height_init, JSON path, JSON warp_settings) {
@@ -1352,7 +1355,7 @@ class TilestackFromPathProjected : public LRUTilestack {
 
 public:
   static double wt, wb, wf; // window top, window bottom, window field
-  
+
   TilestackFromPathProjected(int stack_width, int stack_height, double source_pixelPerRadian, double source_XR1, double source_XR2, double source_YR, double dest_pitch, double dest_yaw, JSON path, const std::string &stackset_path, JSON warp_settings) {
     pixelPerRadian = source_pixelPerRadian;
     XR1 = source_XR1;
@@ -1362,10 +1365,10 @@ public:
     yaw = dest_yaw;
     X = pixelPerRadian * (XR1 + XR2);
     Y = pixelPerRadian * YR;
-    
+
     init(new StacksetRenderer(stackset_path), stack_width, stack_height, path, warp_settings);
   }
-  
+
   virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
@@ -1400,11 +1403,11 @@ public:
   TilestackFromPath(int stack_width, int stack_height, JSON path, const std::string &stackset_path, bool downsize, JSON warp_settings) {
     init(new StacksetRenderer(stackset_path), stack_width, stack_height, path, downsize, warp_settings);
   }
-  
+
   TilestackFromPath(int stack_width, int stack_height, JSON path, simple_shared_ptr<Tilestack> &tilestack, bool downsize, JSON warp_settings) {
     init(new TilestackRenderer(tilestack), stack_width, stack_height, path, downsize, warp_settings);
   }
-  
+
   virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
@@ -1445,7 +1448,7 @@ public:
     pixel_format = PixelInfo::PIXEL_FORMAT_INTEGER;
     compression_format = TilestackInfo::NO_COMPRESSION;
   }
-  
+
   virtual void instantiate_pixels(unsigned frame) const {
     assert(!pixels[frame]);
     create(frame);
@@ -1453,13 +1456,13 @@ public:
     //stackset.render_image(image, frames[frame], downsize);
     std::string overlay_image_path = temporary_path("overlay.png");
 
-    std::string path_to_render_js = render_js_path_override != "" ? render_js_path_override : 
+    std::string path_to_render_js = render_js_path_override != "" ? render_js_path_override :
       filename_directory(executable_path()) + "/render.js";
 
     // Truncate frameno;  if in the future we start interpolating, think how to do this --
     //  maybe pass floating point to html page to render an animation between labels?
     int source_frameno = (int) frames[frame].frameno;
-    
+
     std::string cmd = string_printf("phantomjs %s %s %d %s %d %d",
                                     path_to_render_js.c_str(),
                                     overlay_html_path.c_str(),
@@ -1497,12 +1500,12 @@ void usage(const char *fmt, ...) {
           "--save dest.ts2\n"
           "--viz min max gamma\n"
           "--writehtml dest.html\n"
-          "--writevideo dest.mp4 fps compression\n"
-          "              28=typical, 24=high quality, 32=low quality\n"
+          "--writevideo dest.type fps compression codec\n"
+          "              h264: 24=high quality, 28=typical, 30=low quality\n"
+          "				 vp8: 10=high quality, 30=typical, 50=low quality\n"
+          "				 proreshq: 5=high quality, 9=typical, 13=low quality\n"
           "--ffmpeg-path path_to_ffmpeg\n"
           "--vpxenc-path path_to_vpxenc\n"
-          "--writewebm dest.webm fps cqLevel\n"
-          "              10=high quality, 30=typical, 50=low quality\n"
           "--image2tiles dest_dir format src_image\n"
           "              Be sure to set tilesize earlier in the commandline\n"
           "--tilesize N\n"
@@ -1603,7 +1606,7 @@ int main(int argc, char **argv)
           ti.pixel_format = PixelInfo::PIXEL_FORMAT_INTEGER;
         }
         ti.bands_per_pixel = args.shift_int();
-        
+
         loadraw(src, ti);
       }
       else if (arg == "--version") {
@@ -1639,33 +1642,22 @@ int main(int argc, char **argv)
         int height = args.shift_int();
         int bands_per_pixel = args.shift_int();
         int bits_per_band = args.shift_int();
-        simple_shared_ptr<Tilestack> blacktilestack(new BlackTilestack(nframes, width, height, 
-                                                                     bands_per_pixel, 
+        simple_shared_ptr<Tilestack> blacktilestack(new BlackTilestack(nframes, width, height,
+                                                                     bands_per_pixel,
                                                                      bits_per_band));
 
         tilestackstack.push(blacktilestack);
-      }
-      else if (arg == "--writewebm") {
-        std::string dest = args.shift();
-        double fps = args.shift_double();
-        double cqLevel = args.shift_double();
-        int max_size = 0;
-        write_video(dest, fps, cqLevel, max_size, "webm");
       }
       else if (arg == "--writevideo") {
         std::string dest = args.shift();
         double fps = args.shift_double();
         double compression = args.shift_double();
-        //int max_size = 1000000;
         int max_size = 0; // TODO(rsargent):  don't hardcode this
-        write_video(dest, fps, compression, max_size, "mp4");
-      }
-      else if (arg == "--writevideou") {
-        std::string dest = args.shift();
-        double fps = args.shift_double();
-        double compression = args.shift_double();
-        int max_size = 0;
-        write_video(dest, fps, compression, max_size, "mp4");
+        // Default fallback codec if none specified
+        std::string codec = "h264";
+        if (!args.empty())
+          codec = args.shift();
+        write_video(dest, fps, compression, max_size, codec);
       }
       else if (arg == "--tilesize") {
         tilesize = args.shift_int();
@@ -1784,7 +1776,7 @@ int main(int argc, char **argv)
         double yaw = args.shift_double();
         JSON path = args.shift_json();
         std::string stackset = args.shift();
-        JSON warp_settings = 
+        JSON warp_settings =
           (args.next_is_non_flag()) ? args.shift_json() : JSON("{}");
         if (stack_width <= 0 || stack_height <= 0) {
           usage("--path2stack-projected: width and height must be positive numbers");
@@ -1797,12 +1789,12 @@ int main(int argc, char **argv)
         if (stack_width <= 0 || stack_height <= 0) {
           usage("--path2stack-projected-xml: width and height must be positive numbers");
         }
-        
+
         std::string xmlPath = args.shift();
         Rinfo r = parse_xml(xmlPath.c_str());
         if (r.minx == -1 || r.miny == -1 || r.maxx == -1 || r.maxy == -1 || r.projx <= 0 || r.projy <= 0)
           usage("--path2stack-projected-xml: stitcher xml file is not correct");
-        
+
         double pixelPerRadian = r.projy/PI;
         double XR1 = PI * (0.5 - r.miny / r.projy);
         double XR2 = PI * (r.maxy / r.projy - 0.5);
@@ -1810,8 +1802,8 @@ int main(int argc, char **argv)
         double pitch = args.shift_double();
         double yaw = args.shift_double();
         JSON path = args.shift_json();
-        std::string stackset = args.shift(); 
-        JSON warp_settings = 
+        std::string stackset = args.shift();
+        JSON warp_settings =
           (args.next_is_non_flag()) ? args.shift_json() : JSON("{}");
 
         path2stack_projected(stack_width, stack_height, pixelPerRadian, XR1, XR2, YR, pitch, yaw, path, stackset, warp_settings);
@@ -1821,7 +1813,7 @@ int main(int argc, char **argv)
         int stack_height = args.shift_int();
         JSON path = args.shift_json();
         std::string stackset = (arg != "--path2stack-from-stack") ? args.shift() : "";
-        JSON warp_settings = 
+        JSON warp_settings =
           (args.next_is_non_flag()) ? args.shift_json() : JSON("{}");
         if (stack_width <= 0 || stack_height <= 0) {
           usage("--path2stack: width and height must be positive numbers");
@@ -1830,7 +1822,7 @@ int main(int argc, char **argv)
         if (arg == "--path2stack-from-stack") {
           path2stack_from_stack(stack_width, stack_height, path, warp_settings);
         } else {
-          path2stack(stack_width, stack_height, path, stackset, downsize, 
+          path2stack(stack_width, stack_height, path, stackset, downsize,
                      warp_settings);
         }
       }
@@ -1839,9 +1831,9 @@ int main(int argc, char **argv)
         int stack_height = args.shift_int();
         JSON path = args.shift_json();
         std::string overlay_html_path = args.shift();
-        JSON warp_settings = 
+        JSON warp_settings =
           (args.next_is_non_flag()) ? args.shift_json() : JSON("{}");
-        path2overlay(stack_width, stack_height, path, 
+        path2overlay(stack_width, stack_height, path,
                      overlay_html_path, warp_settings);
       }
       else if (arg == "--createfile") {
@@ -1866,7 +1858,7 @@ int main(int argc, char **argv)
     get_cpu_usage(user, system);
     fprintf(stderr, "%s\n", TilestackReader::stats().c_str());
     fprintf(stderr, "%s\n", Renderer::stats().c_str());
-    
+
     fprintf(stderr, "User time %g, System time %g\n", user, system);
 
     while (tilestackstack.size()) tilestackstack.pop();

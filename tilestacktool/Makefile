@@ -137,7 +137,7 @@ leader_%.mp4: $(TILESTACKTOOL)
 
 JSON_SOURCES = JSON.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp
 
-SOURCES = tilestacktool.cpp H264Encoder.cpp VP8Encoder.cpp xmlreader.cpp warp.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp $(JSON_SOURCES) png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp qt-faststart.cpp SimpleZlib.cpp WarpKeyframe.cpp math_utils.cpp $(COMMANDS)
+SOURCES = tilestacktool.cpp H264Encoder.cpp VP8Encoder.cpp ProresHQEncoder.cpp xmlreader.cpp warp.cpp io.cpp io_streamfile.cpp Tilestack.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp $(JSON_SOURCES) png_util.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp qt-faststart.cpp SimpleZlib.cpp WarpKeyframe.cpp math_utils.cpp $(COMMANDS)
 
 ZLIB_DIR = dependencies/zlib
 
