@@ -153,11 +153,13 @@ void API::addJSObject() {
 // </script>
 
 QPixmap API::readThumbnail(QString path) {
+  string path_utf8 = path.toUtf8().constData();
+  FILE *in = fopen_utf8(path_utf8, "rb"); //was rw
+  if (!in) {
+    // TODO: Find a way to signal the error
+    return QPixmap(1,1);
+  }
   try {
-    string path_utf8 = path.toUtf8().constData();
-
-    FILE *in = fopen_utf8(path_utf8, "rb"); //was rw
-    EXIF_ASSERT(in, ExifErr() << "Can't read " << path_utf8);
     ExifView exif(path_utf8);
     size_t offset = exif.get_thumbnail_location();
     int32 length;
@@ -165,17 +167,15 @@ QPixmap API::readThumbnail(QString path) {
     EXIF_ASSERT(length > 0, ExifErr() << "Illegal thumbnail length");
     vector<unsigned char> buf(length);
     EXIF_ASSERT(fseek(in, offset, SEEK_SET) == 0, ExifErr() << "Error reading thumbnail");
-    //EXIF_ASSERT(1 == (int32)fread(&buf[0], length, 1, in), ExifErr() << "Error reading thumbnail");
-    fread(&buf[0], length, 1, in);
+    EXIF_ASSERT(1 == (int32)fread(&buf[0], length, 1, in), ExifErr() << "Error reading thumbnail");
     fclose(in);
-
     QPixmap ret;
     ret.loadFromData(&buf[0], length);
-
     return ret;
   } catch (ExifErr &e) {
-    fprintf(stderr, "ExifErr: %s\n", e.what());
-    return QPixmap();
+    fclose(in);
+    fprintf(stderr, "ExifErr: %s.  Loading from original image.\n", e.what());
+    return QPixmap(path).scaledToHeight(120);
   }
 }
 
