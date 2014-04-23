@@ -1,2 +1,2 @@
-Fetched from http://ffmpegmac.net/ on 14-Oct-2013
-64-bit 10.10.2013
+Fetched from http://www.evermeet.cx/ffmpeg/ on 11-April-2014
+ffmpeg-2.2.1 static FFmpeg binaries for Mac OS X Intel 64bit
