@@ -403,12 +403,15 @@ class VideosetCompiler
 
   # DEPRECATED
   # We now allow users to pass in an array containing a desired width and height
-  @@sizes={
-    "large"=>{:vid_size=>[1088,624], :overlap=>[1088/4, 624/4]},
-    "small"=>{:vid_size=>[768,432], :overlap=>[768/3, 432/3]}
+  @@sizes = {
+    "large" => {:vid_size=>[1088,624], :overlap=>[1088/4, 624/4]},
+    "small" => {:vid_size=>[768,432], :overlap=>[768/3, 432/3]}
   }
-  @@videotypes={
-    "h.264"=>{}
+
+  @@videotypes = {
+    "h.264" => "mp4",
+    "vp8" => "webm",
+    "proreshq" => "mov"
   }
 
   def initialize(parent, settings)
@@ -417,6 +420,8 @@ class VideosetCompiler
     @label = settings["label"] || raise("Video settings must include label")
 
     @videotype = settings["type"] || raise("Video settings must include type")
+    @@videotypes.member?(@videotype) || raise("Video type must be one of the following codecs [#{@@videotypes.keys.join(", ")}].")
+    @videotype_container = @@videotypes[@videotype]
 
     size = settings["size"] || raise("Video settings must include size")
 
@@ -454,19 +459,22 @@ class VideosetCompiler
   end
 
   def compute_leader_length
-
-    leader_bytes_per_pixel={
+    leader_bytes_per_pixel = {
       30 => 2701656.0 / (@vid_width * @vid_height * 90),
       28 => 2738868.0 / (@vid_width * @vid_height * 80),
       26 => 2676000.0 / (@vid_width * @vid_height * 70),
       24 => 2556606.0 / (@vid_width * @vid_height * 60)
     }
 
+    # TODO:
+    # If we do not have a calculated leader for the requested compression,
+    # default to either the min or max depending upon the value.
+    compression_lookup = @compression
     if not leader_bytes_per_pixel.member?(@compression)
-      raise "Video compression must be one of [#{leader_bytes_per_pixel.keys.join(", ")}]"
+      @compression < 24 ? compression_lookup = 24 : compression_lookup = 30
     end
 
-    bytes_per_frame = @vid_width * @vid_height * leader_bytes_per_pixel[@compression]
+    bytes_per_frame = @vid_width * @vid_height * leader_bytes_per_pixel[compression_lookup]
 
     leader_threshold = 1200000
     estimated_video_size = bytes_per_frame * nframes
@@ -559,7 +567,7 @@ class VideosetCompiler
     else
       STDERR.puts "#{id}: #{@videotiles.size} videos (#{$compute_videos})"
       @videotiles.flat_map do |vt|
-        target = "#{@parent.videosets_dir}/#{id}/#{vt.path}.mp4"
+        target = "#{@parent.videosets_dir}/#{id}/#{vt.path}.#{@videotype_container}"
         cmd = tilestacktool_cmd
         cmd << "--create-parent-directories"
 
@@ -584,7 +592,7 @@ class VideosetCompiler
 
         cmd << "--cat";
 
-        cmd += ['--writevideo', target, @fps, @compression]
+        cmd += ['--writevideo', target, @fps, @compression, @videotype]
 
         Rule.add(target, dependencies, [cmd])
       end
