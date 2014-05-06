@@ -866,7 +866,7 @@ void write_video(std::string dest, double fps, double compression, int max_size,
     fprintf(stderr, "Encoding video to %s\n", temp_dest.c_str());
 
     VideoEncoder *encoder;
-    if (codec == "h264")
+    if (codec == "h.264" || codec == "h264")
       encoder = new H264Encoder(temp_dest, src->tile_width, src->tile_height, fps, compression);
     else if (codec == "vp8")
       encoder = new VP8Encoder(temp_dest, src->tile_width, src->tile_height, fps, compression);
@@ -1501,11 +1501,11 @@ void usage(const char *fmt, ...) {
           "--viz min max gamma\n"
           "--writehtml dest.html\n"
           "--writevideo dest.type fps compression codec\n"
-          "              h264: 24=high quality, 28=typical, 30=low quality\n"
+          "              h.264: 24=high quality, 28=typical, 30=low quality\n"
           "				 vp8: 10=high quality, 30=typical, 50=low quality\n"
           "				 proreshq: 5=high quality, 9=typical, 13=low quality\n"
           "--ffmpeg-path path_to_ffmpeg\n"
-          "--vpxenc-path path_to_vpxenc\n"
+          /*"--vpxenc-path path_to_vpxenc\n"*/
           "--image2tiles dest_dir format src_image\n"
           "              Be sure to set tilesize earlier in the commandline\n"
           "--tilesize N\n"
@@ -1654,7 +1654,7 @@ int main(int argc, char **argv)
         double compression = args.shift_double();
         int max_size = 0; // TODO(rsargent):  don't hardcode this
         // Default fallback codec if none specified
-        std::string codec = "h264";
+        std::string codec = "h.264";
         if (!args.empty())
           codec = args.shift();
         write_video(dest, fps, compression, max_size, codec);
@@ -1742,9 +1742,9 @@ int main(int argc, char **argv)
         H264Encoder::ffmpeg_path_override = args.shift();
         VP8Encoder::ffmpeg_path_override = H264Encoder::ffmpeg_path_override;
       }
-      else if (arg == "--vpxenc-path") {
+      /*else if (arg == "--vpxenc-path") {
         VP8Encoder::vpxenc_path_override = args.shift();
-      }
+      }*/
       else if (arg == "--render-path") {
         render_js_path_override = args.shift();
       }
