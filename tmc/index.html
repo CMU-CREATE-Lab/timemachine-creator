@@ -1,134 +1,133 @@
 <!DOCTYPE html>
+<html>
   <head>
-    <title>GigaPan Time Machine Creator</title>
+    <meta charset="UTF-8">
+    <title>Time Machine Creator</title>
+
+    <link rel="stylesheet" type="text/css" href="assets/stylesheets/smoothness/jquery-ui.css">
+    <link rel="stylesheet" type="text/css" href="assets/stylesheets/jquery.ui.labeledslider.css">
+    <link rel="stylesheet" type="text/css" href="assets/stylesheets/jquery.ui.selectmenu.css">
+    <link rel="stylesheet" type="text/css" href="assets/stylesheets/tmc.css">
+
     <script type="text/javascript" src="assets/javascripts/jquery.min.js"></script>
     <script type="text/javascript" src="assets/javascripts/jquery-ui.min.js"></script>
-    <script type="text/javascript" src="assets/javascripts/api.js"></script>
-    <script type="text/javascript" src="assets/javascripts/ui.spinner.min.js"></script>
     <script type="text/javascript" src="assets/javascripts/jquery.progressbar.min.js"></script>
-    <script type="text/javascript" src="assets/javascripts/jquery.ui-slider-x.js"></script>
+    <script type="text/javascript" src="assets/javascripts/jquery.ui.labeledslider.js"></script>
     <script type="text/javascript" src="assets/javascripts/jquery.ui.selectmenu.min.js"></script>
+    <script type="text/javascript" src="assets/javascripts/api.js"></script>
     <script type="text/javascript" src="assets/javascripts/tmc.js"></script>
-    <link rel="stylesheet" type="text/css" href="assets/stylesheets/smoothness/jquery-ui.css" />
-    <link rel="stylesheet" type="text/css" href="assets/stylesheets/ui.spinner.css" />
-    <link rel="stylesheet" type="text/css" href="assets/stylesheets/jquery.ui-slider-x.css" />
-    <link rel="stylesheet" type="text/css" href="assets/stylesheets/jquery.ui.selectmenu.css" />
-    <link rel="stylesheet" type="text/css" href="assets/stylesheets/tmc.css" />
+
     <script>
       $(init);
     </script>
   </head>
-  <body style="margin:0" onresize="rescale(); refresh();" ondragstart="return false;" ondrop="return false;">
-    <div id="tabs" style="height:100%">
+  <body onresize="rescale(); refresh();" ondragstart="return false;" ondrop="return false;">
+    <div id="tabs">
       <ul>
         <li>
           <a href="#tabs-1">Organize Images</a>
         </li>
         <li>
-          <a href="#tabs-2" onclick="checkDataFields()">Render and Export</a>
+          <a href="#tabs-2" onclick="checkData()">Render and Export</a>
         </li>
       </ul>
-      <div id="tabs-1" style="height:100%">
-        <div id="zoom" style="position:absolute; margin-left: 200px; margin-top: 140px">
-          <div id="scale" style="position:absolute; margin-left: -15px; margin-top: -25px; width: 200px; font-size: 12px;"></div>
-          <a href="javascript:void(0);" title="Zoom in" id="zoomin" onclick="zoomIn()"></a>
-          <a href="javascript:void(0);" title="Zoom out" id="zoomout" onclick="zoomOut()"></a>
-          <div id="zoomSlider" title="Click to zoom"></div>
-        </div>
-        <div id="filmstripControls" style="display: none; z-index: 400 !important; position:absolute; margin-left: 216px; margin-top: 125px">
-          <div style="width:250px">
-            <div id="btnPrevImage" style="float:left" class="ui-state-default ui-corner-all" title="Left" onclick="filmstripIndex--; refresh();"><span class="ui-icon ui-icon-circle-arrow-w" title="Previous Image"></span></div>
-            <div id="filstripTextContainer" style="width: 65%; margin:0px auto;">Image <input type="text" id="jumpToFrame" onclick="this.select();" style="padding: .4em .6em; width:27px !important;" value="0"/>/<span style="font-size:12px;" id="filmstripText">0</span></div>
-            <div id="btnNextImage" style="position: absolute; margin: -20px 0px 0px 190px" class="ui-state-default ui-corner-all" title="Right" onclick="filmstripIndex++; refresh();"><span class="ui-icon ui-icon-circle-arrow-e" title="Next Image"></span></div>
-          </div>
-        </div>
-        <div id="scroll" style="margin-top: 108px; width:100%; height: 100%; background:#eee; overflow-y:auto; margin-left: 22px;" onscroll="refresh()">
-          <div id="canvasdiv" style="background:#eee !important; position:absolute; height:100%; left:200px; right:20px; margin-left: 160px;">
-            <canvas id="canvas" style="background:#eee !important;height:100%"></canvas>
-          </div>
-          <!-- note: world is on top of canvas to capture mouse scrollwheel events, but is transparent to not block canvas -->
-          <div id="world" style="background:#eee; height:10000px; width:100%; opacity:0;"></div>
-        </div>
-        <div id="top_area" style="position:absolute; height:100px; top:60px; left:200px;">
-          <!-- Drag and drop files and folders -->
-          <div id="dropbox" style="border:3px dashed #a3a3a3; background: #f5f5f5; padding: 10px; display: table; width: 50%; margin: 0px auto; text-align: center; height: 80px">
-            <br/>Drop images or directories here
-          </div>
-          <button id="btnToggle" type="button" onclick="toggleFilmstrip()" style="position:absolute; bottom:2px;left:2px;width:90px;">Slideshow View</button>
-        </div>
-        <div id="controls" style="background:#fff; position:absolute; height:100%; top:60px; left:0px; width:200px">
-          <p style="padding: 0px 0px 0px 10px">
-            Format:
-            <button type="button" id="tmFormat">Change</button><br/><br/>
-            Single, fixed camera capture.
+      <div id="tabs-1">
+        <div id="controls">
+          <p id="controls_txt">
+            Format:<br/>
+            <span id="controls_inner_txt">Fixed camera capture</span>
           </p>
-          <p id="numFrames" style="padding: 0px 0px 0px 10px;bottom: 10px;position: absolute;"></p>
+          <p id="numFrames"></p>
+        </div>
+        <div id="content">
+          <div id="top_area">
+            <table id="dropboxes">
+              <tr>
+                <td>
+                  <div id="dropbox_1" class="dropbox">
+                    <p>Drop images or directories here</p>
+                  </div>
+                </td>
+              </tr>
+            </table>
+            <button id="btnToggle" type="button" onclick="toggleFilmstrip()" title="Click for slideshow view">Slideshow View</button>
+          </div>
+          <div id="filmstripControls">
+            <div id="btnPrevImage" class="ui-state-default ui-corner-all" title="Left" onclick="filmstripIndex--; refresh();"><span class="ui-icon ui-icon-circle-arrow-w" title="Previous Image"></span></div>
+            <div id="filstripTextContainer">Image <input type="text" id="jumpToFrame" onclick="this.select();" value="0"/>/<span id="filmstripText">0</span></div>
+            <div id="btnNextImage" class="ui-state-default ui-corner-all" title="Right" onclick="filmstripIndex++; refresh();"><span class="ui-icon ui-icon-circle-arrow-e" title="Next Image"></span></div>
+          </div>
+          <div id="scroll" onscroll="refresh()">
+            <canvas id="canvas_times" width="96"></canvas>
+            <div id="canvasdiv">
+              <canvas id="canvas"></canvas>
+            </div>
+            <!-- Note: world is on top of canvas to capture mouse scrollwheel events, but is transparent to not block canvas -->
+            <div id="world"></div>
+          </div>
         </div>
       </div>
-      <div id="tabs-2" style="height:100%">
+      <div id="tabs-2">
         <table width="100%" height="100%">
           <tr>
-            <td width="46%" height="100%" style="min-width: 352px;" valign="top">
+            <td width="46%" height="100%" valign="top">
               <div id="render_settings">
-                <h2 style="padding-bottom: 10px">Settings</h2>
-                <div style="float:left">Frames per second:</div>
-                <div style="margin: 0px 0px 0px 5px; float:left" id="fps_explanation" style="width: 16px" class="ui-state-default ui-corner-all" title="Explain">
-                  <span class="ui-icon ui-icon-info" title="Explain"></span>
-                </div>
-                <input style="margin: 0px 0px 0px 5px; float:left" type="text" id="fps" size="2" maxlength="2" value="25"/>
-                <br/><br/>
-                H.264 video (Chrome or Safari required)<br/>
-                <div style="margin: 0px 0px 0px 20px"><div style="float:left">Compression:</div> <div style="margin: 0px 0px 0px 5px; float:left" id="compression_explanation" style="width: 16px" class="ui-state-default ui-corner-all" title="Explain"><span class="ui-icon ui-icon-info" title="Explain"></span></div> <div style="background: LightGray; font-size: 10px; margin: 3px 0px 0px 10px; float: left; width: 150px;" id="compression"></div><br/>
-                  <font style="margin: -120px" size="1px">Typical settings:</font>
-                  <div style="margin: 0px 0px 0px 10px">
-                    <font size="1px">
-                      Low compression <b>(higher quality; slow processing)</b>: 24<br/>
-                      Medium compression <b>(medium quality)</b>: 26<br/>
-                      High compression <b>(lower quality; fast processing)</b>: 28</font><br/><br/>
-                    </font>
+                <h2>Output Settings</h2>
+                <div id="fps_settings" class="setting_section">
+                  <div class="setting_title">Frames per second:</div>
+                  <input type="text" id="fps" size="2" maxlength="2" value="12" onclick="this.select();" onblur="isPositive(this)"/>
+                  <div id="fps_explanation" class="ui-state-default ui-corner-all" title="Explain">
+                    <span class="ui-icon ui-icon-help" title="Explain"></span>
                   </div>
                 </div>
-                <div style="float:left">
-                  Video Size: <select id="videoSize" style="width: 80px;">
+                <div id="codec_settings" class="setting_section">
+                  <div class="setting_title">Video Quality:</div>
+                  <div id="compression_wrapper">
+                    <div id="compression"></div>
+                  </div>
+                    <div id="compression_explanation" class="ui-state-default ui-corner-all" title="Explain">
+                      <span class="ui-icon ui-icon-help" title="Explain"></span>
+                    </div>
+                </div>
+                <div id="video_size_settings" class="setting_section">
+                  <div class="setting_title">Video Size:</div>
+                  <select id="video_size">
                     <option value="854,480">480p</option>
                     <option value="1280,720">720p</option>
                     <option value="1920,1080">1080p</option>
                     <option value="-1">Custom</option>
                   </select>
-                  <div id="videoSize_explanation" style="float:right; width: 16px" class="ui-state-default ui-corner-all" title="Explain">
-                    <span class="ui-icon ui-icon-info" title="Explain"></span>
+                  <div id="video_size_explanation" class="ui-state-default ui-corner-all" title="Explain">
+                    <span class="ui-icon ui-icon-help" title="Explain"></span>
                   </div>
-                  <br/>
-                  <div id="videoSize_custom" style="margin: 20px -55px 0px 20px; display: none">
-                      Width: <input type="text" id="videoSize_width" style="width: 30px !important"> Height: <input type="text" id="videoSize_height" style="width: 30px !important">
+                  <div id="video_size_custom">
+                    Width: <input type="text" id="video_size_width"> Height: <input type="text" id="video_size_height">
                   </div>
                 </div>
-                <br/><br/><br/><br/>
-                <div id="job_setting" style="margin-top: -30px">
-                  <div style="float:left">
-                    Parallel Jobs:<input type="text" style="float:right; margin: 0px 0px 0px 5px" id="num_jobs" size="2" maxlength="2" value="2" onclick="this.select();" onblur="checkNumJobs(this.value)"/>
-                    <div id="jobs_explanation" style="float:right; width: 16px" class="ui-state-default ui-corner-all" title="Explain">
-                      <span class="ui-icon ui-icon-info" title="Explain"></span>
-                    </div>
-                    <br/>
+                <div id="job_settings">
+                  <div class="setting_title">Parallel Jobs:</div>
+                  <input type="text" id="num_jobs" size="2" maxlength="2" value="2" onclick="this.select();" onblur="isPositive(this)"/>
+                  <div id="jobs_explanation" class="ui-state-default ui-corner-all" title="Explain">
+                    <span class="ui-icon ui-icon-help" title="Explain"></span>
                   </div>
                   <br/>
-                  <p style="max-width:352px"><font size="1">Note: A rough speed estimate is about 30 seconds per input frame, on a typical 2-core Windows computer.</font></p>
                 </div>
+                <p id="compilation_estimate_msg">Note: A rough speed estimate is about 30 seconds per input frame, on a typical 2-core Windows computer.</p>
+                <!-- Begin text initially hidden -->
                 <div id="compression-dialog-message" title="Compression explanation">
                   <p>
-                    This setting controls the compression level of the output videos.<br/><br/>Higher compression means smaller videos sizes, but at the loss of quality. Lower compression means higher quality but results in larger file sizes. Going below a setting of 26 is not recommended if you plan to stream your Time Machine over the Internet. And going significantly above a setting of 30 will result in videos which are blocky and blurred.<br/><br/>At this time, encoding only in H.264 is supported by this software.
+                    This setting controls the quality level of the output videos.<br/><br/>The higher the quality, the longer it will take to process. Higher quality also means more bandwidth is required if you want to stream your Time Machine online. It's recommended to use at most the "High" setting for online streaming.<br/><br/>At this time, encoding only in H.264 is supported by this software.
                   </p>
                 </div>
                 <div id="fps-dialog-message" title="Frame rate explanation">
                   <p>
-                    This setting controls the speed at which the frames are played back -- typically from 3 to 25 frames per second.<br/><br/>You should experiment to see what speed works best for your data. If you have thousands of frames, and there is a relatively small change between frames, 25 FPS might be a good choice. If you have fewer frames, or there is a larger change between images, select a slower rate such as 6 or 12 FPS. Even lower, like 3 FPS tends to work well when there is a large change between successive images.
+                    This setting controls the speed at which the frames are played back -- typically from 3 to 25 frames per second.<br/><br/>You should experiment to see what speed works best for your data. If you have thousands of frames, and there is a relatively small change between frames, 25 FPS might be a good choice. If you have fewer frames, or there is a larger change between images, select a slower rate such as 6 or 12 FPS. Even lower, like 3 FPS, tends to work well when there is a large change between successive images.
                   </p>
                 </div>
-                <div id="videoSize-dialog-message" title="Video size explanation">
+                <div id="video_size-dialog-message" title="Video size explanation">
                   <p>
-                    Set the width and height of the videos generated. <br/><br/>Note that the videos produced are 25% larger than the values specified, since overlap is required by the viewer. <br/><br/>
-                    You can choose from a set of standard sizes or input your own. <br/><br/>For reference, the choices correspond to the following dimensions:<br/><br/>
+                    Set the width and height of the videos generated. These values are separate from the dimensions of your source imagery.<br/><br/>This setting will determine the viewport size, though note that the videos produced are 25% larger than the values specified, since overlap is required by the viewer. <br/><br/>
+                    If you want to stream your Time Machine online, choose at most 720p. You can choose from a set of standard sizes or input your own. <br/><br/>For reference, the choices correspond to the following dimensions:<br/><br/>
                     480p => 854x480<br/>
                     720p => 1280x720<br/>
                     1080p => 1920x1080<br/>
@@ -141,34 +140,16 @@
                 </div>
                 <div id="dialog-confirm" title="Save Project?">
                   <p>
-                    <span class="ui-icon ui-icon-alert" style="float:left; margin:0 7px 80px 0;"></span>
+                    <span class="ui-icon ui-icon-alert"></span>
                     You have made changes to your project which you have not saved.<br><br>Would you like to save these changes before you proceed?
                   </p>
                 </div>
-                <div id="change-format" title="Set Capture Format">
-                  <table>
-                    <tr>
-                      <td width="1%" height="50" valign="top"><input type="radio" name="single" value="single" checked/></td>
-                      <td width="40%" valign="top"> Frame-per-image</td>
-                      <td valign="top"><i>Single, fixed camera capture.</i></td>
-                    </tr>
-                    <tr>
-                      <td width="1%" height="80" valign="top"><input type="radio" name="multi" value="multi" disabled="disabled"/></td>
-                      <td width="40%" valign="top"> Multi-camera parallel</td>
-                      <td valign="top"><i>Multiple, fixed cameras. Each takes a picture at the same time to comprise a video frame.</i> (Currently Unavailable)</td>
-                    </tr>
-                    <tr>
-                      <td width="1%" height="80" valign="top"><input type="radio" name="gigapan" value="gigapan" disabled="disabled"/></td>
-                      <td width="40%" valign="top"> GigaPan</td>
-                      <td valign="top"><i>GigaPan captures a complete panarama for each frame of the video. Typically captured by an Epic Pro running in timelapse mode.</i> (Currently Unavailable)</td>
-                    </tr>
-                  </table>
-                </div>
+                <!-- End text initially hidden -->
               </div>
             </td>
             <td width="54%" height="100%" valign="top">
-              <div id="render_export" style="width: 100%; height: 100%; padding-left: 10px;">
-                <h2 style="padding-bottom: 10px">Render and Export Time Machine</h2>
+              <div id="render_export">
+                <h2>Render and Export</h2>
                 <button id="render_export_btn">Create Time Machine</button>
                 <div id="status_window"></div>
               </div>

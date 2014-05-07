@@ -71,3 +71,7 @@ api.fileExists = window._api.fileExists;
 api.closeApp = window._api.doCloseApp;
 
 api.getRootAppPath = window._api.getRootAppPath;
+
+api.showWaitCursor = window._api.showWaitCursor;
+
+api.hideWaitCursor = window._api.hideWaitCursor;

@@ -382,6 +382,16 @@ bool copyDir(const QString source, const QString destination, const bool overrid
   return !error;
 }
 
+void API::showWaitCursor()
+{
+  QApplication::setOverrideCursor(Qt::WaitCursor);
+}
+
+void API::hideWaitCursor()
+{
+  QApplication::restoreOverrideCursor();
+}
+
 bool API::checkViewerVersion(QString path)
 {
 

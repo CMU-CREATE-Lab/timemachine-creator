@@ -14,7 +14,7 @@ class API : public QObject
   Q_OBJECT
   QWebFrame *frame;
   MainWindow *mainwindow;
-  
+
 public:
   API(const std::string &rootdir);
   void setFrame(QWebFrame *frame);
@@ -23,7 +23,7 @@ public:
   void dropPaths(QStringList files);
   void requestCallback(int id, QVariantList args);
   bool closeApp();
-  
+
   Q_INVOKABLE void addJSObject();
   Q_INVOKABLE QPixmap readThumbnail(QString path);
   Q_INVOKABLE double exifTime(QString path);
@@ -53,10 +53,12 @@ public:
   Q_INVOKABLE void doCloseApp();
   Q_INVOKABLE QString getRootAppPath();
   Q_INVOKABLE bool checkViewerVersion(QString path);
-  
+  Q_INVOKABLE void showWaitCursor();
+  Q_INVOKABLE void hideWaitCursor();
+
 signals:
   void callback(int id, QVariantList args);
-  
+
 protected:
   QStringList droppedPaths;
   QString openedProject;
