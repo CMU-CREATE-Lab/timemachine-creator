@@ -25,7 +25,7 @@ make
 cp -R ../time-machine-explorer $output_directory
 # ct.rb files
 mkdir $output_directory/ct
-cp -R ../ct/*.rb ../ct/backports ../ct/exifr ../ct/json $output_directory/ct
+cp -R ../ct/*.rb ../ct/backports ../ct/exifr ../ct/json ../ct/g10.response $output_directory/ct
 # tilestacktool files
 mkdir -p $output_directory/tilestacktool/ffmpeg/linux
 cp -R ../tilestacktool/tilestacktool $output_directory/tilestacktool
@@ -33,6 +33,12 @@ cp -R ../tilestacktool/ffmpeg/linux/ffmpeg $output_directory/tilestacktool/ffmpe
 # tmc files
 mkdir $output_directory/tmc
 cp -R assets index.html tmc ../LICENSE tmc.ico $output_directory/tmc
+# examples
+mkdir $output_directory/datasets
+cp -R ../datasets/carnival4_2x2 ../datasets/patp10_1x1 $output_directory/datasets
+cp -R ../ct-examples $output_directory
+# remote cluster scripts
+cp -R ../remote-cluster-scripts $output_directory
 # .so files since we are doing a shared build
 cp -RL /usr/lib/i386-linux-gnu/libaudio.so.2 /usr/lib/i386-linux-gnu/libQtCore.so.4 /usr/lib/i386-linux-gnu/libQtGui.so.4 /usr/lib/i386-linux-gnu/libQtNetwork.so.4 /usr/lib/i386-linux-gnu/libQtWebKit.so.4 /usr/lib/i386-linux-gnu/qt4/plugins/imageformats $output_directory/tmc
 cp tmc.sh $output_directory
