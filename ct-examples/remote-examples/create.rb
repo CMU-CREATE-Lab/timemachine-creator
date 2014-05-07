@@ -17,12 +17,12 @@ end
 
 def setup
   clean
-  FileUtils.cp_r "../../datasets/carnival4_2x2_small", "carnival4_2x2_small.tmc/0100-unstitched"
+  FileUtils.cp_r "../../datasets/carnival4_2x2", "carnival4_2x2.tmc/0100-unstitched"
 end
 
 def create
   setup
-  sys_print "../../ct/ct.rb --remote ../../remote-cluster-scripts/run_remote --remote-json -j 8 -r 10 carnival4_2x2_small.tmc carnival4_2x2_small.timemachine"
+  sys_print "../../ct/ct.rb --remote ../../remote-cluster-scripts/run_remote --remote-json -j 8 -r 10 carnival4_2x2.tmc carnival4_2x2.timemachine"
 end
 
 case ARGV[0]
@@ -33,4 +33,4 @@ when '--setup'
 else
   create
 end
-   
+

@@ -1,0 +1,27 @@
+{
+  "source":{
+    "type": "images",
+    "images": [
+    ["../../../datasets/patp10_1x1/00IMG_9946.JPG",
+     "../../../datasets/patp10_1x1/00IMG_9950.JPG",
+     "../../../datasets/patp10_1x1/00IMG_9954.JPG",
+     "../../../datasets/patp10_1x1/00IMG_9958.JPG",
+     "../../../datasets/patp10_1x1/00IMG_9962.JPG",
+     "../../../datasets/patp10_1x1/00IMG_9966.JPG",
+     "../../../datasets/patp10_1x1/00IMG_9970.JPG",
+     "../../../datasets/patp10_1x1/00IMG_9974.JPG",
+     "../../../datasets/patp10_1x1/00IMG_9978.JPG",
+     "../../../datasets/patp10_1x1/00IMG_9982.JPG"]
+    ],
+    "tilesize": 512
+   },
+   "videosets":[
+   {
+      "label": "Large",
+      "type": "h.264",
+      "size": "large",
+      "quality": 26,
+      "fps": 3
+   }
+  ]  
+}
