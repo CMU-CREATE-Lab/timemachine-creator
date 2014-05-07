@@ -160,7 +160,6 @@ function clearProjectData() {
 function openData(startDirectory) {
   var file;
 
-  api.showWaitCursor();
 
   // Bring up organize image tab
   $("#tabs").tabs("option", "active", 0);
@@ -171,6 +170,8 @@ function openData(startDirectory) {
   if (!file) return;
   var tmd = JSON.parse(file);
   if (!tmd) return;
+
+  api.showWaitCursor();
 
   $("#btnToggle").button("enable");
 
