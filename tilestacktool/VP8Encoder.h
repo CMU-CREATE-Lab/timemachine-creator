@@ -7,6 +7,7 @@
 #ifndef _WIN32
 	#include <unistd.h>
 #endif
+#include <math.h>
 
 #include "cpp_utils.h"
 
