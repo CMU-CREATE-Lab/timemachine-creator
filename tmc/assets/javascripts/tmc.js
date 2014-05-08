@@ -851,7 +851,11 @@ function startRender() {
   $("#render_export_btn").hide();
   var status_window = $("#status_window");
   status_window.html("");
-  status_window.append("<p id='status_text'>In progress...</p>");
+
+  if ($("#status_text").length > 0)
+    $("#status_text").html("<p id='status_text'>In progress...</p>");
+  else
+    status_window.append("<p id='status_text'>In progress...</p>");
   status_window.append("Destination: " + projectPath + "/" + projectName + ".timemachine" + "<br/>");
   status_window.append("Started: " + get_current_time_formatted() + "<br/>");
   status_window.append("Progress: <span id='current_progress'>0.0%</span>");
@@ -1442,7 +1446,6 @@ function padNumber(number, length) {
 
 function run_ct() {
   //console.log(projectPath+"/"+projectName+".timemachine/view.html");
-  $("#status_text").html("");
   if (!api.invokeRubySubprocess([api.getRootAppPath() + '/ct/ct.rb', '-j', $("#num_jobs").val().toString(), definitionPath, projectPath + "/" + projectName + ".timemachine"], ct_out)) {
     alert('There was an error starting the process.');
   }
