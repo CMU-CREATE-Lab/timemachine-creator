@@ -19,8 +19,10 @@ cp -a ../ct/g10.response installer/tmc.app/Contents/ct
 cp -a ../tilestacktool/tilestacktool installer/tmc.app/Contents/tilestacktool
 cp -a ../tilestacktool/ffmpeg/osx/ffmpeg installer/tmc.app/Contents/tilestacktool/ffmpeg/osx
 cp -a ../time-machine-explorer/* installer/tmc.app/Contents/time-machine-explorer
-cp -aR ../datasets/carnival4_2x2 installer/tmc.app/Contents/datasets 
+mkdir installer/tmc.app/Contents/datasets
+cp -aR ../datasets/carnival4_2x2 installer/tmc.app/Contents/datasets
 cp -aR ../datasets/patp10_1x1 installer/tmc.app/Contents/datasets
-cp -aR ../ct-examples/local-examples installer/tmc.app/Contents/ct-examples/
+mkdir installer/tmc.app/Contents/ct-examples
+cp -aR ../ct-examples/local-examples installer/tmc.app/Contents/ct-examples
 (cd installer; macdeployqt tmc.app -dmg -no-strip -verbose=3)
 mv installer/tmc.dmg .
