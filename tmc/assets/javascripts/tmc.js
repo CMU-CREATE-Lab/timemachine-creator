@@ -82,7 +82,7 @@ function saveAs() {
     var startIndex = tmpPath.lastIndexOf("/");
     var endIndex = tmpPath.lastIndexOf(".tmc");
     if (endIndex == -1) endIndex = tmpPath.length;
-    projectName = tmpPath.substring(startIndex+1, endIndex);
+    projectName = tmpPath.substring(startIndex + 1, endIndex);
     projectPath = tmpPath.substring(0, endIndex);
     var tmcPath = projectPath.substring(0, startIndex) + "/" + projectName + "/" + projectName + ".tmc";
 
@@ -257,9 +257,10 @@ function openData(startDirectory) {
   projectModified = false;
 
   // Display the finished message and view link if the time machine is complete.
-  if (api.fileExists(projectPath+"/" + projectName + ".timemachine/COMPLETE")) {
+  if (api.fileExists(projectPath + "/" + projectName + ".timemachine/COMPLETE")) {
     var status_window = $("#status_window");
     $("#render_export_btn").hide();
+    $("#status_text").remove();
     status_window.html("");
     status_window.append("<p><font color='green'>Time Machine completed.</font></p>");
     status_window.append("<br/><button id='view_timemachine'><b>View Time Machine</b></button><br/>");
@@ -480,11 +481,11 @@ function drawObjectRot(img, x, y, width, height, deg){
 
   // Draw the object
   if (img == "strokeRect") {
-    context.strokeRect(width / 2 * (-1),height / 2 * (-1),width,height);
+    context.strokeRect(width / 2 * (-1), height / 2 * (-1), width, height);
   } else if (img == null) {
-    context.fillRect(width / 2 * (-1),height / 2 * (-1),width,height);
+    context.fillRect(width / 2 * (-1), height / 2 * (-1), width, height);
   } else {
-    context.drawImage(img,width / 2 * (-1),height / 2 * (-1),width,height);
+    context.drawImage(img, width / 2 * (-1), height / 2 * (-1), width, height);
   }
   // Reset the canvas
   context.rotate(rad * ( -1 ) );
@@ -516,14 +517,14 @@ function refresh() {
       $("#btnNextImage").attr('disabled', 'disabled');
     }
 
-    $("#jumpToFrame").val(filmstripIndex+1);
+    $("#jumpToFrame").val(filmstripIndex + 1);
 
     $("#filmstripText").text(activeData["images"][0].length);
-    var prepend = (navigator.appVersion.indexOf("Win")!=-1) ? "file:///" : "file://";
+    var prepend = (navigator.appVersion.indexOf("Win") != -1) ? "file:///" : "file://";
 
     var imageObj = new Image();
 
-    imageObj.src = prepend+activeData["images"][0][filmstripIndex];
+    imageObj.src = prepend + activeData["images"][0][filmstripIndex];
 
     // Max width for the image
     var maxWidth = canvas.width - 40;
@@ -565,10 +566,10 @@ function refresh() {
 
       context.clearRect(0, 0, canvas.width, canvas.height);
       context.drawImage(imageObj, x, y, width, height);
-      context.fillText(activeData["images"][0][filmstripIndex],x,height+y+8);
+      context.fillText(activeData["images"][0][filmstripIndex], x, height + y + 8);
       var date = new Date(1000 * activeData["capture_times"][0][filmstripIndex]);
       var text = date.toLocaleDateString() + " " + date.toLocaleTimeString();
-      context.fillText(text,x,y-2);
+      context.fillText(text, x, y - 2);
     };
   } else {
     mintime = getTime(-1);
@@ -612,7 +613,7 @@ function refresh() {
             if (!elt.image) {
               var thumbnail;
               if ((thumbnail = api.readThumbnail(elt.filename_with_path)) == null) {
-                //drawObjectRot(null,x,y,160,120,rotInDegrees);
+                //drawObjectRot(null, x, y, 160, 120, rotInDegrees);
                 context.fillRect(x, y, 160, 120);
               } else {
                 var img = new Image();
@@ -633,18 +634,18 @@ function refresh() {
               //console.log("drawing image");
               //console.log(elt.image);
               context.drawImage(elt.image, x, y);
-              //drawObjectRot(elt.image,x,y,elt.w,elt.h,rotInDegrees);
+              //drawObjectRot(elt.image, x, y, elt.w, elt.h, rotInDegrees);
               if (jQuery.inArray(elt, selectedImages) >= 0) {
                 //console.log(selectedImages);
                 context.strokeStyle = '#CC0000';
                 context.lineWidth = 2;
-                //drawObjectRot("strokeRect",x,y,elt.w,elt.h,rotInDegrees);
+                //drawObjectRot("strokeRect", x, y, elt.w, elt.h, rotInDegrees);
                 context.strokeRect(elt.x, elt.y, 160, 120);
               }
             }
           } else {
             //console.log("drawing lines");
-            context.fillRect(x+60, y, 25, 1);
+            context.fillRect(x + 60, y, 25, 1);
           }
         }
       }
@@ -826,7 +827,7 @@ function startRender() {
     return;
   }
 
-  $("#tabs").tabs("disable","tabs-1");
+  $("#tabs").tabs("disable", "tabs-1");
   $("#compression").labeledslider("disable");
   $("#fps").button("disable");
   $("#video_size").selectmenu("disable");
@@ -925,7 +926,7 @@ function init() {
     }
   });
 
-  $(document).bind('keydown',function(e){
+  $(document).bind('keydown', function(e){
     if (filmstripMode) {
       if (e.which==37 || e.which==39) {
         if ($(e.target).is('input')) { return; }
@@ -1116,7 +1117,7 @@ function init() {
     saveAction(true);
   });
 
-  $('#video_size_width, #video_size_height').change(function(event,manualTrigger){
+  $('#video_size_width, #video_size_height').change(function(event, manualTrigger){
       projectModified = true;
       if (!isInt(this.value)) {
         if (!manualTrigger) {
@@ -1138,13 +1139,13 @@ function init() {
        projectModified = true;
       if (object.value == -1) {
         $("#video_size_custom").show();
-        $("#job_setting").css("margin-top","0px");
+        $("#job_setting").css("margin-top", "0px");
         $("#render_export_btn").button("disable");
       } else {
         $("#video_size_width").val("");
         $("#video_size_height").val("");
         $("#video_size_custom").hide();
-        $("#job_setting").css("margin-top","-30px");
+        $("#job_setting").css("margin-top", "-30px");
       }
     }
   });
@@ -1268,7 +1269,7 @@ function init() {
       if ( mouse_x >= data[col][i].x && mouse_x <= data[col][i].x + data[col][i].w
       &&   mouse_y >= data[col][i].y && mouse_y <= data[col][i].y + data[col][i].h ) {
         if ($("#file_hover").length == 0) {
-          var div = $('<div id="file_hover">' + data[col][i].filename_with_path+'</div>');
+          var div = $('<div id="file_hover">' + data[col][i].filename_with_path + '</div>');
           div.css({
             'left': data[col][i].x + leftMargin - leftScroll,
             'top': data[col][i].y + 271
@@ -1395,7 +1396,7 @@ function init() {
   });
 
   $("#tabs").tabs({
-    activate: function( event, ui ){
+    activate: function(event, ui){
       if ($('#tabs').tabs('option', 'active') == 0) {
         rescale();
         refresh();
@@ -1445,7 +1446,7 @@ function padNumber(number, length) {
 }
 
 function run_ct() {
-  //console.log(projectPath+"/"+projectName+".timemachine/view.html");
+  //console.log(projectPath + "/"+projectName + ".timemachine/view.html");
   if (!api.invokeRubySubprocess([api.getRootAppPath() + '/ct/ct.rb', '-j', $("#num_jobs").val().toString(), definitionPath, projectPath + "/" + projectName + ".timemachine"], ct_out)) {
     alert('There was an error starting the process.');
   }
@@ -1461,7 +1462,7 @@ function reactivateUI() {
 
   $("#status_window").html("");
   $("#status_text").html("");
-  $("#tabs").tabs("enable","tabs-1");
+  $("#tabs").tabs("enable", "tabs-1");
   $("#compression").labeledslider("enable");
   $("#fps").button("enable");
   $("#video_size").selectmenu("enable");
@@ -1529,7 +1530,7 @@ function ct_out(out) {
 
 function get_current_time_formatted() {
   var date = new Date();
-  var time_formatted = date.getFullYear() + "-" + padNumber(date.getMonth()+1, 2) + "-" + padNumber(date.getDate(), 2) + " " + padNumber(date.getHours(), 2) + ":" + padNumber(date.getMinutes(), 2) + ":" + padNumber(date.getSeconds(), 2);
+  var time_formatted = date.getFullYear() + "-" + padNumber(date.getMonth() + 1, 2) + "-" + padNumber(date.getDate(), 2) + " " + padNumber(date.getHours(), 2) + ":" + padNumber(date.getMinutes(), 2) + ":" + padNumber(date.getSeconds(), 2);
   return time_formatted;
 }
 
@@ -1617,7 +1618,7 @@ function addDroppedFiles(cameraNum) {
       didTimestampWarning = true;
       alert(alertExifTimeMsg);
     } else if (i > 0 && data[cameraNum][i].filename_with_path == data[cameraNum][i-1].filename_with_path) {
-      data[cameraNum].splice(i,1);
+      data[cameraNum].splice(i, 1);
       i--;
     }
   }
@@ -1626,7 +1627,7 @@ function addDroppedFiles(cameraNum) {
   // What if exifdata is bad (returns -1)
   // What if timestamps are the same but the files are different (custom made pics)
 
-  data[cameraNum].sort(function(a,b){
+  data[cameraNum].sort(function(a, b){
     if (sortBy == "filename")
       return a.filename.localeCompare(b.filename);
     else
@@ -1661,7 +1662,7 @@ function dropHandler(evt) {
   evt.stopPropagation();
   evt.preventDefault();
   var dropboxId = $(evt.target).parent(".dropbox").length == 0 ? evt.target.id : $(evt.target).parent(".dropbox").get(0).id;
-  var cameraNum = parseInt(dropboxId.split("_")[1])-1;
+  var cameraNum = parseInt(dropboxId.split("_")[1]) - 1;
   removeDropHighlight();
   addDroppedFiles(cameraNum);
 }

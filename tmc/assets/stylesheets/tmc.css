@@ -321,6 +321,7 @@ a.heading:hover{ text-decoration:underline !important; }
   width: 100%; 
   padding: 0px 28px 16px 120px; 
   text-align: center;
+  font-weight: bold;
 }
 
 #filmstripControls {
