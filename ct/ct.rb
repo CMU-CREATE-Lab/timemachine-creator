@@ -1815,8 +1815,6 @@ if @@jsonfile
   end
 end
 
-$name = without_extension(File.basename(store))
-
 STDERR.puts "Reading #{@@jsonfile}"
 definition = JSON.parse(Filesystem.read_file(@@jsonfile))
 definition['destination'] = destination
@@ -1827,6 +1825,8 @@ store or raise "No store specified.  Please place your definition.tmc inside a d
 
 store = File.expand_path store
 definition['store'] = store   # For passing to the compiler.  Not ideal
+
+$name = without_extension(File.basename(store))
 
 Filesystem.cache_directory store
 Filesystem.cache_directory destination
