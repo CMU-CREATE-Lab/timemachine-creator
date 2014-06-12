@@ -1,3 +1,5 @@
+Precompiled versions can be obtained [from here](http://wiki.gigapan.org/creating-time-machines).
+
 TO COMPILE:
 
 OS X:
