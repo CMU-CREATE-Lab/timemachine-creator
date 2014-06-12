@@ -1,6 +1,8 @@
-Precompiled versions can be obtained [from here](http://wiki.gigapan.org/creating-time-machines).
+Precompiled versions can be obtained from here (http://wiki.gigapan.org/creating-time-machines).
 
-TO COMPILE:
+
+To compile:
+
 
 OS X:
 -----
@@ -12,6 +14,7 @@ Run qmake to generate Makefile, e.g.
 Make:
 make
 
+OS X compile script to create a production ready version can found in /tmc/make-osx-installer
 
 
 Windows:
@@ -32,6 +35,8 @@ Compile:
 
 Run:
 1. cd to /debug (this directory was created by 'qmake' in your source files directory. Double cick the name of your program: {name}.exe
+
+Window compile script to create a production ready version can found in /tmc/make-win-installer.bat
 
 
 
@@ -64,6 +69,7 @@ Run:
 1. cd to tmca/tmc
 2. ./tmc
 
+Linux compile script to create a production ready version can found in /tmc/make-linux-installer
 
 
 Remote: (setup for Ubuntu 12.04)
