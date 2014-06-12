@@ -22,7 +22,7 @@ rm tmc
 qmake
 make
 # viewer files
-cp -R ../time-machine-explorer $output_directory
+cp -R ../timemachine-viewer $output_directory
 # ct.rb files
 mkdir $output_directory/ct
 cp -R ../ct/*.rb ../ct/backports ../ct/exifr ../ct/json ../ct/g10.response $output_directory/ct

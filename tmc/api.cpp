@@ -414,23 +414,25 @@ bool API::checkViewerVersion(QString path)
     dialog->show();
     qApp->processEvents();
 
-    QString srcPath = getRootAppPath().append("/time-machine-explorer/");
+    QString srcPath = getRootAppPath().append("/timemachine-viewer/");
     QString dstPath = path.left(path.lastIndexOf("VERSION"));
 
-	// view.html might have changed, but we don't want to blow away the one currently
+    QStringList exclude;
+    exclude << "tests" << "public" << "examples"
+            << ".git" << ".gitignore" << "update_template_includes.rb";
+
+    copyDir(srcPath, dstPath, true, exclude);
+
+    // view.html might have changed, but we don't want to blow away the one currently
     // in place in the event that the user has modified it. So we rename it.
     QString oldViewDotHtml = dstPath + "view.html";
     QString dt = QString::number(QDateTime::currentMSecsSinceEpoch());
     dir.rename(oldViewDotHtml, oldViewDotHtml + "_" + dt);
 
-    QStringList exclude;
-    exclude << "cgi-bin" << "htmlets" << "utils" << "tests"
-            << ".git" << ".gitignore" << "favicon.ico" << "iframe.html"
-            << "save_time_warp.php" << "TimeMachineExplorer.iml" << "TimeMachineExplorer.ipr";
+    // Copy over new view file
+    QFile::copy(srcPath + "public/tmca_viewer.html", dstPath + "/view.html");
 
-    copyDir(srcPath,dstPath,true,exclude);
-
-	// run update_ajax_includes.rb to make sure the latest template/json files are being used
+	// Run update_ajax_includes.rb to make sure the latest template/json files are being used
 	QStringList args;
 	args << dstPath + "update_ajax_includes.rb";
 	invokeRubySubprocess(args,0);

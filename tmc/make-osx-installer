@@ -8,7 +8,7 @@ make
 rm -rf installer
 mkdir installer
 cp -a tmc.app installer/tmc.app
-mkdir -p installer/tmc.app/Contents/{tmc,ct,tilestacktool,tilestacktool/ffmpeg/osx,time-machine-explorer}
+mkdir -p installer/tmc.app/Contents/{tmc,ct,tilestacktool,tilestacktool/ffmpeg/osx,timemachine-viewer}
 cd ../tilestacktool
 make clean
 make
@@ -18,7 +18,7 @@ cp -a ../ct/{*.rb,backports,json,exifr} installer/tmc.app/Contents/ct
 cp -a ../ct/g10.response installer/tmc.app/Contents/ct
 cp -a ../tilestacktool/tilestacktool installer/tmc.app/Contents/tilestacktool
 cp -a ../tilestacktool/ffmpeg/osx/ffmpeg installer/tmc.app/Contents/tilestacktool/ffmpeg/osx
-cp -a ../time-machine-explorer/* installer/tmc.app/Contents/time-machine-explorer
+cp -a ../timemachine-viewer/* installer/tmc.app/Contents/timemachine-viewer
 mkdir installer/tmc.app/Contents/datasets
 cp -aR ../datasets/carnival4_2x2 installer/tmc.app/Contents/datasets
 cp -aR ../datasets/patp10_1x1 installer/tmc.app/Contents/datasets

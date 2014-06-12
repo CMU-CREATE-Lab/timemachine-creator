@@ -18,7 +18,7 @@ cd ..\tmc
 xcopy ..\tilestacktool\tilestacktool.exe installer\tilestacktool\ /I
 xcopy ..\tilestacktool\ffmpeg\windows\ffmpeg.exe installer\tilestacktool\ffmpeg\windows\ /I
 xcopy ..\ruby installer\ruby /E /C /R /I /K /Y
-xcopy ..\time-machine-explorer installer\time-machine-explorer /E /C /R /I /K /Y
+xcopy ..\timemachine-viewer installer\timemachine-viewer /E /C /R /I /K /Y
 echo Making tmc.exe
 qmake
 nmake clean

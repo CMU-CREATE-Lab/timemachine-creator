@@ -139,9 +139,9 @@ int main(int argc, char *argv[])
   api.setFrame(view.page()->mainFrame());
   api.setWindow(windowMenu);
 
-  // App Version (used for the creator software and time-machine-explorer)
-  // Read in the value from the VERSION file found in the time-machine-explorer directory
-  QString versionFile = api.getRootAppPath().append("/time-machine-explorer/VERSION");
+  // App Version (used for the creator software and timemachine-viewer)
+  // Read in the value from the VERSION file found in the timemachine-viewer directory
+  QString versionFile = api.getRootAppPath().append("/timemachine-viewer/VERSION");
   QString viewerVersion = api.readFile(versionFile);
   a.setProperty("APP_VERSION", viewerVersion);
 

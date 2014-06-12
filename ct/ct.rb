@@ -1119,10 +1119,10 @@ class Compiler
     initialize_tiles
 
     # add time machine viewer templates to the ajax_includes file
-    include_ajax_file("player_template.html")
-    include_ajax_file("time_warp_composer.html")
-    include_ajax_file("browser_not_supported_template.html")
-    include_ajax_file("annotation_editor.html")
+    include_ajax_file("templates/player_template.html")
+    include_ajax_file("templates/time_warp_composer.html")
+    include_ajax_file("templates/browser_not_supported_template.html")
+    include_ajax_file("templates/annotation_editor.html")
 
   end
 
@@ -1163,7 +1163,8 @@ class Compiler
     if not Filesystem.cached_exists? @videosets_dir
       videosets_tmp = "#{@videosets_dir}.#{temp_file_unique_fragment}"
       Filesystem.mkdir_p videosets_tmp
-      Filesystem.cp_r ['css', 'images', 'js', 'view.html', 'player_template.html', 'time_warp_composer.html', 'annotation_editor.html', 'browser_not_supported_template.html', 'update_ajax_includes.rb', 'template_includes.js', 'VERSION'].map{|path|"#{$explorer_source_dir}/#{path}"}, videosets_tmp
+      Filesystem.cp_r ['css', 'images', 'js', 'templates', 'update_ajax_includes.rb', 'template_includes.js', 'VERSION'].map{|path|"#{$explorer_source_dir}/#{path}"}, videosets_tmp
+      Filesystem.cp "#{$explorer_source_dir}/public/tmca_viewer.html", "#{videosets_tmp}/view.html"
       Filesystem.mv videosets_tmp, @videosets_dir
     end
   end
@@ -1725,8 +1726,8 @@ end
 # If stitch is not found or the one found is too old, assume it is in the user PATH
 $stitch = (stitchpath && File.exists?(stitchpath)) ? stitchpath : 'stitch'
 
-explorer_source_search_path = [File.expand_path("#{File.dirname(__FILE__)}/time-machine-explorer"),
-             File.expand_path("#{File.dirname(__FILE__)}/../time-machine-explorer")]
+explorer_source_search_path = [File.expand_path("#{File.dirname(__FILE__)}/timemachine-viewer"),
+             File.expand_path("#{File.dirname(__FILE__)}/../timemachine-viewer")]
 
 $explorer_source_dir = explorer_source_search_path.find {|x| File.exists? x}
 if $explorer_source_dir
