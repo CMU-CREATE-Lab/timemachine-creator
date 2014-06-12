@@ -1803,8 +1803,6 @@ end
 # Normally, the definition file is in a path foo.tmc/definition.tmc.  In this case,
 # the store is foo.tmc
 #
-# If no description is
-#
 # The store directory can be overridden in the .tmc file itself, using the "store" field
 
 store = nil
