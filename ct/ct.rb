@@ -653,7 +653,7 @@ class ImagesSource
     @subsample = settings["subsample"] || 1
     @images = settings["images"] ? settings["images"].flatten : nil
     @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
-    @capture_time_parser = settings["capture_time_parser"] || "#{File.dirname(__FILE__)}/extract_exif_capturetimes.rb"
+    @capture_time_parser = File.expand_path(settings["capture_time_parser"]) || "#{File.dirname(__FILE__)}/extract_exif_capturetimes.rb"
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0100-original-images/"
     initialize_images
     initialize_framenames
@@ -728,7 +728,7 @@ class GigapanOrgSource
     @urls = settings["urls"]
     @ids = @urls.map{|url| id_from_url(url)}
     @subsample = settings["subsample"] || 1
-    @capture_time_parser = settings["capture_time_parser"] || "#{File.dirname(__FILE__)}/extract_gigapan_capturetimes.rb"
+    @capture_time_parser = File.expand_path(settings["capture_time_parser"]) || "#{File.dirname(__FILE__)}/extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0200-tiles"
     @tileformat = "jpg"
     initialize_dimensions
@@ -774,7 +774,7 @@ class PrestitchedSource
     @parent = parent
     @@global_parent = parent
     @subsample = settings["subsample"] || 1
-    @capture_time_parser = settings["capture_time_parser"] || "#{File.dirname(__FILE__)}/extract_gigapan_capturetimes.rb"
+    @capture_time_parser = File.expand_path(settings["capture_time_parser"]) || "#{File.dirname(__FILE__)}/extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0200-tiles"
     initialize_frames
   end
@@ -838,7 +838,7 @@ class StitchSource
     @images = settings["images"]
     @directory_per_position = settings["directory_per_position"] || false
     @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
-    @capture_time_parser = settings["capture_time_parser"] || "#{File.dirname(__FILE__)}/extract_gigapan_capturetimes.rb"
+    @capture_time_parser = File.expand_path(settings["capture_time_parser"]) || "#{File.dirname(__FILE__)}/extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0200-tiles"
     initialize_frames
   end
