@@ -1079,7 +1079,7 @@ class Compiler
 
   def initialize(settings)
     @urls = settings["urls"] || {}
-    # @id = settings["id"] || raise("Time Machine must have unique ID")
+    @id = settings["id"] #|| raise("Time Machine must have unique ID")
     # @version = settings["version"] || raise("Time Machine must have version")
     # @versioned_id = "#{@id}-v#{@version}"
     # @label = settings["label"] || raise("Time Machine must have label")
@@ -1338,6 +1338,7 @@ class Compiler
   end
 
   def info
+    ret = {}
     ret = {
       'datasets' => @videoset_compilers.map do |vc|
         {
@@ -1346,10 +1347,10 @@ class Compiler
         }
       end,
       'sizes' => @videoset_compilers.map(&:label)
-
     }
     @versioned_id and ret['base-id'] = @versioned_id
     @label and ret['name'] = @label
+    @id and ret['id'] = @id
     ret
   end
 
