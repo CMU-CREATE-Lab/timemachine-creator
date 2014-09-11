@@ -18,6 +18,7 @@ require 'json'
 require 'tile'
 require 'tileset'
 require 'xmlsimple'
+require 'exifr'
 
 $ajax_includes = {}
 
@@ -92,6 +93,8 @@ end
 $compute_tilestacks = Partial.all
 $compute_videos = Partial.all
 $preserve_source_tiles = false
+$skip_trailer = false
+$sort_by_exif_dates = false
 
 if profile
   require 'rubygems'
@@ -116,8 +119,10 @@ $run_remotely_json_dir = nil
 $cache_folder = nil
 $dry_run = false
 
-if RUBY_VERSION < '1.8.5' || RUBY_VERSION == '1.9.1' || RUBY_VERSION == '1.9.2'
-  raise "Ruby version is #{RUBY_VERSION}, but must be >= 1.8.6, and also must not be 1.9.1 or 1.9.2 because of threading bugs in < 1.9.3"
+ruby_version = RUBY_VERSION.split('.')[0,3].join.to_i
+
+if ruby_version <= 185 || ruby_version == 191 || ruby_version == 192
+  raise "Ruby version is #{RUBY_VERSION}, but must be >= 1.8.6, and also must not be 1.9.1 or 1.9.2 because of threading bugs in those versions."
 end
 
 if `echo %PATH%`.chomp != '%PATH%'
@@ -242,7 +247,6 @@ end
 
 def write_json_and_js(path, prefix, obj)
   Filesystem.mkdir_p File.dirname(path)
-
   js_path = path + '.js'
   Filesystem.write_file(js_path, prefix + '(' + JSON.pretty_generate(obj) + ')')
   STDERR.puts("Wrote #{js_path}")
@@ -574,7 +578,7 @@ class VideosetCompiler
         cmd << '--path2stack'
         cmd += [@vid_width, @vid_height]
         frames = {'frames' => vt.frames,
-                  'bounds' => vt.source_bounds(@vid_width, @vid_height)};
+                  'bounds' => vt.source_bounds(@vid_width, @vid_height)}
         cmd << JSON.generate(frames)
         cmd << @parent.tilestack_dir
 
@@ -588,9 +592,9 @@ class VideosetCompiler
                 @vid_height,
                 3,  # bands per pixel
                 8   # bits per band
-                ];
+                ] unless $skip_trailer
 
-        cmd << "--cat";
+        cmd << "--cat"
 
         cmd += ['--writevideo', target, @fps, @compression, @videotype]
 
@@ -624,12 +628,25 @@ class VideosetCompiler
   end
 end
 
-# Looks for images in one or two levels below dir, and sorts them alphabetically
+# Looks for images in one or two levels below dir, and sorts them alphabetically (or by exif time stamps if the user specifies this)
 # Supports Windows shortcuts
 def find_images_in_directory(dir)
   valid_image_extensions = Set.new [".jpg",".jpeg",".png",".tif",".tiff", ".raw", ".kro", ".lnk"]
   images = []
-  (Dir.glob("#{dir}/*.*")+Dir.glob("#{dir}/*/*.*")).sort.each do |image|
+  dir_list = Dir.glob("#{dir}/*.*") + Dir.glob("#{dir}/*/*.*")
+
+  # It is possible that image numbering wrapped and thus lower numbers should come after larger ones. Thus we instead sort by exif time stamps.
+  # Else sort alphabetically
+  if $sort_by_exif_dates
+    dir_list = dir_list.sort_by { |filename| EXIFR::JPEG.new(filename).date_time.to_i }
+  else
+    dir_list = dir_list.sort
+  end
+
+  # Subsample input list if needed
+  dir_list = (@subsample_input - 1).step(dir_list.size - 1, @subsample_input).map { |i| dir_list[i] } if @subsample_input > 1
+
+  dir_list.each do |image|
     next unless valid_image_extensions.include? File.extname(image).downcase
     if $os == 'windows' && File.extname(image) == ".lnk"
       images << Win32::Shortcut.open(image).path
@@ -642,7 +659,7 @@ end
 
 class ImagesSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :subsample, :raw_width, :raw_height
-  attr_reader :capture_times, :capture_time_parser, :capture_time_parser_inputs, :framenames
+  attr_reader :capture_times, :capture_time_parser, :capture_time_parser_inputs, :framenames, :subsample_input
 
   def initialize(parent, settings)
     @parent = parent
@@ -651,9 +668,10 @@ class ImagesSource
     @raw_width = settings["width"]
     @raw_height = settings["height"]
     @subsample = settings["subsample"] || 1
+    @subsample_input = settings["subsample_input"] || 1
     @images = settings["images"] ? settings["images"].flatten : nil
     @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
-    @capture_time_parser = File.expand_path(settings["capture_time_parser"]) || "#{File.dirname(__FILE__)}/extract_exif_capturetimes.rb"
+    @capture_time_parser = settings["capture_time_parser"] ? File.expand_path(settings["capture_time_parser"]) : "#{File.dirname(__FILE__)}/extract_exif_capturetimes.rb"
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0100-original-images/"
     initialize_images
     initialize_framenames
@@ -716,11 +734,11 @@ class ImagesSource
 
 end
 
-$sourcetypes['images'] = ImagesSource;
+$sourcetypes['images'] = ImagesSource
 
 class GigapanOrgSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :framenames, :subsample
-  attr_reader :capture_time_parser, :capture_time_parser_inputs
+  attr_reader :capture_times, :capture_time_parser, :capture_time_parser_inputs, :subsample_input
 
   def initialize(parent, settings)
     @parent = parent
@@ -728,7 +746,9 @@ class GigapanOrgSource
     @urls = settings["urls"]
     @ids = @urls.map{|url| id_from_url(url)}
     @subsample = settings["subsample"] || 1
-    @capture_time_parser = File.expand_path(settings["capture_time_parser"]) || "#{File.dirname(__FILE__)}/extract_gigapan_capturetimes.rb"
+    @subsample_input = settings["subsample_input"] || 1
+    @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
+    @capture_time_parser = settings["capture_time_parser"] ? File.expand_path(settings["capture_time_parser"]) : "#{File.dirname(__FILE__)}/extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0200-tiles"
     @tileformat = "jpg"
     initialize_dimensions
@@ -764,17 +784,19 @@ class GigapanOrgSource
   end
 end
 
-$sourcetypes['gigapan.org'] = GigapanOrgSource;
+$sourcetypes['gigapan.org'] = GigapanOrgSource
 
 class PrestitchedSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :framenames, :subsample
-  attr_reader :capture_time_parser, :capture_time_parser_inputs
+  attr_reader :capture_times, :capture_time_parser, :capture_time_parser_inputs, :subsample_input
 
   def initialize(parent, settings)
     @parent = parent
     @@global_parent = parent
     @subsample = settings["subsample"] || 1
-    @capture_time_parser = File.expand_path(settings["capture_time_parser"]) || "#{File.dirname(__FILE__)}/extract_gigapan_capturetimes.rb"
+    @subsample_input = settings["subsample_input"] || 1
+    @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
+    @capture_time_parser = settings["capture_time_parser"] ? File.expand_path(settings["capture_time_parser"]) : "#{File.dirname(__FILE__)}/extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0200-tiles"
     initialize_frames
   end
@@ -801,18 +823,19 @@ class PrestitchedSource
   end
 end
 
-$sourcetypes['prestitched'] = PrestitchedSource;
+$sourcetypes['prestitched'] = PrestitchedSource
 
 class StitchSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :framenames, :subsample
   attr_reader :align_to, :stitcher_args, :camera_response_curve, :cols, :rows, :rowfirst
   attr_reader :directory_per_position, :capture_times, :capture_time_parser, :capture_time_parser_inputs
-  attr_reader :master_gigapan
+  attr_reader :master_gigapan, :subsample_input
 
   def initialize(parent, settings)
     @parent = parent
     @@global_parent = parent
     @subsample = settings["subsample"] || 1
+    @subsample_input = settings["subsample_input"] || 1
     @width = settings["width"] || 1
     @height = settings["height"] || 1
     unless settings["master_gigapan"]
@@ -838,7 +861,7 @@ class StitchSource
     @images = settings["images"]
     @directory_per_position = settings["directory_per_position"] || false
     @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
-    @capture_time_parser = File.expand_path(settings["capture_time_parser"]) || "#{File.dirname(__FILE__)}/extract_gigapan_capturetimes.rb"
+    @capture_time_parser = settings["capture_time_parser"] ? File.expand_path(settings["capture_time_parser"]) : "#{File.dirname(__FILE__)}/extract_gigapan_capturetimes.rb"
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0200-tiles"
     initialize_frames
   end
@@ -1000,7 +1023,7 @@ class StitchSource
         cmd += ["--load-camera-response-curve", @camera_response_curve]
       end
 
-      suffix = "tmp-#{temp_file_unique_fragment}"
+      suffix = "#{temp_file_unique_fragment}"
 
       if $cache_folder
         cmd += ["--save-as", "#{cache_prefix}-#{suffix}.gigapan"]
@@ -1027,11 +1050,22 @@ class StitchSource
       if images.size != @rows * @cols
         raise "There should be #{@rows}x#{@cols}=#{@rows*@cols} images for frame #{i}, but in fact there are #{images.size}"
       end
-      if $cache_folder
-        cmd += ["--images"] + cached_images
-      else
-        cmd += ["--images"] + images
+
+      stitcher_input_image_list = "#{target_prefix}-input-image-list-#{suffix}"
+
+      unless File.exists?("#{target_prefix}.gigapan")
+        FileUtils.mkdir_p(File.dirname(stitcher_input_image_list))
+        File.open(stitcher_input_image_list, 'w') do |file|
+          if $cache_folder
+            file.write(cached_images.join("\n"))
+          else
+            file.write(images.join("\n"))
+          end
+        end
       end
+
+      cmd += ["--image-list", stitcher_input_image_list]
+
       if copy_master_geometry_exactly
         cmd << "--copy-master-geometry-exactly"
       end
@@ -1044,22 +1078,25 @@ class StitchSource
         targetsets << Rule.add("#{target_prefix}.gigapan",
                              align_to,
                              [
-                              ['mkdir','-p',"#{cache_prefix}-photos"],
+                              ['mkdir', '-p', "#{cache_prefix}-photos"],
                               cp_cmd,
                               cmd,
                               cache_cmd,
-                              ['rm','-rf',"#{target_prefix}.gigapan"],
-                              ['rm','-rf',"#{target_prefix}.data"],
+                              ['rm', '-rf', "#{target_prefix}.gigapan"],
+                              ['rm', '-rf', "#{target_prefix}.data"],
                               ['mv', "#{cache_prefix}-#{suffix}.gigapan", "#{target_prefix}.gigapan"],
                               ['mv', "#{cache_prefix}-#{suffix}.data", "#{target_prefix}.data"],
-                              ['rm','-rf',"#{cache_prefix}-photos"]
+                              ['rm', '-rf', "#{cache_prefix}-photos"],
+                              ['rm', stitcher_input_image_list]
                              ])
       else
         targetsets << Rule.add("#{target_prefix}.gigapan",
                              align_to,
-                             [cmd,
+                             [
+                              cmd,
                               ['mv', "#{target_prefix}-#{suffix}.gigapan", "#{target_prefix}.gigapan"],
-                              ['mv', "#{target_prefix}-#{suffix}.data", "#{target_prefix}.data"]
+                              ['mv', "#{target_prefix}-#{suffix}.data", "#{target_prefix}.data"],
+                              ['rm', stitcher_input_image_list]
                              ])
       end
     end
@@ -1067,7 +1104,7 @@ class StitchSource
   end
 end
 
-$sourcetypes['stitch'] = StitchSource;
+$sourcetypes['stitch'] = StitchSource
 
 class Compiler
   attr_reader :source, :tiles_dir, :raw_tilestack_dir, :tilestack_dir, :videosets_dir, :urls, :store, :video_filter
@@ -1330,7 +1367,7 @@ class Compiler
   def capture_times_rule
     source = @@global_parent.source.capture_times.nil? ? @@global_parent.source.capture_time_parser_inputs : @@jsonfile
     ruby_path = ($os == 'windows') ? File.join(File.dirname(__FILE__), "/../ruby/windows/bin/ruby.exe") : "ruby"
-    Rule.add("capture_times", videoset_rules, [[ruby_path, @@global_parent.source.capture_time_parser, source, "#{@videosets_dir}/tm.json"]])
+    Rule.add("capture_times", videoset_rules, [[ruby_path, @@global_parent.source.capture_time_parser, source, "#{@videosets_dir}/tm.json", "-subsample-input", @@global_parent.source.subsample_input]])
   end
 
   def compute_rules
@@ -1365,7 +1402,7 @@ class Compiler
 
     #STDERR.puts "Combined #{Rule.all.size-grouped_rules.size} rules to #{grouped_rules.size}"
 
-    all_targets = grouped_rules.flat_map &:targets
+    all_targets = grouped_rules.flat_map(&:targets)
 
     rules = []
     rules << "# generated by ct.rb"
@@ -1473,7 +1510,7 @@ class Maker
 
   def execute_rules(job_no, rules, response)
     begin
-      counter = 1;
+      counter = 1
 
       $check_mem and CheckMem.logvm "Constructing job #{job_no}"
 
@@ -1497,7 +1534,7 @@ class Maker
           json_file = "job_#{$name}_#{Process.pid}_#{"%04d" % job_no}_#{rules.size}.json"
           $run_remotely_json_dir and json_file = $run_remotely_json_dir + "/" + json_file
           STDERR.write "#{date} Writing #{rules.size} rules to #{json_file}\n"
-          open(json_file+".tmp", "w") do |json|
+          open(json_file + ".tmp", "w") do |json|
             json.puts "["
             rules.map(&:commands).each_with_index do |command, i|
               (i % 50000 == 0) and STDERR.write "#{date} Progress: #{i} rules of #{rules.size}\n"
@@ -1506,10 +1543,10 @@ class Maker
             end
             json.puts "\n]"
           end
-          File.rename(json_file+".tmp", json_file)
+          File.rename(json_file + ".tmp", json_file)
           command = "#{$run_remotely} --jobs @#{json_file}"
         else
-          commands = rules.flat_map &:commands
+          commands = rules.flat_map(&:commands)
           command = commands.join(" && ")
           command = "#{$run_remotely} '#{command}'"
         end
@@ -1645,13 +1682,13 @@ class Maker
 
 end
 
-retry_attempts = 0
+retry_attempts = 3
 destination = nil
 
 exe_suffix = ($os == 'windows') ? '.exe' : ''
 
 tilestacktool_search_path = [File.expand_path("#{File.dirname(__FILE__)}/tilestacktool#{exe_suffix}"),
-             File.expand_path("#{File.dirname(__FILE__)}/../tilestacktool/tilestacktool#{exe_suffix}")];
+             File.expand_path("#{File.dirname(__FILE__)}/../tilestacktool/tilestacktool#{exe_suffix}")]
 
 
 
@@ -1783,13 +1820,15 @@ while !ARGV.empty?
     exit self_test(false) ? 0 : 1
   elsif arg == '--cache_folder'
     $cache_folder = File.expand_path ARGV.shift
+  elsif arg == "--skip-trailer"
+    $skip_trailer = true
+  elsif arg == "--sort-by-exif-dates"
+    $sort_by_exif_dates = true
   else
     STDERR.puts "Unknown arg #{arg}"
     usage
   end
 end
-
-$partial_vidoes = Partial.new(1, 10)
 
 if !@@jsonfile
   usage "Must give path to description.tmc"
@@ -1833,7 +1872,7 @@ Filesystem.cache_directory destination
 
 compiler = nil
 
-3.times do
+retry_attempts.times do
   compiler = Compiler.new(definition)
   compiler.write_json
   Filesystem.write_file("#{@@global_parent.videosets_dir}/ajax_includes.js",
