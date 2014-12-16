@@ -1,3 +1,3 @@
-class Struct
-  Backports.make_block_optional self, :each, :each_pair, :test_on => Struct.new(:foo, :bar).new
-end
+require 'backports/tools/require_relative_dir'
+
+Backports.require_relative_dir

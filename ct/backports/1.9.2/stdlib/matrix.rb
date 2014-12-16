@@ -14,14 +14,11 @@
 require "e2mmap.rb"
 
 module ExceptionForMatrix # :nodoc:
-  extend Exception2MessageMapper
   def_e2message(TypeError, "wrong argument type %s (expected %s)")
   def_e2message(ArgumentError, "Wrong # of arguments(%d for %d)")
 
-  def_exception("ErrDimensionMismatch", "\#{self.name} dimension mismatch")
-  def_exception("ErrNotRegular", "Not Regular Matrix")
-  def_exception("ErrOperationNotDefined", "Operation(%s) can\\'t be defined: %s op %s")
-  def_exception("ErrOperationNotImplemented", "Sorry, Operation(%s) not implemented: %s op %s")
+  def_exception("ErrOperationNotDefined", "Operation(%s) can\\'t be defined: %s op %s") unless const_defined?(:ErrOperationNotDefined)
+  def_exception("ErrOperationNotImplemented", "Sorry, Operation(%s) not implemented: %s op %s") unless const_defined?(:ErrOperationNotImplemented)
 end
 
 #
@@ -120,6 +117,7 @@ end
 # * #to_s
 # * #inspect
 #
+Backports.suppress_verbose_warnings do
 class Matrix
   include Enumerable
   include ExceptionForMatrix
@@ -188,7 +186,7 @@ class Matrix
     row_size = CoercionHelper.coerce_to_int(row_size)
     column_size = CoercionHelper.coerce_to_int(column_size)
     raise ArgumentError if row_size < 0 || column_size < 0
-    return to_enum :build, row_size, column_size unless block_given?
+    return to_enum(:build, row_size, column_size) unless block_given?
     rows = Array.new(row_size) do |i|
       Array.new(column_size) do |j|
         yield i, j
@@ -403,7 +401,7 @@ class Matrix
   #   Matrix[ [1,2], [3,4] ].each(:strict_lower).to_a # => [3]
   #
   def each(which = :all) # :yield: e
-    return to_enum :each, which unless block_given?
+    return to_enum(:each, which) unless block_given?
     last = column_size - 1
     case which
     when :all
@@ -464,7 +462,7 @@ class Matrix
   #     #    4 at 1, 1
   #
   def each_with_index(which = :all) # :yield: e, row, column
-    return to_enum :each_with_index, which unless block_given?
+    return to_enum(:each_with_index, which) unless block_given?
     last = column_size - 1
     case which
     when :all
@@ -513,7 +511,7 @@ class Matrix
     self
   end
 
-  SELECTORS = {:all => true, :diagonal => true, :off_diagonal => true, :lower => true, :strict_lower => true, :strict_upper => true, :upper => true}.freeze
+  SELECTORS = {:all => true, :diagonal => true, :off_diagonal => true, :lower => true, :strict_lower => true, :strict_upper => true, :upper => true}.freeze unless const_defined?(:SELECTORS)
   #
   # :call-seq:
   #   index(value, selector = :all) -> [row, column]
@@ -529,7 +527,7 @@ class Matrix
   def index(*args)
     raise ArgumentError, "wrong number of arguments(#{args.size} for 0-2)" if args.size > 2
     which = (args.size == 2 || SELECTORS.include?(args.last)) ? args.pop : :all
-    return to_enum :find_index, which, *args unless block_given? || args.size == 1
+    return to_enum(:find_index, which, *args) unless block_given? || args.size == 1
     if args.size == 1
       value = args.first
       each_with_index(which) do |e, row_index, col_index|
@@ -610,12 +608,12 @@ class Matrix
     column_size == 0 || row_size == 0
   end
 
-  
+
   #
   # Returns +true+ is this is an hermitian matrix.
   # Raises an error if matrix is not square.
   #
-  
+
   def hermitian?
     Matrix.Raise ErrDimensionMismatch unless square?
     each_with_index(:strict_upper).all? do |e, row, col|
@@ -811,7 +809,7 @@ class Matrix
       rows = @rows.collect {|row|
         row.collect {|e| e * m }
       }
-      return new_matrix rows, column_size
+      return new_matrix(rows, column_size)
     when Vector
       m = self.class.column_vector(m)
       r = self * m
@@ -826,7 +824,7 @@ class Matrix
           end
         }
       }
-      return new_matrix rows, m.column_size
+      return new_matrix(rows, m.column_size)
     else
       return apply_through_coercion(m, __method__)
     end
@@ -898,7 +896,7 @@ class Matrix
       rows = @rows.collect {|row|
         row.collect {|e| e / other }
       }
-      return new_matrix rows, column_size
+      return new_matrix(rows, column_size)
     when Matrix
       return self * other.inverse
     else
@@ -1869,4 +1867,5 @@ class Vector
   def inspect
     "Vector" + @elements.inspect
   end
+end
 end

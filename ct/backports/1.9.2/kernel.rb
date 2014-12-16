@@ -1,5 +1,3 @@
-module Kernel
-  def singleton_class
-    class << self; self; end
-  end unless method_defined? :singleton_class
-end
+require 'backports/tools/require_relative_dir'
+
+Backports.require_relative_dir
