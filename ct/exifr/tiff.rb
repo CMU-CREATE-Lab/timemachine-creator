@@ -1,4 +1,4 @@
-# Copyright (c) 2007, 2008, 2009, 2010, 2011 - R.W. van 't Veer
+# Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 - R.W. van 't Veer
 
 require 'exifr'
 require 'rational'
@@ -238,10 +238,21 @@ module EXIFR
     })
     IFD_TAGS = [:image, :exif, :gps] # :nodoc:
 
+    class << self
+      # Callable to create a +Time+ object.  Defaults to <tt>proc{|*a|Time.local(*a)}</tt>.
+      attr_accessor :mktime_proc
+    end
+    self.mktime_proc = proc { |*args| Time.local(*args) }
+
     time_proc = proc do |value|
       value.map do |value|
         if value =~ /^(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)$/
-          Time.mktime($1.to_i, $2.to_i, $3.to_i, $4.to_i, $5.to_i, $6.to_i) rescue nil
+          begin
+            mktime_proc.call($1.to_i, $2.to_i, $3.to_i, $4.to_i, $5.to_i, $6.to_i)
+          rescue => ex
+            EXIFR.logger.warn("Bad date/time value #{value.inspect}: #{ex}")
+            nil
+          end
         else
           value
         end
@@ -257,6 +268,11 @@ module EXIFR
       # Field value.
       def to_i
         @value
+      end
+
+      # Symbolic value.
+      def to_sym
+        @type
       end
 
       # Debugging output.
@@ -300,9 +316,18 @@ module EXIFR
       const_set("#{type}Orientation", ORIENTATIONS[index] = Orientation.new(index, type))
     end
 
+    degrees_proc = proc do |v|
+      begin
+        Degrees.new(v)
+      rescue => ex
+        EXIFR.logger.warn("malformed GPS degrees: #{ex}")
+        nil
+      end
+    end
+
     class Degrees < Array
       def initialize(arr)
-        raise MalformedTIFF, "expected [degrees, minutes, seconds]" unless arr.length == 3
+        raise "expected [degrees, minutes, seconds]" unless arr.length == 3
         super
       end
 
@@ -326,10 +351,10 @@ module EXIFR
                       :date_time_digitized => time_proc,
                       :date_time => time_proc,
                       :orientation => proc { |v| v.map{|v| ORIENTATIONS[v]} },
-                      :gps_latitude => proc { |v| Degrees.new(v) },
-                      :gps_longitude => proc { |v| Degrees.new(v) },
-                      :gps_dest_latitude => proc { |v| Degrees.new(v) },
-                      :gps_dest_longitude => proc { |v| Degrees.new(v) },
+                      :gps_latitude => degrees_proc,
+                      :gps_longitude => degrees_proc,
+                      :gps_dest_latitude => degrees_proc,
+                      :gps_dest_longitude => degrees_proc,
                       :shutter_speed_value => proc { |v| v.map { |v| v.abs < 100 ? rational(1, (2 ** v).to_i) : nil } },
                       :aperture_value => proc { |v| v.map { |v| round(1.4142 ** v, 1) } }
                     })
@@ -337,7 +362,7 @@ module EXIFR
     # Names for all recognized TIFF fields.
     TAGS = ([TAG_MAPPING.keys, TAG_MAPPING.values.map{|v|v.values}].flatten.uniq - IFD_TAGS).map{|v|v.to_s}
 
-    # +file+ is a filename or an IO object.  Hint: use StringIO when working with slurped data like blobs.
+    # +file+ is a filename or an +IO+ object.  Hint: use +StringIO+ when working with slurped data like blobs.
     def initialize(file)
       Data.open(file) do |data|
         @ifds = [IFD.new(data)]
@@ -440,7 +465,8 @@ module EXIFR
         end
 
         @offset_next = @data.readlong(pos)
-      rescue
+      rescue => ex
+        EXIFR.logger.warn("Badly formed IFD: #{ex}")
         @offset_next = 0
       end
 
