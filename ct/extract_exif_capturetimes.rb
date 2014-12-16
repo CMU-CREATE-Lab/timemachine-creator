@@ -28,6 +28,8 @@ while !ARGV.empty?
   arg = ARGV.shift
   if arg == "-subsample-input"
     subsample_input = ARGV.shift.to_i
+  elsif arg == "--print-milliseconds"
+    print_milliseconds = true
   end
 end
 
@@ -38,7 +40,8 @@ if File.file?(capture_times_src)
   tmc_json = open(capture_times_src) {|fh| JSON.load(fh)}
   tmc_json["source"]["capture_times"].flatten(1).each do |exif_date|
     begin
-      capture_time = Time.at(exif_date).strftime("%Y-%m-%d %H:%M:%S")
+      extra = print_milliseconds ? ":%L" : ""
+      capture_time = Time.at(exif_date).strftime("%Y-%m-%d %H:%M:%S#{extra}")
     rescue
       capture_time = "NULL"
     end
@@ -60,7 +63,8 @@ else
         if exif_date.nil? || exif_date.empty?
           exif_date = exifr_file.exif.date_time_original.to_s
         end
-        capture_time = Time.parse(exif_date).strftime("%Y-%m-%d %H:%M:%S")
+        extra = print_milliseconds ? ":%L" : ""
+        capture_time = Time.parse(exif_date).strftime("%Y-%m-%d %H:%M:%S#{extra}")
         #puts "Successfuly processed #{file}."
       else
         #puts "There was no exif data found in #{file}. NULL will be used for the capture time. Please go back and manually edit the output file in the end."

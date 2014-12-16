@@ -94,6 +94,7 @@ $compute_tilestacks = Partial.all
 $compute_videos = Partial.all
 $preserve_source_tiles = false
 $skip_trailer = false
+$skip_leader = false
 $sort_by_exif_dates = false
 
 if profile
@@ -456,7 +457,7 @@ class VideosetCompiler
 
     @frames_per_fragment = settings["frames_per_fragment"]
 
-    @leader = @frames_per_fragment ? 0 : compute_leader_length
+    @leader = @frames_per_fragment || $skip_leader ? 0 : compute_leader_length
 
     initialize_videotiles
     initialize_id
@@ -659,7 +660,7 @@ end
 
 class ImagesSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :subsample, :raw_width, :raw_height
-  attr_reader :capture_times, :capture_time_parser, :capture_time_parser_inputs, :framenames, :subsample_input
+  attr_reader :capture_times, :capture_time_parser, :capture_time_parser_inputs, :framenames, :subsample_input, :capture_time_print_milliseconds
 
   def initialize(parent, settings)
     @parent = parent
@@ -673,6 +674,7 @@ class ImagesSource
     @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
     @capture_time_parser = settings["capture_time_parser"] ? File.expand_path(settings["capture_time_parser"]) : "#{File.dirname(__FILE__)}/extract_exif_capturetimes.rb"
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0100-original-images/"
+    @capture_time_print_milliseconds = settings["capture_time_print_milliseconds"] || false
     initialize_images
     initialize_framenames
     @tilesize = settings["tilesize"] || ideal_tilesize(@framenames.size)
@@ -1367,7 +1369,8 @@ class Compiler
   def capture_times_rule
     source = @@global_parent.source.capture_times.nil? ? @@global_parent.source.capture_time_parser_inputs : @@jsonfile
     ruby_path = ($os == 'windows') ? File.join(File.dirname(__FILE__), "/../ruby/windows/bin/ruby.exe") : "ruby"
-    Rule.add("capture_times", videoset_rules, [[ruby_path, @@global_parent.source.capture_time_parser, source, "#{@videosets_dir}/tm.json", "-subsample-input", @@global_parent.source.subsample_input]])
+    extra = (defined?(@@global_parent.source.capture_time_print_milliseconds) and @@global_parent.source.capture_time_print_milliseconds) ? "--print-milliseconds" : ""
+    Rule.add("capture_times", videoset_rules, [[ruby_path, @@global_parent.source.capture_time_parser, source, "#{@videosets_dir}/tm.json", "-subsample-input", @@global_parent.source.subsample_input, extra]])
   end
 
   def compute_rules
@@ -1822,6 +1825,8 @@ while !ARGV.empty?
     $cache_folder = File.expand_path ARGV.shift
   elsif arg == "--skip-trailer"
     $skip_trailer = true
+  elsif arg == "--skip-leader"
+    $skip_leader = true
   elsif arg == "--sort-by-exif-dates"
     $sort_by_exif_dates = true
   else
