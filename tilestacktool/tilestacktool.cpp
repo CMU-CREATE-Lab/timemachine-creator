@@ -184,7 +184,7 @@ void load(std::string filename)
 void loadraw(std::string filename, const TilestackInfo &ti)
 {
   // Compute number of frames
-  size_t size = file_size(filename);
+  long long size = file_size(filename);
   if (size < 0) throw_error("loadraw: can't access %s", filename.c_str());
   if (size == 0) throw_error("loadraw: %s is zero length", filename.c_str());
   if (size % ti.bytes_per_frame()) {
@@ -875,8 +875,16 @@ void write_video(std::string dest, double fps, double compression, int max_size,
     else
       throw_error("Codec '%s' not supported", codec.c_str());
 
-    assert(src->bands_per_pixel >= 3);
+    // Code should work with single-channel (duplicating 3x), or 3 or more channels (using first 3)
+    assert(src->bands_per_pixel != 2);
     std::vector<unsigned char> destframe(src->tile_width * src->tile_height * 3);
+
+    // Which channels for red, green, blue?
+    int ch0 = 0, ch1 = 1, ch2 = 2;
+    if (src->bands_per_pixel == 1) {
+      // Greyscale -- duplicate single channel to r, g, b
+      ch0 = ch1 = ch2 = 0;
+    }
 
     for (unsigned frame = 0; frame < src->nframes; frame++) {
       unsigned char *srcptr = src->frame_pixels(frame);
@@ -884,9 +892,9 @@ void write_video(std::string dest, double fps, double compression, int max_size,
       unsigned char *destptr = &destframe[0];
       for (unsigned y = 0; y < src->tile_height; y++) {
         for (unsigned x = 0; x < src->tile_width; x++) {
-          *destptr++ = (unsigned char) std::max(0, std::min(255, (int)src->get_pixel_band(srcptr, 0)));
-          *destptr++ = (unsigned char) std::max(0, std::min(255, (int)src->get_pixel_band(srcptr, 1)));
-          *destptr++ = (unsigned char) std::max(0, std::min(255, (int)src->get_pixel_band(srcptr, 2)));
+          *destptr++ = (unsigned char) std::max(0, std::min(255, (int)src->get_pixel_band(srcptr, ch0)));
+          *destptr++ = (unsigned char) std::max(0, std::min(255, (int)src->get_pixel_band(srcptr, ch1)));
+          *destptr++ = (unsigned char) std::max(0, std::min(255, (int)src->get_pixel_band(srcptr, ch2)));
           srcptr += src_bytes_per_pixel;
         }
       }

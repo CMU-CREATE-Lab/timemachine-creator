@@ -7,6 +7,7 @@ class VideoEncoder {
 public:
   virtual void write_pixels(unsigned char *pixels, size_t len) = 0;
   virtual void close() = 0;
+  virtual ~VideoEncoder() {}
 };
 
 #endif

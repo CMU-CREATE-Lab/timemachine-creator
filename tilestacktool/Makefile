@@ -21,7 +21,7 @@ endif
 
 build: $(TILESTACKTOOL)
 
-test: units selftest patp4_1x1_small
+test: units selftest patp4_1x1_small test_greyscale_jpeg_to_video
 
 test-clean:
 	$(call RM_R,testresults)
@@ -31,6 +31,9 @@ PATP4S=$(DATASETS)/patp
 
 selftest: $(TILESTACKTOOL)
 	./tilestacktool --selftest
+
+test_greyscale_jpeg_to_video: $(TILESTACKTOOL)
+	./tilestacktool --loadtiles ../datasets/greyscale-jpeg/greyscale.jpg ../datasets/greyscale-jpeg/greyscale.jpg --writevideo testresults/test.mp4 12.0 26
 
 patp4_1x1_small: $(TILESTACKTOOL)
 	./tilestacktool --tilesize 256 --image2tiles testresults/$@/patp0.data/tiles kro $(DATASETS)/$@/patp0.jpg
