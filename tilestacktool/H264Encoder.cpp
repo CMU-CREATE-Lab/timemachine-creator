@@ -2,7 +2,7 @@
 
 H264Encoder::H264Encoder(std::string dest_filename, int width, int height, double fps, double compression) :
   total_written(0), dest_filename(dest_filename), width(width), height(height), fps(fps), compression(compression)  {
-  tmp_filename = temporary_path(filename_sans_directory(dest_filename));
+  tmp_filename = temporary_path(dest_filename);
   int nthreads = 8;
   std::string cmdline = string_printf("\"%s\" -threads %d -loglevel error -benchmark", path_to_ffmpeg().c_str(), nthreads);
 

@@ -863,7 +863,7 @@ void write_video(std::string dest, double fps, double compression, int max_size,
 
     if (create_parent_directories) make_directory_and_parents(filename_directory(dest));
 
-    fprintf(stderr, "Encoding video to %s\n", temp_dest.c_str());
+    fprintf(stderr, "Encoding video to %s (temp %s)\n", dest.c_str(), temp_dest.c_str());
 
     VideoEncoder *encoder;
     if (codec == "h.264" || codec == "h264")
