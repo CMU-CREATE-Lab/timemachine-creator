@@ -19,7 +19,6 @@ require 'tile'
 require 'tileset'
 require 'xmlsimple'
 require 'exifr'
-require 'filesystem'
 
 $ajax_includes = {}
 
@@ -138,6 +137,7 @@ end
 if $os == 'windows'
   require 'win32/registry'
   require File.join(File.dirname(__FILE__), 'shortcut')
+  require 'filesystem'
 end
 
 def temp_file_unique_fragment
@@ -1157,22 +1157,26 @@ class Compiler
     #initialize_original_images
     @videoset_compilers = settings["videosets"].map {|json| VideosetCompiler.new(self, json)}
 
-    mount_point = Sys::Filesystem.mount_point(@videosets_dir)
-    stat = Sys::Filesystem.stat(mount_point)
-    gb_available = ((stat.block_size * stat.blocks_free / 1024 / 1024) * 0.001).floor
+    if $os == 'windows'
+      mount_point = Sys::Filesystem.mount_point(@videosets_dir)
+      stat = Sys::Filesystem.stat(mount_point)
+      mb_available = (stat.block_size * stat.blocks_free / 1024 / 1024).floor
+    else
+      mb_available = (`df -m /`.split(/\b/)[24].to_i).floor
+    end
 
     # TODO
     # Very rough estimates. Hard to get right though because the bitrates are not the same
     # Also need to take into account intermediate steps of tilestacks
     crf_bits_per_pixel = {
-      24 => 24,
-      26 => 8,
-      28 => 5,
-      30 => 4,
+      24 => 24.0,
+      26 => 8.0,
+      28 => 5.0,
+      30 => 4.0,
     }
 
-    estimated_output_size = crf_bits_per_pixel[settings["videosets"].first["compression"]] * 0.125 * (@source.framenames.size*@source.width*@source.height/1e+9).round(1)
-    STDERR.puts "Estimated final space required: #{estimated_output_size} GB"
+    estimated_output_size = crf_bits_per_pixel[settings["videosets"].first["compression"]] * 0.125 * (@source.framenames.size*@source.width*@source.height/1e+9).round(1) * 1000.0
+    STDERR.puts "Estimated final space required: #{estimated_output_size} MB"
 
     initialize_tiles
 
