@@ -1175,7 +1175,11 @@ class Compiler
       30 => 4.0,
     }
 
-    estimated_output_size = crf_bits_per_pixel[settings["videosets"].first["compression"]] * 0.125 * (@source.framenames.size*@source.width*@source.height/1e+9).round(1) * 1000.0
+    # TODO
+    # Any crf < 24 or crf > 30 will have an incorrect size estimate
+    bits_per_pixel = crf_bits_per_pixel[settings["videosets"].first["compression"]] || 24
+
+    estimated_output_size = bits_per_pixel * 0.125 * (@source.framenames.size * @source.width * @source.height / 1e+9).round(1) * 1000.0
     STDERR.puts "Estimated final space required: #{estimated_output_size} MB"
 
     initialize_tiles
