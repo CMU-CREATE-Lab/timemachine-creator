@@ -48,11 +48,7 @@ if File.file?(capture_times_src)
     capture_times << capture_time
   end
 else
-  dir = capture_times_src.dup
-  dir.chop! if dir[-1,1] == "/" || dir[-1,1] == "\\"
-  path = File.expand_path("**/*.{JPG,jpg,tif,TIF}", dir)
-
-  files = Dir.glob(path).sort
+  files = (Dir.glob("#{capture_times_src}/*.{JPG,jpg,tif,TIF}") + Dir.glob("#{capture_times_src}/*/*.{JPG,jpg,tif,TIF}"))
   files = (subsample_input - 1).step(files.size - 1, subsample_input).map { |i| files[i] } if subsample_input > 1
 
   files.each do |file|
@@ -79,6 +75,6 @@ else
 end
 
 json = open(output_json) {|fh| JSON.load(fh)}
-json["capture-times"] = capture_times
+json["capture-times"] = capture_times.sort
 open(output_json, "w") {|fh| fh.puts(JSON.pretty_generate(json))}
 STDERR.puts "Successfully wrote capture times to #{output_json}"
