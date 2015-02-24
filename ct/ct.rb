@@ -1394,7 +1394,7 @@ class Compiler
   # end
 
   def capture_times_rule
-    source = @@global_parent.source.capture_times.nil? ? @@global_parent.source.capture_time_parser_inputs : @@jsonfile
+    source = @@global_parent.source.capture_times.nil? ? @@global_parent.source.capture_time_parser_inputs : $jsonfile
     ruby_path = ($os == 'windows') ? File.join(File.dirname(__FILE__), "/../ruby/windows/bin/ruby.exe") : "ruby"
     extra = (defined?(@@global_parent.source.capture_time_print_milliseconds) and @@global_parent.source.capture_time_print_milliseconds) ? "--print-milliseconds" : ""
     Rule.add("capture_times", videoset_rules, [[ruby_path, @@global_parent.source.capture_time_parser, source, "#{@videosets_dir}/tm.json", "-subsample-input", @@global_parent.source.subsample_input, extra]])
@@ -1804,7 +1804,7 @@ else
   STDERR.puts "Could not find explorer sources in path #{explorer_source_search_path.join(':')}"
 end
 
-@@jsonfile = nil
+$jsonfile = nil
 destination = nil
 
 njobs = 1
@@ -1839,7 +1839,7 @@ while !ARGV.empty?
   elsif arg == '--tilestacktool'
     $tilestacktool = File.expand_path ARGV.shift
   elsif File.extname(arg) == '.tmc'
-    @@jsonfile = File.basename(arg) == 'definition.tmc' ? arg : "#{arg}/definition.tmc"
+    $jsonfile = File.basename(arg) == 'definition.tmc' ? arg : "#{arg}/definition.tmc"
   elsif File.extname(arg) == '.timemachine'
     destination = File.expand_path(arg)
   elsif arg == '-n' || arg == '--dry-run'
@@ -1862,7 +1862,7 @@ while !ARGV.empty?
   end
 end
 
-if !@@jsonfile
+if !$jsonfile
   usage "Must give path to description.tmc"
 end
 
@@ -1880,14 +1880,14 @@ end
 
 store = nil
 
-if @@jsonfile
-  if File.extname(File.dirname(@@jsonfile)) == ".tmc"
-    store = File.dirname(@@jsonfile)
+if $jsonfile
+  if File.extname(File.dirname($jsonfile)) == ".tmc"
+    store = File.dirname($jsonfile)
   end
 end
 
-STDERR.puts "Reading #{@@jsonfile}"
-definition = JSON.parse(Filesystem.read_file(@@jsonfile))
+STDERR.puts "Reading #{$jsonfile}"
+definition = JSON.parse(Filesystem.read_file($jsonfile))
 definition['destination'] = destination
 # .tmc "store" field overrides
 store = definition['store'] || store
