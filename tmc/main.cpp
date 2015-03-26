@@ -149,7 +149,12 @@ int main(int argc, char *argv[])
   if (os() == "windows") {
 	a.setProperty("RUBY_PATH", QString(rootdir.c_str()).append("/ruby/windows/bin/ruby.exe"));
   } else {
-	a.setProperty("RUBY_PATH", "/usr/bin/ruby");
+        QString unix_ruby_path;
+        if (filename_exists("/usr/local/bin/ruby"))
+          unix_ruby_path = "/usr/local/bin/ruby";
+        else
+          unix_ruby_path = "/usr/bin/ruby";
+	a.setProperty("RUBY_PATH", unix_ruby_path);
   }
 
   // Signal is emitted before frame loads any web content:
