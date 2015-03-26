@@ -617,7 +617,11 @@ function refresh() {
                 context.fillRect(x, y, 160, 120);
               } else {
                 var img = new Image();
-                thumbnail.assignToHTMLImageElement(img);
+                try {
+                  thumbnail.assignToHTMLImageElement(img);
+                } catch(e) {
+                  thumbnail.assignTo(img);
+                }
                 elt.image = img;
               }
             }
