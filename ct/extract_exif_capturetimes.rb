@@ -13,6 +13,7 @@ end
 
 capture_times_src = ARGV[0]
 output_json = ARGV[1]
+time_diff = 0
 
 unless File.exists?(capture_times_src)
   puts "Input directory/file does not exist. Please check the name you typed and try again."
@@ -30,6 +31,8 @@ while !ARGV.empty?
     subsample_input = ARGV.shift.to_i
   elsif arg == "--print-milliseconds"
     print_milliseconds = true
+  elsif arg == "-capture-time-diff"
+    time_diff = ARGV.shift.to_i
   end
 end
 
@@ -59,8 +62,9 @@ else
         if exif_date.nil? || exif_date.empty?
           exif_date = exifr_file.exif.date_time_original.to_s
         end
+        time_obj = Time.parse(exif_date) + time_diff
         extra = print_milliseconds ? ":%L" : ""
-        capture_time = Time.parse(exif_date).strftime("%Y-%m-%d %H:%M:%S#{extra}")
+        capture_time = time_obj.strftime("%Y-%m-%d %H:%M:%S#{extra}")
         #puts "Successfuly processed #{file}."
       else
         #puts "There was no exif data found in #{file}. NULL will be used for the capture time. Please go back and manually edit the output file in the end."

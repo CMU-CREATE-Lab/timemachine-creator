@@ -662,6 +662,7 @@ end
 class ImagesSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :subsample, :raw_width, :raw_height
   attr_reader :capture_times, :capture_time_parser, :capture_time_parser_inputs, :framenames, :subsample_input, :capture_time_print_milliseconds
+  attr_reader :capture_time_diff
 
   def initialize(parent, settings)
     @parent = parent
@@ -676,6 +677,7 @@ class ImagesSource
     @capture_time_parser = settings["capture_time_parser"] ? File.expand_path(settings["capture_time_parser"]) : "#{File.dirname(__FILE__)}/extract_exif_capturetimes.rb"
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0100-original-images/"
     @capture_time_print_milliseconds = settings["capture_time_print_milliseconds"] || false
+    @capture_time_diff = settings["capture_time_diff"] || 0
     initialize_images
     initialize_framenames
     @tilesize = settings["tilesize"] || ideal_tilesize(@framenames.size)
@@ -1396,8 +1398,11 @@ class Compiler
   def capture_times_rule
     source = @@global_parent.source.capture_times.nil? ? @@global_parent.source.capture_time_parser_inputs : $jsonfile
     ruby_path = ($os == 'windows') ? File.join(File.dirname(__FILE__), "/../ruby/windows/bin/ruby.exe") : "ruby"
-    extra = (defined?(@@global_parent.source.capture_time_print_milliseconds) and @@global_parent.source.capture_time_print_milliseconds) ? "--print-milliseconds" : ""
-    Rule.add("capture_times", videoset_rules, [[ruby_path, @@global_parent.source.capture_time_parser, source, "#{@videosets_dir}/tm.json", "-subsample-input", @@global_parent.source.subsample_input, extra]])
+    cmd = [ruby_path, @@global_parent.source.capture_time_parser, source, "#{@videosets_dir}/tm.json"]
+    cmd << ["-subsample-input", @@global_parent.source.subsample_input] if (defined?(@@global_parent.source.subsample_input) and @@global_parent.source.subsample_input > 1)
+    cmd << ["--print-milliseconds"] if (defined?(@@global_parent.source.capture_time_print_milliseconds) and @@global_parent.source.capture_time_print_milliseconds)
+    cmd << ["-capture-time-diff", @@global_parent.source.capture_time_diff] if (defined?(@@global_parent.source.capture_time_diff) and @@global_parent.source.capture_time_diff)
+    Rule.add("capture_times", videoset_rules, [cmd.flatten])
   end
 
   def compute_rules
