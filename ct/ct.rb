@@ -1401,7 +1401,7 @@ class Compiler
     cmd = [ruby_path, @@global_parent.source.capture_time_parser, source, "#{@videosets_dir}/tm.json"]
     cmd << ["-subsample-input", @@global_parent.source.subsample_input] if (defined?(@@global_parent.source.subsample_input) and @@global_parent.source.subsample_input > 1)
     cmd << ["--print-milliseconds"] if (defined?(@@global_parent.source.capture_time_print_milliseconds) and @@global_parent.source.capture_time_print_milliseconds)
-    cmd << ["-capture-time-diff", @@global_parent.source.capture_time_diff] if (defined?(@@global_parent.source.capture_time_diff) and @@global_parent.source.capture_time_diff)
+    cmd << ["-capture-time-diff", @@global_parent.source.capture_time_diff] if (defined?(@@global_parent.source.capture_time_diff) and @@global_parent.source.capture_time_diff != 0)
     Rule.add("capture_times", videoset_rules, [cmd.flatten])
   end
 
