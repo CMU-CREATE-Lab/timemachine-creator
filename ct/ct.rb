@@ -1179,7 +1179,9 @@ class Compiler
 
     # TODO
     # Any crf < 24 or crf > 30 will have an incorrect size estimate
-    bits_per_pixel = crf_bits_per_pixel[settings["videosets"].first["compression"]] || 24
+    # For legacy reasons, also check the "quality" property, which is what "compression" has replaced
+    compression = settings["videosets"].first["compression"] ||settings["videosets"].first["quality"];
+    bits_per_pixel = crf_bits_per_pixel[compression] || 24
 
     estimated_output_size = bits_per_pixel * 0.125 * (@source.framenames.size * @source.width * @source.height / 1e+9).round(1) * 1000.0
     STDERR.puts "Estimated final space required: #{estimated_output_size} MB"
