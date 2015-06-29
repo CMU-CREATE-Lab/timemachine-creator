@@ -2,8 +2,8 @@
 #if 0 /* in case someone actually tries to compile this */
 
 /* example.c - an example of using libpng
- * Last changed in libpng 1.5.10 [March 8, 2012]
- * Maintained 1998-2012 Glenn Randers-Pehrson
+ * Last changed in libpng 1.5.19 [August 21, 2014]
+ * Maintained 1998-2014 Glenn Randers-Pehrson
  * Maintained 1996, 1997 Andreas Dilger
  * Written 1995, 1996 Guy Eric Schalnat, Group 42, Inc.
  */
@@ -259,9 +259,9 @@ void read_png(FILE *fp, unsigned int sig_read)  /* File is already open */
    /* If we don't have another value */
    else
    {
-      screen_gamma = 2.2;  /* A good guess for a PC monitor in a dimly
-                              lit room */
-      screen_gamma = 1.7 or 1.0;  /* A good guess for Mac systems */
+      screen_gamma = PNG_DEFAULT_sRGB;  /* A good guess for a PC monitor
+                                           in a dimly lit room */
+      screen_gamma = PNG_GAMMA_MAC_18 or 1.0; /* Good guesses for Mac systems */
    }
 
    /* Tell libpng to handle the gamma conversion for you.  The final call
@@ -273,7 +273,7 @@ void read_png(FILE *fp, unsigned int sig_read)  /* File is already open */
    int intent;
 
    if (png_get_sRGB(png_ptr, info_ptr, &intent))
-      png_set_gamma(png_ptr, screen_gamma, 0.45455);
+      png_set_gamma(png_ptr, screen_gamma, PNG_DEFAULT_sRGB);
    else
    {
       double image_gamma;
@@ -750,7 +750,7 @@ void write_png(char *file_name /* , ... other image information ... */)
     */
 
    /* Once we write out the header, the compression type on the text
-    * chunks gets changed to PNG_TEXT_COMPRESSION_NONE_WR or
+    * chunk gets changed to PNG_TEXT_COMPRESSION_NONE_WR or
     * PNG_TEXT_COMPRESSION_zTXt_WR, so it doesn't get written out again
     * at the end.
     */
@@ -788,7 +788,7 @@ void write_png(char *file_name /* , ... other image information ... */)
    png_set_packswap(png_ptr);
 
    /* Turn on interlace handling if you are not using png_write_image() */
-   if (interlacing)
+   if (interlacing != 0)
       number_passes = png_set_interlace_handling(png_ptr);
 
    else
@@ -799,12 +799,16 @@ void write_png(char *file_name /* , ... other image information ... */)
     * use the first method if you aren't handling interlacing yourself.
     */
    png_uint_32 k, height, width;
-   png_byte image[height][width*bytes_per_pixel];
+
+   /* In this example, "image" is a one-dimensional array of bytes */
+   png_byte image[height*width*bytes_per_pixel];
+
    png_bytep row_pointers[height];
 
    if (height > PNG_UINT_32_MAX/png_sizeof(png_bytep))
      png_error (png_ptr, "Image is too tall to process in memory");
 
+   /* Set up pointers into your "image" byte array */
    for (k = 0; k < height; k++)
      row_pointers[k] = image + k*width*bytes_per_pixel;
 

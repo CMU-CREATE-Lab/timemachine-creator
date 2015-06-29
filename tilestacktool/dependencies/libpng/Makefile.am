@@ -41,7 +41,8 @@ libpng@PNGLIB_MAJOR@@PNGLIB_MINOR@_la_SOURCES = png.c pngerror.c\
 	png.h pngconf.h pngdebug.h pnginfo.h pngpriv.h pngstruct.h pngusr.dfa
 
 if PNG_ARM_NEON
-libpng@PNGLIB_MAJOR@@PNGLIB_MINOR@_la_SOURCES += arm/filter_neon.S
+libpng@PNGLIB_MAJOR@@PNGLIB_MINOR@_la_SOURCES += arm/arm_init.c\
+	arm/filter_neon.S
 endif
 
 nodist_libpng@PNGLIB_MAJOR@@PNGLIB_MINOR@_la_SOURCES = pnglibconf.h
@@ -84,11 +85,13 @@ EXTRA_DIST= \
 	$(TESTS) \
 	CMakeLists.txt example.c libpng-manual.txt
 
-SCRIPT_CLEANFILES=scripts/*.out scripts/*.chk scripts/pnglibconf.dfn
+SCRIPT_CLEANFILES=scripts/*.out scripts/*.chk
 
-CLEANFILES= dfn.c dfn?.out pngout.png libpng@PNGLIB_MAJOR@@PNGLIB_MINOR@.pc \
+CLEANFILES= dfn.c dfn?.out *.out.? scripts/*.out.? pngout.png \
+	libpng@PNGLIB_MAJOR@@PNGLIB_MINOR@.pc \
 	libpng@PNGLIB_MAJOR@@PNGLIB_MINOR@-config libpng.vers libpng.sym \
-	check.new pnglibconf.* symbols.new pngtest-log.txt \
+	check.new pnglibconf.h symbols.new pngtest-log.txt \
+	pnglibconf.c pnglibconf.out pnglibconf.pre \
 	$(SCRIPT_CLEANFILES)
 
 MAINTAINERCLEANFILES = Makefile.in aclocal.m4 config.guess config.h.in \
@@ -101,7 +104,7 @@ config.sub configure depcomp install-sh ltmain.sh missing
 # checks for this and sets DFNCPP appropriately.
 DFNCPP = @DFNCPP@
 
-SUFFIXES = .chk .dfn .out
+SUFFIXES = .chk .out
 
 $(PNGLIB_BASENAME).pc: libpng.pc
 	cp libpng.pc $@
@@ -140,27 +143,24 @@ SYMBOL_CFLAGS = -DPNGLIB_LIBNAME='PNG@PNGLIB_MAJOR@@PNGLIB_MINOR@_0'\
 		-DSYMBOL_PREFIX='$(SYMBOL_PREFIX)'\
 		-DPNG_NO_USE_READ_MACROS -DPNG_BUILDING_SYMBOL_TABLE
 
-.dfn.out:
-	rm -f $@ dfn.c dfn?.out
-	test -d scripts || mkdir scripts
-	echo '#include "$<"' >dfn.c
-	$(DFNCPP) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) @LIBPNG_DEFINES@\
-	    $(CPPFLAGS) $(SYMBOL_CFLAGS) dfn.c > dfn1.out
-	$(SED) -n -e 's|^.*PNG_DEFN_MAGIC *-\(.*\)- *PNG_DEFN_END.*$$|\1|p'\
-	    dfn1.out >dfn2.out
-	$(SED) -e 's| *PNG_JOIN *||g' -e 's| *$$||' dfn2.out >dfn3.out
-	rm -f dfn.c dfn[12].out
-	mv dfn3.out $@
+.c.out:
+	rm -f $@ $*.tf[12]
+	test -d scripts || mkdir scripts || test -d scripts
+	$(DFNCPP) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES)\
+	    $(CPPFLAGS) $(SYMBOL_CFLAGS) $< > $*.tf1
+	$(AWK) -f "${srcdir}/scripts/dfn.awk" out="$*.tf2" $*.tf1 1>&2
+	rm -f $*.tf1
+	mv $*.tf2 $@
+ 
+# The .c file for pnglibconf.h is machine generated
+pnglibconf.c: scripts/pnglibconf.dfa scripts/options.awk pngconf.h pngusr.dfa $(DFA_XTRA)
 
-# The .dfn file for pnglibconf.h is machine generated
-pnglibconf.dfn: scripts/pnglibconf.dfa scripts/options.awk pngconf.h pngusr.dfa $(DFA_XTRA)
-	rm -f $@ dfn?.out
-	$(AWK) -f ${srcdir}/scripts/options.awk out=dfn1.out version=search\
-	    ${srcdir}/pngconf.h ${srcdir}/scripts/pnglibconf.dfa\
+	rm -f $@ pnglibconf.pre $@.?
+	$(AWK) -f ${srcdir}/scripts/options.awk out="pnglibconf.pre"\
+	    version=search ${srcdir}/pngconf.h ${srcdir}/scripts/pnglibconf.dfa\
 	    ${srcdir}/pngusr.dfa $(DFA_XTRA) 1>&2
-	$(AWK) -f ${srcdir}/scripts/options.awk out=dfn2.out dfn1.out 1>&2
-	rm dfn1.out
-	mv dfn2.out $@
+	$(AWK) -f ${srcdir}/scripts/options.awk out="$@.1" pnglibconf.pre 1>&2
+	mv $@.1 $@
 
 # Symbol checks (.def and .out files should match)
 scripts/symbols.chk: scripts/checksym.awk scripts/symbols.def scripts/symbols.out
@@ -172,11 +172,11 @@ scripts/symbols.chk: scripts/checksym.awk scripts/symbols.def scripts/symbols.ou
 
 # used on demand to regenerate the standard header, CPPFLAGS should
 # be empty - no non-standard defines
-scripts/pnglibconf.dfn: scripts/pnglibconf.dfa scripts/options.awk pngconf.h
+scripts/pnglibconf.c: scripts/pnglibconf.dfa scripts/options.awk pngconf.h
 	rm -f $@ dfn?.out
 	test -z "$(CPPFLAGS)"
 	echo "com @PNGLIB_VERSION@ STANDARD API DEFINITION" |\
-	$(AWK) -f ${srcdir}/scripts/options.awk out=dfn1.out logunsupported=1
+	$(AWK) -f ${srcdir}/scripts/options.awk out=dfn1.out logunsupported=1\
 		version=search ${srcdir}/pngconf.h -\
 		${srcdir}/scripts/pnglibconf.dfa 1>&2
 	$(AWK) -f ${srcdir}/scripts/options.awk out=dfn2.out dfn1.out 1>&2
@@ -195,34 +195,76 @@ check: scripts/symbols.chk
 dist-hook:
 	cd '$(top_distdir)'; rm -f $(SCRIPT_CLEANFILES)
 
-# install the .../include headers as links to the new ones
-install-data-hook:
-	cd $(DESTDIR)$(includedir); rm -f png.h pngconf.h pnglibconf.h
-	cd $(DESTDIR)$(includedir); $(LN_S) $(PNGLIB_BASENAME)/png.h png.h
-	cd $(DESTDIR)$(includedir); $(LN_S) $(PNGLIB_BASENAME)/pngconf.h \
-		pngconf.h
-	cd $(DESTDIR)$(includedir); $(LN_S) $(PNGLIB_BASENAME)/pnglibconf.h \
-		pnglibconf.h
-	cd $(DESTDIR)$(pkgconfigdir); rm -f libpng.pc
-	cd $(DESTDIR)$(pkgconfigdir); $(LN_S) $(PNGLIB_BASENAME).pc libpng.pc
+# Make links between installed files with release-specific names and the generic
+# file names.  If this install rule is run the generic names will be deleted and
+# recreated - this has obvious issues for systems with multiple installations.
 
-# do evil things to libpng to cause libpng@PNGLIB_MAJOR@@PNGLIB_MINOR@ to be used
-install-exec-hook:
-	cd $(DESTDIR)$(bindir); rm -f libpng-config
-	cd $(DESTDIR)$(bindir); $(LN_S) $(PNGLIB_BASENAME)-config libpng-config
-	@set -x;\
-	cd $(DESTDIR)$(libdir);\
-	for ext in a la so so.@PNGLIB_MAJOR@@PNGLIB_MINOR@.@PNGLIB_RELEASE@ sl dylib dll.a; do\
-		rm -f libpng.$$ext;\
-                if test -f $(PNGLIB_BASENAME).$$ext; then\
-                       $(LN_S) $(PNGLIB_BASENAME).$$ext libpng.$$ext;\
-                fi;\
+install-header-links:
+	@set -ex; cd '$(DESTDIR)$(includedir)'; for f in $(HEADERS); do \
+	   rm -f "$$f"; $(LN_S) "$(PNGLIB_BASENAME)/$$f" "$$f"; done
+
+uninstall-header-links:
+	cd '$(DESTDIR)$(includedir)'; rm -f $(HEADERS)
+
+install-libpng-pc:
+	@set -ex; cd '$(DESTDIR)$(pkgconfigdir)'; rm -f libpng.pc; \
+	   $(LN_S) '$(PNGLIB_BASENAME).pc' libpng.pc
+
+uninstall-libpng-pc:
+	rm -f '$(DESTDIR)$(pkgconfigdir)/libpng.pc'
+
+# EXT_LIST is a list of the possibly library directory extensions, this exists
+# because we can't find a good way of discovering the file extensions that are
+# actually installed on a given system, so instead we check for every extension
+# we have seen.
+
+EXT_LIST = a dll.a so so.@PNGLIB_MAJOR@@PNGLIB_MINOR@.@PNGLIB_RELEASE@ la sl dylib
+
+install-library-links:
+	@set -x; cd '$(DESTDIR)$(libdir)';\
+	for ext in $(EXT_LIST); do\
+	   rm -f "libpng.$$ext";\
+           if test -f "$(PNGLIB_BASENAME).$$ext"; then\
+              $(LN_S) "$(PNGLIB_BASENAME).$$ext" "libpng.$$ext" || exit 1;\
+           fi;\
 	done
 
-uninstall-hook:
-	cd $(DESTDIR)$(includedir); rm -f png.h pngconf.h pnglibconf.h
-	rm -f $(DESTDIR)$(pkgconfigdir)/libpng.pc
-	rm -f $(DESTDIR)$(bindir)/libpng-config
-	rm -f $(DESTDIR)$(libdir)/libpng.a
-	rm -f $(DESTDIR)$(libdir)/libpng.la
-	rm -f $(DESTDIR)$(libdir)/libpng.dll.a
+uninstall-library-links:
+	@set -x; cd '$(DESTDIR)$(libdir)'; for ext in $(EXT_LIST); do\
+	   rm -f "libpng.$$ext"; done
+
+install-libpng-config:
+	@set -ex; cd '$(DESTDIR)$(bindir)'; rm -f libpng-config; \
+	   $(LN_S) '$(PNGLIB_BASENAME)-config' libpng-config
+
+uninstall-libpng-config:
+	rm -f '$(DESTDIR)$(bindir)/libpng-config'
+
+if DO_INSTALL_LINKS
+# If --enable-unversioned-links is specified the header and lib file links
+# will be automatically made on a 'make install':
+
+install-data-hook: install-header-links
+uninstall-hook: uninstall-header-links
+install-exec-hook: install-library-links
+uninstall-hook: uninstall-library-links
+endif
+
+if DO_INSTALL_LIBPNG_PC
+# Likewise, --install-pc causes libpng.pc to be constructed:
+
+install-data-hook: install-libpng-pc
+uninstall-hook: uninstall-libpng-pc
+endif
+
+if DO_INSTALL_LIBPNG_CONFIG
+# And --install-config:
+
+install-exec-hook: install-libpng-config
+uninstall-hook: uninstall-libpng-config
+endif
+
+# The following addition ensures that 'make all' always builds the test programs
+# too.  It used to, but some change either in libpng or configure stopped this
+# working.
+all-am: $(check_PROGRAMS)

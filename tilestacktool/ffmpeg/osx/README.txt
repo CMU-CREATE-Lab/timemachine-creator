@@ -1,2 +1,2 @@
-Fetched from http://ffmpegmac.net/ on 8-Jan-2015
-ffmpeg-2.5.2 static FFmpeg binaries for Mac OS X Intel 64bit (Snow Leopard and above)
+Fetched from http://evermeet.cx/ffmpeg/ on 29-June-2015
+ffmpeg-gc78b82f static binary for Mac OS X Intel 64bit (10.6+)

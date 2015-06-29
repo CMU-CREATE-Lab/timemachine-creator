@@ -149,7 +149,7 @@ ifeq ($(OS),windows)
 ZLIB = $(ZLIB_DIR)/zlib.lib
 
 $(ZLIB):
-	(cd $(ZLIB_DIR) && $(call CP,zconf.h.original,zconf.h) && nmake /f win32\\Makefile.msc)
+	(cd $(ZLIB_DIR) && nmake /f win32\\Makefile.msc)
 
 zlib-clean:
 	(cd $(ZLIB_DIR) && nmake /f win32\\Makefile.msc clean)
@@ -159,10 +159,11 @@ else
 ZLIB = $(ZLIB_DIR)/libz.a
 
 $(ZLIB):
-	(cd $(ZLIB_DIR) && cp zconf.h.original zconf.h && cp Makefile.original Makefile && ./configure && make)
+	(cd $(ZLIB_DIR) && ./configure && make)
 
 zlib-clean:
-	rm -rf $(ZLIB_DIR)/lib $(ZLIB_DIR)/include $(ZLIB_DIR)/Makefile $(ZLIB)
+	rm -rf $(ZLIB_DIR)/lib $(ZLIB_DIR)/include $(ZLIB)
+	-make -C $(ZLIB_DIR) clean
 
 zlib: $(ZLIB)
 
@@ -182,10 +183,10 @@ libpng-clean:
 
 else
 
-LIBPNG = $(LIBPNG_DIR)/lib/libpng.a
+LIBPNG = $(LIBPNG_DIR)/.libs/libpng15.a
 
 $(LIBPNG): $(ZLIB)
-	(cd $(LIBPNG_DIR); CFLAGS=-I`pwd`/../zlib LDFLAGS=-L`pwd`/../zlib ./configure --prefix=`pwd` --enable-shared=no; make install)
+	(cd $(LIBPNG_DIR); CFLAGS=-I`pwd`/../zlib LDFLAGS=-L`pwd`/../zlib ./configure --prefix=`pwd` --enable-shared=no; make)
 
 libpng-clean:
 	rm -rf $(LIBPNG_DIR)/lib $(LIBPNG_DIR)/include $(LIBPNG)
@@ -195,28 +196,24 @@ endif
 
 libpng: $(LIBPNG)
 
-LIBJPEG_DIR = dependencies/jpeg-8d
+LIBJPEG_DIR = dependencies/libjpeg-turbo
 
 ifeq ($(OS),windows)
 
-LIBJPEG = $(LIBJPEG_DIR)/libjpeg.lib
+LIBJPEG = $(LIBJPEG_DIR)/jpeg-static.lib
 
-$(LIBJPEG): $(LIBJPEG_DIR)/jconfig.h
-	(cd $(LIBJPEG_DIR) && nmake /f Makefile.vc nodebug=1)
-
-# Configure for Visual Studio 10
-$(LIBJPEG_DIR)/jconfig.h:
-	(cd $(LIBJPEG_DIR) && nmake /f Makefile.vc setup-v10)
+$(LIBJPEG):
+	(cd $(LIBJPEG_DIR) && cmake -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DWITH_JPEG8=1 && nmake)
 
 libjpeg-clean:
-	(cd $(LIBJPEG_DIR) && nmake /f Makefile.vc clean)
+	(cd $(LIBJPEG_DIR) && rm CMakeCache.txt)
 
 else
 
-LIBJPEG = $(LIBJPEG_DIR)/lib/libjpeg.a
+LIBJPEG = $(LIBJPEG_DIR)/.libs/libjpeg.a
 
 $(LIBJPEG):
-	(cd $(LIBJPEG_DIR); ./configure --prefix=`pwd`; make install)
+	(cd $(LIBJPEG_DIR); ./configure --with-jpeg8 --prefix=`pwd`; make)
 
 libjpeg-clean:
 	rm -rf $(LIBJPEG_DIR)/lib $(LIBJPEG_DIR)/include $(LIBJPEG)
