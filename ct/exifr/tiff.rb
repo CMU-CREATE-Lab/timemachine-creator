@@ -1,4 +1,4 @@
-# Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 - R.W. van 't Veer
+# Copyright (c) 2007-2015 - R.W. van 't Veer
 
 require 'exifr'
 require 'rational'
@@ -337,7 +337,13 @@ module EXIFR
     end
 
     def self.rational(n, d)
-      Rational.respond_to?(:reduce) ? Rational.reduce(n, d) : 1.quo(d)
+      if d == 0
+        n.to_f / d.to_f
+      elsif Rational.respond_to?(:reduce)
+        Rational.reduce(n, d)
+      else
+        n.quo(d)
+      end
     end
 
     def self.round(f, n)
@@ -533,7 +539,7 @@ module EXIFR
         when 6 # signed byte
           len, pack = count, proc { |d| sign_byte(d) }
         when 2 # ascii
-          len, pack = count, proc { |d| d.unpack("A*") }
+          len, pack = count, proc { |d| d.unpack('Z*') }
         when 3 # short
           len, pack = count * 2, proc { |d| d.unpack(data.short + '*') }
         when 8 # signed short

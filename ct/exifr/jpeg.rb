@@ -1,7 +1,8 @@
-# Copyright (c) 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 - R.W. van 't Veer
+# Copyright (c) 2006-2015 - R.W. van 't Veer
 
 require 'exifr'
 require 'stringio'
+require 'delegate'
 
 module EXIFR
   # = JPEG decoder
@@ -76,18 +77,21 @@ module EXIFR
     end
 
   private
+
+    class Reader < SimpleDelegator
+      def readbyte; readchar; end unless File.method_defined?(:readbyte)
+      def readint; (readbyte << 8) + readbyte; end
+      def readframe; read(readint - 2); end
+      def readsof; [readint, readbyte, readint, readint, readbyte]; end
+      def next
+        c = readbyte while c != 0xFF
+        c = readbyte while c == 0xFF
+        c
+      end
+    end
+
     def examine(io)
-      class << io
-        def readbyte; readchar; end unless method_defined?(:readbyte)
-        def readint; (readbyte << 8) + readbyte; end
-        def readframe; read(readint - 2); end
-        def readsof; [readint, readbyte, readint, readint, readbyte]; end
-        def next
-          c = readbyte while c != 0xFF
-          c = readbyte while c == 0xFF
-          c
-        end
-      end unless io.respond_to? :readsof
+      io = Reader.new(io)
 
       unless io.readbyte == 0xFF && io.readbyte == 0xD8 # SOI
         raise MalformedJPEG, "no start of image marker found"
