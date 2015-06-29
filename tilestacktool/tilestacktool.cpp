@@ -1513,7 +1513,6 @@ void usage(const char *fmt, ...) {
           "				 vp8: 10=high quality, 30=typical, 50=low quality\n"
           "				 proreshq: 5=high quality, 9=typical, 13=low quality\n"
           "--ffmpeg-path path_to_ffmpeg\n"
-          /*"--vpxenc-path path_to_vpxenc\n"*/
           "--image2tiles dest_dir format src_image\n"
           "              Be sure to set tilesize earlier in the commandline\n"
           "--tilesize N\n"
@@ -1578,7 +1577,6 @@ bool self_test() {
   bool success = true;
   fprintf(stderr, "tilestacktool self-test: ");
   {
-    fprintf(stderr, "ffmpeg/vpxenc/qt-faststart:\n");
     bool encoder_ok = H264Encoder::test() && VP8Encoder::test();
     fprintf(stderr, "%s\n", encoder_ok ? "success" : "FAIL");
     success = success && encoder_ok;
@@ -1750,9 +1748,6 @@ int main(int argc, char **argv)
         H264Encoder::ffmpeg_path_override = args.shift();
         VP8Encoder::ffmpeg_path_override = H264Encoder::ffmpeg_path_override;
       }
-      /*else if (arg == "--vpxenc-path") {
-        VP8Encoder::vpxenc_path_override = args.shift();
-      }*/
       else if (arg == "--render-path") {
         render_js_path_override = args.shift();
       }
