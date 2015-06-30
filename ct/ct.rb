@@ -137,7 +137,6 @@ end
 if $os == 'windows'
   require 'win32/registry'
   require File.join(File.dirname(__FILE__), 'shortcut')
-  require 'filesystem'
 end
 
 def temp_file_unique_fragment
@@ -1159,13 +1158,16 @@ class Compiler
     #initialize_original_images
     @videoset_compilers = settings["videosets"].map {|json| VideosetCompiler.new(self, json)}
 
-    if $os == 'windows'
-      mount_point = Sys::Filesystem.mount_point(@videosets_dir)
-      stat = Sys::Filesystem.stat(mount_point)
-      mb_available = (stat.block_size * stat.blocks_free / 1024 / 1024).floor
-    else
-      mb_available = (`df -m /`.split(/\b/)[24].to_i).floor
-    end
+    ## TODO:
+    ## Need to find another way on Windows, since the Filesystem library seems a bit dated
+    ## Also, logic is not fully implemented here
+    #if $os == 'windows'
+    #  mount_point = Sys::Filesystem.mount_point(@videosets_dir)
+    #  stat = Sys::Filesystem.stat(mount_point)
+    #  mb_available = (stat.block_size * stat.blocks_free / 1024 / 1024).floor
+    #else
+    #  mb_available = (`df -m /`.split(/\b/)[24].to_i).floor
+    #end
 
     # TODO
     # Very rough estimates. Hard to get right though because the bitrates are not the same
