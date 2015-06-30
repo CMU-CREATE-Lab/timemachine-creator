@@ -1,4 +1,4 @@
-.TH RI 1 "Ruby Programmers Reference Guide" "December 29, 2008" "UNIX"
+.TH RI 1 "Ruby Programmers Reference Guide" "November 7, 2012" "UNIX"
 .SH NAME
 \fBri\fP
 \- Ruby API reference front end
@@ -16,7 +16,7 @@
 [\fItarget\fP ...]
 .SH DESCRIPTION
 \fBri\fP
-is a CUI front end for the Ruby API reference.
+is a CLI front end for the Ruby API reference.
 You can search and read API reference for classes and methods with
 \fB.\fP
 
@@ -84,6 +84,8 @@ directories.  May be repeated.
 .TP
 \fB\--format\fP=FORMAT
 Format to use when displaying output:
+
+ansi, bs, html, plain, simple
 
 Use 'bs' (backspace) with most pager programs. To use ANSI, either disable the
 pager or tell the pager to allow control characters.
@@ -185,10 +187,10 @@ Searches user-wide documents here.
 .SH REPORTING BUGS
 Security vulnerabilities should be reported via an email to
 <security@ruby-lang.org>
-Reported problems will be published after fixed.
+Reported problems will be published after being fixed.
 
 And you can report other bugs and feature requests via the
-Ruby Issue Tracking System (http://redmine.ruby-lang.org).
+Ruby Issue Tracking System (http://bugs.ruby-lang.org).
 Do not report security vulnerabilities
 via the system because it publishes the vulnerabilities immediately.
 .SH AUTHORS

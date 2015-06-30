@@ -1,4 +1,4 @@
-.TH RUBY 1 "Ruby Programmers Reference Guide" "October 25, 2008" "UNIX"
+.TH RUBY 1 "Ruby Programmers Reference Guide" "November 7, 2012" "UNIX"
 .SH NAME
 \fBruby\fP
 \- Interpreted object-oriented scripting language
@@ -29,7 +29,7 @@
 .SH DESCRIPTION
 Ruby is an interpreted scripting language for quick and easy
 object-oriented programming.  It has many features to process text
-files and to do system management tasks (as in Perl).  It is simple,
+files and to do system management tasks (like in Perl).  It is simple,
 straight-forward, and extensible.
 
 If you want a language for easy object-oriented programming, or you
@@ -138,9 +138,8 @@ on-the-fly.
 Libraries called "builtin libraries" and "standard libraries" are bundled with Ruby.
 And you can obtain more libraries via the package management system called `RubyGems'.
 
-Moreover there are thousands of Ruby projects in Rubyforge
-( "http://www.rubyforge.org") and RAA
-( "http://raa.ruby-lang.org").
+Moreover there are thousands of Ruby projects on GitHub
+<\fBhttps://github.com/languages/Ruby\fR>.
 
 .SH OPTIONS
 Ruby interpreter accepts following command-line options (switches).
@@ -185,6 +184,12 @@ You can omit the one for internal encodings, then the value
 ("Encoding.default_internal") will be nil.
 
 .TP
+\fB\--external-encoding\fP=\fIencoding\fP
+.TP
+\fB\--internal-encoding\fP=\fIencoding\fP
+Specify the default external or internal character encoding
+
+.TP
 \fB\-F\fP \fIpattern\fP
 Specifies input field separator
 ("$;").
@@ -221,7 +226,7 @@ ASCII-8BIT (BINARY)
 \fB\-S\fP
 Makes Ruby use the
 .IR PATH
-environment variable to search for script, unless if its name begins
+environment variable to search for script, unless its name begins
 with a slash.  This is used to emulate
 #!
 on machines that don't support it, in the following manner:
@@ -244,7 +249,7 @@ Sets the default value for internal encodings
 
 .TP
 \fB\-W\fP[\fIlevel=2\fP]
-Turns on verbose mode at the specified level, without printing version
+Turns on verbose mode at the specified level without printing the version
 message at the beginning. The level can be;
 .TP
 .B 0
@@ -392,8 +397,8 @@ On some systems
 "$0"
 does not always contain the full pathname, so you need the
 \fB\-S\fP
-switch to tell Ruby to search for the script if necessary.  To handle
-embedded spaces or such.  A better construct than
+switch to tell Ruby to search for the script if necessary (to handle embedded
+spaces and such).  A better construct than
 "$*"
 would be
 ${1+"$@"},
@@ -402,7 +407,7 @@ but it does not work if the script is being interpreted by
 
 .TP
 \fB\-v\fP
-Enables verbose mode.  Ruby will print its version at the beginning,
+Enables verbose mode.  Ruby will print its version at the beginning
 and set the variable
 "$VERBOSE"
 to true.  Some methods print extra messages if this variable is true.
@@ -419,11 +424,11 @@ variable to true.
 .TP
 \fB\-x\fP[\fIdirectory\fP]
 Tells Ruby that the script is embedded in a message.  Leading garbage
-will be discarded until the first that starts with
+will be discarded until the first line that starts with
 ``#!''
 and contains the string,
 ``ruby''.
-Any meaningful switches on that line will applied.  The end of script
+Any meaningful switches on that line will be applied.  The end of the script
 must be specified with either
 EOF,
 "^D" ("control-D"),
@@ -440,8 +445,8 @@ before executing script.
 DO NOT USE.
 
 Turns on compiler debug mode.  Ruby will print a bunch of internal
-state messages during compiling scripts.  You don't have to specify
-this switch, unless you are going to debug the Ruby interpreter.
+state messages during compilation.  Only specify this switch you are going to
+debug the Ruby interpreter.
 
 .TP
 \fB\--disable-\fP\fIFEATURE\fP
@@ -486,7 +491,7 @@ can be one of;
 disassembled instructions
 
 
-You don't have to specify this switch, unless you are going to debug the Ruby interpreter.
+Only specify this switch if you are going to debug the Ruby interpreter.
 
 .TP
 \fB\--verbose\fP
@@ -576,11 +581,11 @@ Security vulnerabilities should be reported via an email to
 Reported problems will be published after they've been fixed.
 
 And you can report other bugs and feature requests via the
-Ruby Issue Tracking System (http://redmine.ruby-lang.org).
+Ruby Issue Tracking System (http://bugs.ruby-lang.org).
 Do not report security vulnerabilities
 via the system because it publishes the vulnerabilities immediately.
 .SH AUTHORS
 Ruby is designed and implemented by
 Yukihiro Matsumoto <matz@netlab.jp>.
 
-See <\fBhttp://redmine.ruby-lang.org/wiki/ruby/Contributors\fR> for contributors to Ruby.
+See <\fBhttp://bugs.ruby-lang.org/wiki/ruby/Contributors\fR> for contributors to Ruby.
