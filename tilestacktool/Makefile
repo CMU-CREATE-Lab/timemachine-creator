@@ -213,7 +213,7 @@ else
 LIBJPEG = $(LIBJPEG_DIR)/.libs/libjpeg.a
 
 $(LIBJPEG):
-	(cd $(LIBJPEG_DIR); ./configure --with-jpeg8 --prefix=`pwd`; make)
+	(cd $(LIBJPEG_DIR); ./configure --host x86_64-apple-darwin NASM=/usr/bin/nasm --with-jpeg8 --prefix=`pwd`; make)
 
 libjpeg-clean:
 	rm -rf $(LIBJPEG_DIR)/lib $(LIBJPEG_DIR)/include $(LIBJPEG)
