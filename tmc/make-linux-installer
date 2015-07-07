@@ -40,7 +40,8 @@ cp -R ../ct-examples $output_directory
 # remote cluster scripts
 cp -R ../remote-cluster-scripts $output_directory
 # .so files since we are doing a shared build
-cp -RL /usr/lib/i386-linux-gnu/libaudio.so.2 /usr/lib/i386-linux-gnu/libQtCore.so.4 /usr/lib/i386-linux-gnu/libQtGui.so.4 /usr/lib/i386-linux-gnu/libQtNetwork.so.4 /usr/lib/i386-linux-gnu/libQtWebKit.so.4 /usr/lib/i386-linux-gnu/qt4/plugins/imageformats $output_directory/tmc
+#cp -RL /usr/lib/i386-linux-gnu/libaudio.so.2 /usr/lib/i386-linux-gnu/libQtCore.so.4 /usr/lib/i386-linux-gnu/libQtGui.so.4 /usr/lib/i386-linux-gnu/libQtNetwork.so.4 /usr/lib/i386-linux-gnu/libQtWebKit.so.4 /usr/lib/i386-linux-gnu/qt4/plugins/imageformats $output_directory/tmc
+cp -RL /usr/lib/x86_64-linux-gnu/libaudio.so.2 /opt/qt-4.8.7/lib/libQtCore.so.4 /opt/qt-4.8.7/lib/libQtGui.so.4 /opt/qt-4.8.7/lib/libQtNetwork.so.4 /opt/qt-4.8.7/lib/libQtWebKit.so.4 /opt/qt-4.8.7/plugins/imageformats $output_directory/tmc
 cp tmc.sh $output_directory
 # create archive
 tar -czf "$output_directory.tar.gz" $output_directory
