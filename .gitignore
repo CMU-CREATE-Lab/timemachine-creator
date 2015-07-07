@@ -6,9 +6,9 @@ moc_*.h
 .DS_Store
 junkyard
 *.dSYM
-debug/
-release/
-installer/
+tmc/debug
+tmc/release
+tmc/installer
 *.pdb
 tmc-linux-*.*
 gigapan-*.*.*-linux*
