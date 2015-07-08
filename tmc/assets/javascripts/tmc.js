@@ -22,6 +22,8 @@ var scrollHeightAndExtra = 0;
 var ticktime = 0;
 var mintime = 0;
 var maxtime = 0;
+var min = 1e+100;
+var max = -1e+100;
 var doFileHover = false;
 // Margin of 50 and 9 extra for padding; keep images centered under the dropbox
 var left_margin = -59;
@@ -713,7 +715,7 @@ function rescale() {
   canvas_times.height = parseInt(canvasDiv.style.height);
 
   // Magic number = height of a thumbnail (160) + height of filename_with_path text (8) + extra padding (32)
-  $("#world").css("height", (max - min) * scale + 200);
+  $("#world").css("height", Math.max(445, (max - min) * scale + 200));
 
   var ticktimes = [0.1, 0.2, 0.5, 1, 2, 5, 10, 30, 60, 60 * 2, 60 * 5, 60 * 15, 60 * 30, 3600, 2 * 3600, 4 * 3600, 12 * 3600, 86400];
   // We want to display time axis labels no closer than every N pixels
@@ -1583,6 +1585,7 @@ function removeDropHighlight(evt) {
 }
 
 function addDroppedFiles(cameraNum) {
+  var unsupportedFormatsDropped = false;
   api.showWaitCursor();
 
   projectModified = true;
@@ -1596,7 +1599,12 @@ function addDroppedFiles(cameraNum) {
   var rowNum = 0;
   var alertExifTimeMsg = "One or more images with missing, invalid, or duplicate exif time data was encountered. Most likely you are using an image that you stitched yourself or created in a program such as Photoshop." + '\n\n' + "Rather than sorting images by timstamps, they will instead be sorted alphabetically by filename."  + '\n';
   for (var i = 0; i < droppedFiles.length; i++) {
-    if (droppedFiles[i].match(/\.jpg|.jpeg$/i) == null) continue; // only accepts jpg files, though the software can process pngs too
+    // TODO: users can just rename the files to bypass this
+    // Only accepts jpg or png files
+    if (droppedFiles[i].match(/\.jpg|.jpeg|.png$/i) == null) {
+      unsupportedFormatsDropped = true;
+      continue;
+    }
     var h = {};
     h['filename_with_path'] = droppedFiles[i];
     h['filename'] = h['filename_with_path'].replace(/^.*[\\\/]/, '');
@@ -1660,6 +1668,8 @@ function addDroppedFiles(cameraNum) {
     refresh();
   }
   api.hideWaitCursor();
+  if (unsupportedFormatsDropped)
+    alert("One or more unsupported files detected. Only jpg and png files are supported.");
 }
 
 function dropHandler(evt) {
