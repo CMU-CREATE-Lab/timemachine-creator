@@ -44,4 +44,4 @@ cp -vR ../remote-cluster-scripts $output_directory
 cp -vRL /usr/lib/x86_64-linux-gnu/libaudio.so.2 /opt/qt-4.8.7/lib/libQtCore.so.4 /opt/qt-4.8.7/lib/libQtGui.so.4 /opt/qt-4.8.7/lib/libQtNetwork.so.4 /opt/qt-4.8.7/lib/libQtWebKit.so.4 /opt/qt-4.8.7/plugins/imageformats $output_directory/tmc
 cp -v tmc.sh $output_directory
 # create archive
-tar -czfv "$output_directory.tar.gz" $output_directory
+tar -czf "$output_directory.tar.gz" $output_directory
