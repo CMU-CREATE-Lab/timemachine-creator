@@ -2,5 +2,6 @@ Makefile
 tmc.dmg
 Makefile.Debug
 Makefile.Release
-+tmc-*-linux.tar.gz
-+tmc-*-linux
+tmc-*-linux.tar.gz
+tmc-*-linux
+tmc
