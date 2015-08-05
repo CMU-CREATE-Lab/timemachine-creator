@@ -661,7 +661,7 @@ end
 class ImagesSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :subsample, :raw_width, :raw_height
   attr_reader :capture_times, :capture_time_parser, :capture_time_parser_inputs, :framenames, :subsample_input, :capture_time_print_milliseconds
-  attr_reader :capture_time_diff
+  attr_reader :capture_time_diff, :time_zone
 
   def initialize(parent, settings)
     @parent = parent
@@ -677,6 +677,7 @@ class ImagesSource
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0100-original-images/"
     @capture_time_print_milliseconds = settings["capture_time_print_milliseconds"] || false
     @capture_time_diff = settings["capture_time_diff"] || 0
+    @time_zone = settings["time_zone"]
     initialize_images
     initialize_framenames
     @tilesize = settings["tilesize"] || ideal_tilesize(@framenames.size)
@@ -1406,6 +1407,7 @@ class Compiler
     cmd << ["-subsample-input", @@global_parent.source.subsample_input] if (defined?(@@global_parent.source.subsample_input) and @@global_parent.source.subsample_input > 1)
     cmd << ["--print-milliseconds"] if (defined?(@@global_parent.source.capture_time_print_milliseconds) and @@global_parent.source.capture_time_print_milliseconds)
     cmd << ["-capture-time-diff", @@global_parent.source.capture_time_diff] if (defined?(@@global_parent.source.capture_time_diff) and @@global_parent.source.capture_time_diff != 0)
+    cmd << ["-time-zone", @@global_parent.source.time_zone] if defined?(@@global_parent.source.time_zone)
     Rule.add("capture_times", videoset_rules, [cmd.flatten])
   end
 
