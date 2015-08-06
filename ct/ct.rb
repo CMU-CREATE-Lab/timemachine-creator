@@ -677,7 +677,7 @@ class ImagesSource
     @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0100-original-images/"
     @capture_time_print_milliseconds = settings["capture_time_print_milliseconds"] || false
     @capture_time_diff = settings["capture_time_diff"] || 0
-    @time_zone = settings["time_zone"]
+    @time_zone = settings["time_zone"] || nil
     initialize_images
     initialize_framenames
     @tilesize = settings["tilesize"] || ideal_tilesize(@framenames.size)
@@ -1407,7 +1407,7 @@ class Compiler
     cmd << ["-subsample-input", @@global_parent.source.subsample_input] if (defined?(@@global_parent.source.subsample_input) and @@global_parent.source.subsample_input > 1)
     cmd << ["--print-milliseconds"] if (defined?(@@global_parent.source.capture_time_print_milliseconds) and @@global_parent.source.capture_time_print_milliseconds)
     cmd << ["-capture-time-diff", @@global_parent.source.capture_time_diff] if (defined?(@@global_parent.source.capture_time_diff) and @@global_parent.source.capture_time_diff != 0)
-    cmd << ["-time-zone", @@global_parent.source.time_zone] if defined?(@@global_parent.source.time_zone)
+    cmd << ["-time-zone", @@global_parent.source.time_zone] if (defined?(@@global_parent.source.time_zone) and !@@global_parent.source.time_zone.nil?)
     Rule.add("capture_times", videoset_rules, [cmd.flatten])
   end
 
