@@ -96,6 +96,7 @@ $preserve_source_tiles = false
 $skip_trailer = false
 $skip_leader = false
 $sort_by_exif_dates = false
+$tile_mode = "both"
 
 if profile
   require 'rubygems'
@@ -509,6 +510,28 @@ class VideosetCompiler
     @parent.source.framenames.size
   end
 
+  # Normally, we count all the rows or columns from 0 to n-1 for tile indices.
+  # In the case where we're generating for the new WebGL viewer only, we need
+  # to instead generate every 4, but probably need an extra at the end.
+  # Or if we're generating tiles for both, we need 0 to n-1 plus that probable
+  # extra % 4 coord at the end.
+  def enumerate_coords(n)
+    indices = (0...n).to_a
+    if $tile_mode == 'both' or $tile_mode == 'webgl'
+      # If last index isn't divisible by 4, we need to add another
+      if indices[-1] % 4 != 0
+        indices << (indices[-1] + 3) / 4 * 4
+      end
+    elsif $tile_mode != 'original'
+      raise 'tile_mode must be "both", "webgl", or "original"'
+    end
+    if $tile_mode == 'webgl'
+      # For webgl we only need the mod 4 tiles
+      indices = indices.select {|x| x % 4 == 0}
+    end
+    indices
+  end
+
   def initialize_videotiles
     $compute_videos or return
     # Compute levels
@@ -552,10 +575,9 @@ class VideosetCompiler
       @levelinfo << {"rows" => level_rows, "cols" => level_cols}
       #puts "** level=#{level[:level]} subsample=#{level[:subsample]} #{level_cols}x#{level_rows}=#{level_cols*level_rows} videos input_width=#{level[:input_width]} input_height=#{level[:input_height]}"
 
-      rows_to_compute = $compute_videos.apply(0...level_rows)
-      rows_to_compute.each do |r|
+      enumerate_coords(level_rows).each do |r|
         y = r * @overlap_y * level[:subsample]
-        level_cols.times do |c|
+        enumerate_coords(level_cols).each do |c|
           x = c * @overlap_x * level[:subsample]
           @temporal_fragments.each do |fragment|
             @videotiles << VideoTile.new(c, r, level[:level], x, y, level[:subsample], fragment)
@@ -1867,6 +1889,8 @@ while !ARGV.empty?
     $skip_leader = true
   elsif arg == "--sort-by-exif-dates"
     $sort_by_exif_dates = true
+  elsif arg == "-tile-mode"
+    $tile_mode = ARGV.shift
   else
     STDERR.puts "Unknown arg #{arg}"
     usage
