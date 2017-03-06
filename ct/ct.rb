@@ -121,9 +121,9 @@ $run_remotely_json_dir = nil
 $cache_folder = nil
 $dry_run = false
 
-ruby_version = RUBY_VERSION.split('.')[0,3].join.to_i
+$ruby_version = RUBY_VERSION.split('.')[0,3].join.to_i
 
-if ruby_version <= 185 || ruby_version == 191 || ruby_version == 192
+if $ruby_version <= 185 || $ruby_version == 191 || $ruby_version == 192
   raise "Ruby version is #{RUBY_VERSION}, but must be >= 1.8.6, and also must not be 1.9.1 or 1.9.2 because of threading bugs in those versions."
 end
 
@@ -269,7 +269,7 @@ Dir.glob(File.dirname(__FILE__) + "/*_source.rb").each do |file|
 end
 
 $verbose = false
-@@global_parent = nil
+$global_parent = nil
 
 #
 # DOCUMENTATION IS IN README_CT.TXT
@@ -422,7 +422,7 @@ class VideosetCompiler
 
   def initialize(parent, settings)
     @parent = parent
-    @@global_parent = parent
+    $global_parent = parent
     @label = settings["label"] || raise("Video settings must include label")
 
     @videotype = settings["type"] || raise("Video settings must include type")
@@ -687,7 +687,7 @@ class ImagesSource
 
   def initialize(parent, settings)
     @parent = parent
-    @@global_parent = parent
+    $global_parent = parent
     @image_dir="#{@parent.store}/0100-original-images"
     @raw_width = settings["width"]
     @raw_height = settings["height"]
@@ -769,7 +769,7 @@ class GigapanOrgSource
 
   def initialize(parent, settings)
     @parent = parent
-    @@global_parent = parent
+    $global_parent = parent
     @urls = settings["urls"]
     @ids = @urls.map{|url| id_from_url(url)}
     @subsample = settings["subsample"] || 1
@@ -819,7 +819,7 @@ class PrestitchedSource
 
   def initialize(parent, settings)
     @parent = parent
-    @@global_parent = parent
+    $global_parent = parent
     @subsample = settings["subsample"] || 1
     @subsample_input = settings["subsample_input"] || 1
     @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
@@ -860,7 +860,7 @@ class StitchSource
 
   def initialize(parent, settings)
     @parent = parent
-    @@global_parent = parent
+    $global_parent = parent
     @subsample = settings["subsample"] || 1
     @subsample_input = settings["subsample_input"] || 1
     @width = settings["width"] || 1
@@ -1000,7 +1000,11 @@ class StitchSource
           # Change level only inside this proc
           # Security error will be thrown if a user
           # attempts to pass in system calls, etc
-          $SAFE = 4
+          parse_safe = 4
+          parse_safe = 3 if ($ruby_version >= 210 && $ruby_version < 230)
+          parse_safe = 1 if ($ruby_version >= 230)
+
+          $SAFE = parse_safe
           align_to_eval = eval(@align_to)
         }.call
         if align_to_eval.class == Copy
@@ -1401,7 +1405,7 @@ class Compiler
   #   #remove remaining .jpgs leftover and all sub directories
   #   #leave the top-most directory (*.data/tiles/r.info)
   #   #do not do anything if subsmaple is not 1 for the tiling
-  #   cmd = @@global_parent.source.subsample == 1 ? ["find #{@tiles_dir} -name *.jpg | xargs rm -f",
+  #   cmd = $global_parent.source.subsample == 1 ? ["find #{@tiles_dir} -name *.jpg | xargs rm -f",
   #                                                  "find #{@tiles_dir} -type d | xargs rmdir --ignore-fail-on-non-empty"] : ["echo"]
   #   dependencies = all_tilestacks_rule.targets
   #   Rule.new(["tilestack-cleanup"], dependencies,
@@ -1415,26 +1419,19 @@ class Compiler
     Rule.touch("#{@videosets_dir}/COMPLETE", @videoset_compilers.flat_map {|vc| vc.rules(dependencies)})
   end
 
-  # def capture_times_rule
-  #   cmd = ["ruby #{@@global_parent.source.capture_time_parser}",
-  #          "#{@@global_parent.source.capture_time_parser_inputs}",
-  #          "#{@videosets_dir}/tm.json"]
-  #   Rule.add("capture_times", videoset_rules, [cmd])
-  # end
-
   def capture_times_rule
-    source = @@global_parent.source.capture_times.nil? ? @@global_parent.source.capture_time_parser_inputs : $jsonfile
+    source = $global_parent.source.capture_times.nil? ? $global_parent.source.capture_time_parser_inputs : $jsonfile
     ruby_path = ($os == 'windows') ? File.join(File.dirname(__FILE__), "/../ruby/windows/bin/ruby.exe") : "ruby"
-    cmd = [ruby_path, @@global_parent.source.capture_time_parser, source, "#{@videosets_dir}/tm.json"]
-    cmd << ["-subsample-input", @@global_parent.source.subsample_input] if (defined?(@@global_parent.source.subsample_input) and @@global_parent.source.subsample_input > 1)
-    cmd << ["--print-milliseconds"] if (defined?(@@global_parent.source.capture_time_print_milliseconds) and @@global_parent.source.capture_time_print_milliseconds)
-    cmd << ["-capture-time-diff", @@global_parent.source.capture_time_diff] if (defined?(@@global_parent.source.capture_time_diff) and @@global_parent.source.capture_time_diff != 0)
-    cmd << ["-time-zone", @@global_parent.source.time_zone] if (defined?(@@global_parent.source.time_zone) and !@@global_parent.source.time_zone.nil?)
+    cmd = [ruby_path, $global_parent.source.capture_time_parser, source, "#{@videosets_dir}/tm.json"]
+    cmd << ["-subsample-input", $global_parent.source.subsample_input] if (defined?($global_parent.source.subsample_input) and $global_parent.source.subsample_input > 1)
+    cmd << ["--print-milliseconds"] if (defined?($global_parent.source.capture_time_print_milliseconds) and $global_parent.source.capture_time_print_milliseconds)
+    cmd << ["-capture-time-diff", $global_parent.source.capture_time_diff] if (defined?($global_parent.source.capture_time_diff) and $global_parent.source.capture_time_diff != 0)
+    cmd << ["-time-zone", $global_parent.source.time_zone] if (defined?($global_parent.source.time_zone) and !$global_parent.source.time_zone.nil?)
     Rule.add("capture_times", videoset_rules, [cmd.flatten])
   end
 
   def compute_rules
-    @@global_parent.source.capture_time_parser && Filesystem.cached_exists?(@@global_parent.source.capture_time_parser) ? capture_times_rule : videoset_rules
+    $global_parent.source.capture_time_parser && Filesystem.cached_exists?($global_parent.source.capture_time_parser) ? capture_times_rule : videoset_rules
   end
 
   def info
@@ -1585,9 +1582,11 @@ class Maker
           elsif (command[0] == 'mv')
             File.rename(command[1], command[2])
           else
-            ret = Kernel.system(*command) # This seems to randomly raise an exception in ruby 1.9
-            unless ret
+            # Retry up to 3 times if we fail
+            while (!(ret = Kernel.system(*command)) && counter < 4) do
               STDERR.write "Command #{command.join(' ')} failed with ret=#{ret}, #{$?}\n"
+              STDERR.write "#{date} Job #{job_no} failed, retrying, attempt #{counter}\n"
+              counter += 1
             end
             ret
           end
@@ -1675,7 +1674,7 @@ class Maker
 
     while @ndone < @rules.size
       # Restart the process if we are stitching from source and we have not gotten dimensions from the first gigapan
-      if @@global_parent.source.class.to_s == "StitchSource" && @ndone > 0 && @@global_parent.source.width == 1 && @@global_parent.source.height == 1
+      if $global_parent.source.class.to_s == "StitchSource" && @ndone > 0 && $global_parent.source.width == 1 && $global_parent.source.height == 1
         STDERR.write "Initial .gigapan file created. We now have enough info to get the dimensions.\n"
         STDERR.write "Clearing all old rules...\n"
         Rule.clear_all
@@ -1942,9 +1941,9 @@ compiler = nil
 retry_attempts.times do
   compiler = Compiler.new(definition)
   compiler.write_json
-  Filesystem.write_file("#{@@global_parent.videosets_dir}/ajax_includes.js",
+  Filesystem.write_file("#{$global_parent.videosets_dir}/ajax_includes.js",
                     ajax_includes_to_javascript)
-  STDERR.puts "Wrote initial #{@@global_parent.videosets_dir}/ajax_includes.js"
+  STDERR.puts "Wrote initial #{$global_parent.videosets_dir}/ajax_includes.js"
   compiler.compute_rules # Creates rules, which will be accessible from Rule.all
   $check_mem and CheckMem.logvm "All rules created"
   # compiler.write_rules
@@ -1954,14 +1953,14 @@ retry_attempts.times do
 end
 
 # remove any old tmp json files which are passed to tilestacktool
-Filesystem.rm("#{@@global_parent.tiles_dir}/tiles-*.json")
+Filesystem.rm("#{$global_parent.tiles_dir}/tiles-*.json")
 
 # Add tm.json to ajax_includes.js again to include the addition of capture times
-include_ajax("./tm.json", JSON.parse(Filesystem.read_file("#{@@global_parent.videosets_dir}/tm.json")))
+include_ajax("./tm.json", JSON.parse(Filesystem.read_file("#{$global_parent.videosets_dir}/tm.json")))
 
-Filesystem.write_file("#{@@global_parent.videosets_dir}/ajax_includes.js",
+Filesystem.write_file("#{$global_parent.videosets_dir}/ajax_includes.js",
                       ajax_includes_to_javascript)
-STDERR.puts "Wrote final #{@@global_parent.videosets_dir}/ajax_includes.js"
+STDERR.puts "Wrote final #{$global_parent.videosets_dir}/ajax_includes.js"
 
 STDERR.puts "If you're authoring a mediawiki page at timemachine.gigapan.org, you can add this to #{compiler.urls['view'] || "your page"} to see the result: {{TimelapseViewer|timelapse_id=#{compiler.versioned_id}|timelapse_dataset=1|show_timewarp_composer=true}}"
 compiler.urls['track'] and STDERR.puts "and update tracking page #{compiler.urls['track']}"
