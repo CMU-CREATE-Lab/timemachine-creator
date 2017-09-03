@@ -117,7 +117,8 @@ end
 # * #to_s
 # * #inspect
 #
-Backports.suppress_verbose_warnings do
+require 'backports/tools/suppress_verbose_warnings' # *** Backports addition
+Backports.suppress_verbose_warnings do # *** Backports addition
 class Matrix
   include Enumerable
   include ExceptionForMatrix
@@ -970,7 +971,7 @@ class Matrix
   #     => 67 96
   #        48 99
   #
-  def ** (other)
+  def **(other)
     case other
     when Integer
       x = self
@@ -1465,7 +1466,7 @@ end
       end
     end
 
-    def / (other)
+    def /(other)
       case other
       when Numeric
         Scalar.new(@value / other)
@@ -1478,7 +1479,7 @@ end
       end
     end
 
-    def ** (other)
+    def **(other)
       case other
       when Numeric
         Scalar.new(@value ** other)
