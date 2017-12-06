@@ -852,6 +852,36 @@ end
 
 $sourcetypes['prestitched'] = PrestitchedSource
 
+class RawTilesSource
+  attr_reader :ids, :width, :height, :tilesize, :tileformat, :framenames, :subsample
+  attr_reader :capture_times, :capture_time_parser, :capture_time_parser_inputs, :subsample_input
+
+  def initialize(parent, settings)
+    @parent = parent
+    $global_parent = parent
+    @subsample = settings["subsample"] || 1
+    @subsample_input = settings["subsample_input"] || 1
+    @capture_times = settings["capture_times"] ? settings["capture_times"].flatten : nil
+    @capture_time_parser = settings["capture_time_parser"] ? File.expand_path(settings["capture_time_parser"]) : "#{File.dirname(__FILE__)}/extract_gigapan_capturetimes.rb"
+    @capture_time_parser_inputs = settings["capture_time_parser_inputs"] || "#{@parent.store}/0200-tiles"
+    @width = settings["width"] / @subsample
+    @height = settings["height"] / @subsample
+    @tilesize = settings["tilesize"]
+    @tileformat = settings["tileformat"] || "kro"
+    initialize_frames
+  end
+
+  def initialize_frames
+    @framenames = Dir.glob("#{@parent.store}/0200-tiles/*.data").map {|dir| File.basename(without_extension(dir))}.sort
+  end
+
+  def tiles_rules
+    []
+  end
+end
+
+$sourcetypes['rawtiles'] = RawTilesSource
+
 class StitchSource
   attr_reader :ids, :width, :height, :tilesize, :tileformat, :framenames, :subsample
   attr_reader :align_to, :stitcher_args, :camera_response_curve, :cols, :rows, :rowfirst
