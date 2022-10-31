@@ -2,6 +2,7 @@
 #include "mwc.h"
 
 #include <vector>
+#include <cstdio>
 
 void test(const char *msg, const std::vector<unsigned char> &orig) {
   std::vector<unsigned char> compressed;

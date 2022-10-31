@@ -12,7 +12,7 @@ OPTIMIZATION = -O3
 endif
 
 ifeq ($(OS),osx)
-PLATFORM_CXX_FLAGS=-mmacosx-version-min=10.5 
+PLATFORM_CXX_FLAGS=-mmacosx-version-min=10.5
 endif
 
 ifeq ($(OS),linux)
@@ -183,10 +183,10 @@ libpng-clean:
 
 else
 
-LIBPNG = $(LIBPNG_DIR)/.libs/libpng15.a
+LIBPNG = $(LIBPNG_DIR)/.libs/libpng16.a
 
 $(LIBPNG): $(ZLIB)
-	(cd $(LIBPNG_DIR); CFLAGS=-I`pwd`/../zlib LDFLAGS=-L`pwd`/../zlib ./configure --prefix=`pwd` --enable-shared=no; make)
+	(cd $(LIBPNG_DIR); CPPFLAGS=-I`pwd`/../zlib LDFLAGS=-L`pwd`/../zlib ./configure --prefix=`pwd` --enable-shared=no; make)
 
 libpng-clean:
 	rm -rf $(LIBPNG_DIR)/lib $(LIBPNG_DIR)/include $(LIBPNG)
@@ -237,7 +237,7 @@ tilestacktool: $(SOURCES) $(LIBPNG) $(ZLIB) $(LIBJPEG)
 
 units: test_GPTileIdx test_SimpleZlib test_JSON
 
-test_%: unit_tests/test_%.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp SimpleZlib.cpp GPTileIdx.cpp $(JSON_SOURCES) $(LIBPNG) $(ZLIB) $(LIBJPEG) 
+test_%: unit_tests/test_%.cpp $(CPP_UTILS_DIR)/cpp_utils.cpp SimpleZlib.cpp GPTileIdx.cpp $(JSON_SOURCES) $(LIBPNG) $(ZLIB) $(LIBJPEG)
 	g++ $(PLATFORM_CXX_FLAGS) -g -Ijsoncpp -I. -I$(LIBJPEG_DIR) -I$(LIBPNG_DIR) -I$(CPP_UTILS_DIR) -Wall $^ -o unit_tests/$@
 	unit_tests/$@
 

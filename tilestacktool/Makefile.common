@@ -1,1 +1,0 @@
-SOURCES=tilestacktool.cpp cpp-utils/cpp-utils.cpp png_util.cpp io.cpp io_streamfile.cpp ImageReader.cpp ImageWriter.cpp GPTileIdx.cpp jsoncpp/json_reader.cpp jsoncpp/json_value.cpp jsoncpp/json_writer.cpp Tilestack.cpp io.cpp
