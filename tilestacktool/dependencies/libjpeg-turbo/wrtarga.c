@@ -3,9 +3,10 @@
  *
  * This file was part of the Independent JPEG Group's software:
  * Copyright (C) 1991-1996, Thomas G. Lane.
- * It was modified by The libjpeg-turbo Project to include only code and
- * information relevant to libjpeg-turbo.
- * For conditions of distribution and use, see the accompanying README file.
+ * libjpeg-turbo Modifications:
+ * Copyright (C) 2017, D. R. Commander.
+ * For conditions of distribution and use, see the accompanying README.ijg
+ * file.
  *
  * This file contains routines to write output images in Targa format.
  *
@@ -40,7 +41,7 @@ typedef struct {
   JDIMENSION buffer_width;      /* width of one row */
 } tga_dest_struct;
 
-typedef tga_dest_struct * tga_dest_ptr;
+typedef tga_dest_struct *tga_dest_ptr;
 
 
 LOCAL(void)
@@ -95,7 +96,7 @@ put_pixel_rows (j_decompress_ptr cinfo, djpeg_dest_ptr dinfo,
 {
   tga_dest_ptr dest = (tga_dest_ptr) dinfo;
   register JSAMPROW inptr;
-  register char * outptr;
+  register char *outptr;
   register JDIMENSION col;
 
   inptr = dest->pub.buffer[0];
@@ -116,7 +117,7 @@ put_gray_rows (j_decompress_ptr cinfo, djpeg_dest_ptr dinfo,
 {
   tga_dest_ptr dest = (tga_dest_ptr) dinfo;
   register JSAMPROW inptr;
-  register char * outptr;
+  register char *outptr;
   register JDIMENSION col;
 
   inptr = dest->pub.buffer[0];
@@ -139,7 +140,7 @@ put_demapped_gray (j_decompress_ptr cinfo, djpeg_dest_ptr dinfo,
 {
   tga_dest_ptr dest = (tga_dest_ptr) dinfo;
   register JSAMPROW inptr;
-  register char * outptr;
+  register char *outptr;
   register JSAMPROW color_map0 = cinfo->colormap[0];
   register JDIMENSION col;
 
@@ -211,6 +212,19 @@ finish_output_tga (j_decompress_ptr cinfo, djpeg_dest_ptr dinfo)
 
 
 /*
+ * Re-calculate buffer dimensions based on output dimensions.
+ */
+
+METHODDEF(void)
+calc_buffer_dimensions_tga (j_decompress_ptr cinfo, djpeg_dest_ptr dinfo)
+{
+  tga_dest_ptr dest = (tga_dest_ptr) dinfo;
+
+  dest->buffer_width = cinfo->output_width * cinfo->output_components;
+}
+
+
+/*
  * The module selection routine for Targa format output.
  */
 
@@ -225,12 +239,13 @@ jinit_write_targa (j_decompress_ptr cinfo)
                                   sizeof(tga_dest_struct));
   dest->pub.start_output = start_output_tga;
   dest->pub.finish_output = finish_output_tga;
+  dest->pub.calc_buffer_dimensions = calc_buffer_dimensions_tga;
 
   /* Calculate output image dimensions so we can allocate space */
   jpeg_calc_output_dimensions(cinfo);
 
   /* Create I/O buffer. */
-  dest->buffer_width = cinfo->output_width * cinfo->output_components;
+  dest->pub.calc_buffer_dimensions (cinfo, (djpeg_dest_ptr) dest);
   dest->iobuffer = (char *)
     (*cinfo->mem->alloc_small) ((j_common_ptr) cinfo, JPOOL_IMAGE,
                                 (size_t) (dest->buffer_width * sizeof(char)));

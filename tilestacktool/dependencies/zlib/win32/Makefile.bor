@@ -3,7 +3,6 @@
 #
 # Usage:
 #  make -f win32/Makefile.bor
-#  make -f win32/Makefile.bor LOCAL_ZLIB=-DASMV OBJA=match.obj OBJPA=+match.obj
 
 # ------------ Borland C++ ------------
 
@@ -16,7 +15,7 @@ CC = bcc32
 AS = bcc32
 LD = bcc32
 AR = tlib
-CFLAGS  = -a -d -k- -O2 $(LOC)
+CFLAGS  = -a -d -k- -O3 $(LOC)
 ASFLAGS = $(LOC)
 LDFLAGS = $(LOC)
 

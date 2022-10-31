@@ -69,6 +69,7 @@ libjpeg-turbo/tjbench
 libjpeg-turbo/tjbenchtest
 libjpeg-turbo/tjunittest
 libjpeg-turbo/wrjpgcom
+libjpeg-turbo/java/classnoinst.stamp
 libpng/contrib/libtests/.dirstamp
 libpng/pnglibconf.c
 libpng/pnglibconf.pre

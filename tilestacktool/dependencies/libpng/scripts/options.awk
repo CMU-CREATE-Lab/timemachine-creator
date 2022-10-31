@@ -1,9 +1,9 @@
 #!/bin/awk -f
 # scripts/options.awk - library build configuration control
 #
-# last changed in libpng version 1.5.7 - December 15, 2011
+# last changed in libpng version 1.6.11 - June 5, 2014
 #
-# Copyright (c) 1998-2011 Glenn Randers-Pehrson
+# Copyright (c) 1998-2014 Glenn Randers-Pehrson
 #
 # This code is released under the libpng license.
 # For conditions of distribution and use, see the disclaimer
@@ -40,7 +40,7 @@ BEGIN{
    # the lines, for example by inserting spaces around operators, and all
    # C preprocessors notice lines that start with '#', most remove comments.
    # The technique adopted here is to make the final output lines into
-   # C strings (enclosed in double quotes), preceeded by PNG_DFN.  As a
+   # C strings (enclosed in double quotes), preceded by PNG_DFN.  As a
    # consequence the output cannot contain a 'raw' double quote - instead put
    # @' in, this will be replaced by a single " afterward.  See the parser
    # script dfn.awk for more capabilities (not required here).  Note that if
@@ -269,7 +269,7 @@ $1 == "option" && NF >= 2{
 
          if (val != 1) { # error reading it
             if (val == 0)
-               print "option", opt ": ERROR: missing contination line"
+               print "option", opt ": ERROR: missing continuation line"
             else
                print "option", opt ": ERROR: error reading continuation line"
 
@@ -282,7 +282,7 @@ $1 == "option" && NF >= 2{
       for (i=istart; i<=NF; ++i) {
          val=$(i)
          sub(/,$/,"",val)
-         if (val == "on" || val == "off" || val == "disabled") {
+         if (val == "on" || val == "off" || val == "disabled" || val =="enabled") {
             key = ""
             if (onoff != val) {
                # on or off can zap disabled or enabled:
@@ -336,7 +336,7 @@ $1 == "option" && NF >= 2{
 
 # chunk NAME [requires OPT] [enables LIST] [on|off|disabled]
 #   Expands to the 'option' settings appropriate to the reading and
-#   writing of an ancilliary PNG chunk 'NAME':
+#   writing of an ancillary PNG chunk 'NAME':
 #
 #   option READ_NAME requires READ_ANCILLARY_CHUNKS [READ_OPT]
 #   option READ_NAME enables NAME LIST
@@ -362,7 +362,7 @@ pre != 0 && $1 == "chunk" && NF >= 2{
 
          if (val != 1) { # error reading it
             if (val == 0)
-               print "chunk", opt ": ERROR: missing contination line"
+               print "chunk", opt ": ERROR: missing continuation line"
             else
                print "chunk", opt ": ERROR: error reading continuation line"
 
@@ -493,7 +493,7 @@ $1 ~ /^@/{
    next
 }
 
-# Check for unreognized lines, because of the preprocessing chunk
+# Check for unrecognized lines, because of the preprocessing chunk
 # format errors will be detected on the first pass independent of
 # any other format errors.
 {
@@ -585,7 +585,7 @@ END{
    # If an option[opt] is 'on' then turn on all requires[opt]
    # If an option[opt] is 'off' then turn off all enabledby[opt]
    #
-   # Error out if we have to turn 'on' an 'off' option or vice versa.
+   # Error out if we have to turn 'on' to an 'off' option or vice versa.
    npending = 0
    for (opt in option) if (opt != "") {
       if (option[opt] == "on" || option[opt] == "off") {
@@ -677,7 +677,7 @@ END{
          for (j=1; j<=nreqs; ++j) {
             print "#ifndef PNG_" r[j] "_SUPPORTED" >out
             print "#   undef PNG_on /*!" r[j] "*/" >out
-            # this error appears in the final output if something
+            # This error appears in the final output if something
             # was switched 'on' but the processing above to force
             # the requires did not work
             if (option[i] == "on") {
@@ -687,9 +687,11 @@ END{
          }
 
          # if
+         have_ifs = 0
          nreqs = split(iffs[i], r)
          print "#undef PNG_no_if" >out
          if (nreqs > 0) {
+            have_ifs = 1
             print "/* if" iffs[i], "*/" >out
             print "#define PNG_no_if 1" >out
             for (j=1; j<=nreqs; ++j) {
@@ -727,7 +729,10 @@ END{
 
          print "#   ifndef PNG_" i "_SUPPORTED /*!command line*/" >out
          print "#    ifdef PNG_not_enabled /*!enabled*/" >out
-         if (option[i] == "off" || option[i] == "disabled" && everything != "on" || option[i] == "enabled" && everything == "off") {
+         # 'have_ifs' here means that everything = "off" still allows an 'if' on
+         # an otherwise enabled option to turn it on; otherwise the 'if'
+         # handling is effectively disabled by 'everything = off'
+         if (option[i] == "off" || option[i] == "disabled" && everything != "on" || option[i] == "enabled" && everything == "off" && !have_ifs) {
             print "#      undef PNG_on /*default off*/" >out
          } else {
             print "#      ifdef PNG_NO_" i >out
@@ -800,8 +805,8 @@ END{
    print comment, "end of options", cend >out
 
    # Do the 'setting' values second, the algorithm the standard
-   # tree walk (O(1)) done in an O(2) while/for loop; interations
-   # settings x depth, outputing the deepest required macros
+   # tree walk (O(1)) done in an O(2) while/for loop; iterations
+   # settings x depth, outputting the deepest required macros
    # first.
    print "" >out
    print "/* SETTINGS */" >out

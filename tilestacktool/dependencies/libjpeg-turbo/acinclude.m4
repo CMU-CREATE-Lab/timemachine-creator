@@ -3,8 +3,11 @@
 # Check that NASM exists and determine flags
 AC_DEFUN([AC_PROG_NASM],[
 
-AC_CHECK_PROGS(NASM, [nasm nasmw yasm])
-test -z "$NASM" && AC_MSG_ERROR([no nasm (Netwide Assembler) found])
+AC_ARG_VAR(NASM, [NASM command (used to build the x86/x86-64 SIMD code)])
+if test "x$NASM" = "x"; then
+  AC_CHECK_PROGS(NASM, [nasm nasmw yasm])
+  test -z "$NASM" && AC_MSG_ERROR([no nasm (Netwide Assembler) found])
+fi
 
 AC_MSG_CHECKING([for object file format of host system])
 case "$host_os" in
@@ -219,16 +222,20 @@ AC_DEFUN([AC_CHECK_COMPATIBLE_ARM64_ASSEMBLER_IFELSE],[
   CC="$CCAS"
   AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
     .text
-    .arch armv8-a+fp+simd
-    movi v0.16b, #100]])], ac_good_gnu_arm_assembler=yes)
+    MYVAR .req x0
+    movi v0.16b, #100
+    mov MYVAR, #100
+    .unreq MYVAR]])], ac_good_gnu_arm_assembler=yes)
 
   ac_use_gas_preprocessor=no
   if test "x$ac_good_gnu_arm_assembler" = "xno" ; then
     CC="gas-preprocessor.pl $CCAS"
     AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
       .text
-      .arch armv8-a+fp+simd
-      movi v0.16b, #100]])], ac_use_gas_preprocessor=yes)
+      MYVAR .req x0
+      movi v0.16b, #100
+      mov MYVAR, #100
+      .unreq MYVAR]])], ac_use_gas_preprocessor=yes)
   fi
   CFLAGS="$ac_save_CFLAGS"
   CC="$ac_save_CC"
@@ -243,5 +250,38 @@ AC_DEFUN([AC_CHECK_COMPATIBLE_ARM64_ASSEMBLER_IFELSE],[
     $1
   else
     $2
+  fi
+])
+
+# AC_CHECK_ALTIVEC
+# ----------------
+# Test whether AltiVec intrinsics are supported
+AC_DEFUN([AC_CHECK_ALTIVEC],[
+  ac_save_CFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS -maltivec"
+  AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
+    #include <altivec.h>
+    int main(void) {
+      __vector int vi = { 0, 0, 0, 0 };
+      int i[4];
+      vec_st(vi, 0, i);
+      return i[0];
+    }]])], ac_has_altivec=yes)
+  CFLAGS="$ac_save_CFLAGS"
+  if test "x$ac_has_altivec" = "xyes" ; then
+    $1
+  else
+    $2
+  fi
+])
+
+AC_DEFUN([AC_NO_SIMD],[
+  AC_MSG_RESULT([no ("$1")])
+  with_simd=no;
+  if test "x${require_simd}" = "xyes"; then
+    AC_MSG_ERROR([SIMD support not available for this CPU.])
+  else
+    AC_MSG_WARN([SIMD support not available for this CPU.  Performance will\
+ suffer.])
   fi
 ])

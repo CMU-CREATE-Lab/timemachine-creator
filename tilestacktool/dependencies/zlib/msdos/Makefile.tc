@@ -19,7 +19,7 @@ CC=tcc
 LD=tcc
 AR=tlib
 # CFLAGS=-O2 -G -Z -m$(MODEL) -DMAX_WBITS=11 -DMAX_MEM_LEVEL=3
-CFLAGS=-O2 -G -Z -m$(MODEL)
+CFLAGS=-O3 -G -Z -m$(MODEL)
 LDFLAGS=-m$(MODEL) -f-
 
 

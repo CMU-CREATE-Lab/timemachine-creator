@@ -33,11 +33,11 @@ DESTDIR=
 # See scripts/pnglibconf.mak for more options
 PNGLIBCONF_H_PREBUILT = scripts/pnglibconf.h.prebuilt
 
-OBJS = $(LBR)(png.o) $(LBR)(pngset.o) $(LBR)(pngget.o) $(LBR)(pngrutil.o)\
-	$(LBR)(pngtrans.o) $(LBR)(pngwutil.o)\
-	$(LBR)(pngread.o) $(LBR)(pngerror.o) $(LBR)(pngwrite.o)\
-	$(LBR)(pngrtran.o) $(LBR)(pngwtran.o)\
-	$(LBR)(pngmem.o) $(LBR)(pngrio.o) $(LBR)(pngwio.o) $(LBR)(pngpread.o)
+OBJS = $(LBR)(png.o) $(LBR)(pngerror.o) $(LBR)(pngget.o) $(LBR)(pngmem.o) \
+       $(LBR)(pngpread.o) $(LBR)(pngread.o) $(LBR)(pngrio.o) \
+       $(LBR)(pngrtran.o) $(LBR)(pngrutil.o) $(LBR)(pngset.o) \
+       $(LBR)(pngtrans.o) $(LBR)(pngwio.o) $(LBR)(pngwrite.o) \
+       $(LBR)(pngwtran.o) $(LBR)(pngwutil.o)
 
 all: $(LBR) pngtest.ttp
 
@@ -49,7 +49,7 @@ $(LBR): $(OBJS)
 $(OBJS): pngpriv.h png.h pngconf.h pnglibconf.h pnginfo.h pngstruct.h pngdebug.h
 
 pnglibconf.h: $(PNGLIBCONF_H_PREBUILT)
-	cp $< $@
+	cp $(PNGLIBCONF_H_PREBUILT) $@
 
 pngtest.ttp: pngtest.o $(LBR)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o$@ pngtest.o

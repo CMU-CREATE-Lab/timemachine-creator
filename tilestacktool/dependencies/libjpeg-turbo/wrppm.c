@@ -4,9 +4,10 @@
  * This file was part of the Independent JPEG Group's software:
  * Copyright (C) 1991-1996, Thomas G. Lane.
  * Modified 2009 by Guido Vollbeding.
- * It was modified by The libjpeg-turbo Project to include only code and
- * information relevant to libjpeg-turbo.
- * For conditions of distribution and use, see the accompanying README file.
+ * libjpeg-turbo Modifications:
+ * Copyright (C) 2017, D. R. Commander.
+ * For conditions of distribution and use, see the accompanying README.ijg
+ * file.
  *
  * This file contains routines to write output images in PPM/PGM format.
  * The extended 2-byte-per-sample raw PPM/PGM formats are supported.
@@ -73,7 +74,7 @@ typedef struct {
   JDIMENSION samples_per_row;   /* JSAMPLEs per output row */
 } ppm_dest_struct;
 
-typedef ppm_dest_struct * ppm_dest_ptr;
+typedef ppm_dest_struct *ppm_dest_ptr;
 
 
 /*
@@ -104,7 +105,7 @@ copy_pixel_rows (j_decompress_ptr cinfo, djpeg_dest_ptr dinfo,
                  JDIMENSION rows_supplied)
 {
   ppm_dest_ptr dest = (ppm_dest_ptr) dinfo;
-  register char * bufferptr;
+  register char *bufferptr;
   register JSAMPROW ptr;
   register JDIMENSION col;
 
@@ -127,7 +128,7 @@ put_demapped_rgb (j_decompress_ptr cinfo, djpeg_dest_ptr dinfo,
                   JDIMENSION rows_supplied)
 {
   ppm_dest_ptr dest = (ppm_dest_ptr) dinfo;
-  register char * bufferptr;
+  register char *bufferptr;
   register int pixval;
   register JSAMPROW ptr;
   register JSAMPROW color_map0 = cinfo->colormap[0];
@@ -152,7 +153,7 @@ put_demapped_gray (j_decompress_ptr cinfo, djpeg_dest_ptr dinfo,
                    JDIMENSION rows_supplied)
 {
   ppm_dest_ptr dest = (ppm_dest_ptr) dinfo;
-  register char * bufferptr;
+  register char *bufferptr;
   register JSAMPROW ptr;
   register JSAMPROW color_map = cinfo->colormap[0];
   register JDIMENSION col;
@@ -210,6 +211,20 @@ finish_output_ppm (j_decompress_ptr cinfo, djpeg_dest_ptr dinfo)
 
 
 /*
+ * Re-calculate buffer dimensions based on output dimensions.
+ */
+
+METHODDEF(void)
+calc_buffer_dimensions_ppm (j_decompress_ptr cinfo, djpeg_dest_ptr dinfo)
+{
+  ppm_dest_ptr dest = (ppm_dest_ptr) dinfo;
+
+  dest->samples_per_row = cinfo->output_width * cinfo->out_color_components;
+  dest->buffer_width = dest->samples_per_row * (BYTESPERSAMPLE * sizeof(char));
+}
+
+
+/*
  * The module selection routine for PPM format output.
  */
 
@@ -224,13 +239,13 @@ jinit_write_ppm (j_decompress_ptr cinfo)
                                   sizeof(ppm_dest_struct));
   dest->pub.start_output = start_output_ppm;
   dest->pub.finish_output = finish_output_ppm;
+  dest->pub.calc_buffer_dimensions = calc_buffer_dimensions_ppm;
 
   /* Calculate output image dimensions so we can allocate space */
   jpeg_calc_output_dimensions(cinfo);
 
   /* Create physical I/O buffer */
-  dest->samples_per_row = cinfo->output_width * cinfo->out_color_components;
-  dest->buffer_width = dest->samples_per_row * (BYTESPERSAMPLE * sizeof(char));
+  dest->pub.calc_buffer_dimensions (cinfo, (djpeg_dest_ptr) dest);
   dest->iobuffer = (char *) (*cinfo->mem->alloc_small)
     ((j_common_ptr) cinfo, JPOOL_IMAGE, dest->buffer_width);
 

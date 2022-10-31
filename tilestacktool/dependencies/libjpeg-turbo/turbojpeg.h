@@ -1,5 +1,5 @@
 /*
- * Copyright (C)2009-2014 D. R. Commander.  All Rights Reserved.
+ * Copyright (C)2009-2015, 2017 D. R. Commander.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -275,7 +275,6 @@ static const int tjGreenOffset[TJ_NUMPF] = {1, 1, 1, 1, 2, 2, 0, 1, 1, 2, 2, -1}
  * then the blue component will be <tt>pixel[tjBlueOffset[TJ_BGRX]]</tt>.
  */
 static const int tjBlueOffset[TJ_NUMPF] = {2, 0, 2, 0, 1, 3, 0, 2, 0, 1, 3, -1};
-
 /**
  * Pixel size (in bytes) for a given pixel format.
  */
@@ -348,7 +347,7 @@ enum TJCS
  * The uncompressed source/destination image is stored in bottom-up (Windows,
  * OpenGL) order, not top-down (X11) order.
  */
-#define TJFLAG_BOTTOMUP        2
+#define TJFLAG_BOTTOMUP      2
 /**
  * When decompressing an image that was compressed using chrominance
  * subsampling, use the fastest chrominance upsampling algorithm available in
@@ -358,11 +357,11 @@ enum TJCS
  */
 #define TJFLAG_FASTUPSAMPLE  256
 /**
- * Disable buffer (re)allocation.  If passed to #tjCompress2() or
- * #tjTransform(), this flag will cause those functions to generate an error if
- * the JPEG image buffer is invalid or too small rather than attempting to
- * allocate or reallocate that buffer.  This reproduces the behavior of earlier
- * versions of TurboJPEG.
+ * Disable buffer (re)allocation.  If passed to one of the JPEG compression or
+ * transform functions, this flag will cause those functions to generate an
+ * error if the JPEG image buffer is invalid or too small rather than
+ * attempting to allocate or reallocate that buffer.  This reproduces the
+ * behavior of earlier versions of TurboJPEG.
  */
 #define TJFLAG_NOREALLOC     1024
 /**
@@ -645,7 +644,7 @@ DLLEXPORT tjhandle DLLCALL tjInitCompress(void);
  * for you, or
  * -# pre-allocate the buffer to a "worst case" size determined by calling
  * #tjBufSize().  This should ensure that the buffer never has to be
- * re-allocated (setting #TJFLAG_NOREALLOC guarantees this.)
+ * re-allocated (setting #TJFLAG_NOREALLOC guarantees that it won't be.)
  * .
  * If you choose option 1, <tt>*jpegSize</tt> should be set to the size of your
  * pre-allocated buffer.  In any case, unless you have set #TJFLAG_NOREALLOC,
@@ -667,12 +666,12 @@ DLLEXPORT tjhandle DLLCALL tjInitCompress(void);
  * @param jpegQual the image quality of the generated JPEG image (1 = worst,
  * 100 = best)
  *
- * @param flags the bitwise OR of one or more of the @ref TJFLAG_BOTTOMUP
+ * @param flags the bitwise OR of one or more of the @ref TJFLAG_ACCURATEDCT
  * "flags"
  *
  * @return 0 if successful, or -1 if an error occurred (see #tjGetErrorStr().)
 */
-DLLEXPORT int DLLCALL tjCompress2(tjhandle handle, unsigned char *srcBuf,
+DLLEXPORT int DLLCALL tjCompress2(tjhandle handle, const unsigned char *srcBuf,
   int width, int pitch, int height, int pixelFormat, unsigned char **jpegBuf,
   unsigned long *jpegSize, int jpegSubsamp, int jpegQual, int flags);
 
@@ -713,7 +712,7 @@ DLLEXPORT int DLLCALL tjCompress2(tjhandle handle, unsigned char *srcBuf,
  * for you, or
  * -# pre-allocate the buffer to a "worst case" size determined by calling
  * #tjBufSize().  This should ensure that the buffer never has to be
- * re-allocated (setting #TJFLAG_NOREALLOC guarantees this.)
+ * re-allocated (setting #TJFLAG_NOREALLOC guarantees that it won't be.)
  * .
  * If you choose option 1, <tt>*jpegSize</tt> should be set to the size of your
  * pre-allocated buffer.  In any case, unless you have set #TJFLAG_NOREALLOC,
@@ -731,14 +730,14 @@ DLLEXPORT int DLLCALL tjCompress2(tjhandle handle, unsigned char *srcBuf,
  * @param jpegQual the image quality of the generated JPEG image (1 = worst,
  * 100 = best)
  *
- * @param flags the bitwise OR of one or more of the @ref TJFLAG_BOTTOMUP
+ * @param flags the bitwise OR of one or more of the @ref TJFLAG_ACCURATEDCT
  * "flags"
  *
  * @return 0 if successful, or -1 if an error occurred (see #tjGetErrorStr().)
 */
-DLLEXPORT int DLLCALL tjCompressFromYUV(tjhandle handle, unsigned char *srcBuf,
-  int width, int pad, int height, int subsamp, unsigned char **jpegBuf,
-  unsigned long *jpegSize, int jpegQual, int flags);
+DLLEXPORT int DLLCALL tjCompressFromYUV(tjhandle handle,
+  const unsigned char *srcBuf, int width, int pad, int height, int subsamp,
+  unsigned char **jpegBuf, unsigned long *jpegSize, int jpegQual, int flags);
 
 
 /**
@@ -762,7 +761,7 @@ DLLEXPORT int DLLCALL tjCompressFromYUV(tjhandle handle, unsigned char *srcBuf,
  * line in the corresponding plane of the YUV source image.  Setting the stride
  * for any plane to 0 is the same as setting it to the plane width (see
  * @ref YUVnotes "YUV Image Format Notes".)  If <tt>strides</tt> is NULL, then
- * the strides for all planes will be set to their respective plane widths. 
+ * the strides for all planes will be set to their respective plane widths.
  * You can adjust the strides in order to specify an arbitrary amount of line
  * padding in each plane or to create a JPEG image from a subregion of a larger
  * YUV planar image.
@@ -783,7 +782,7 @@ DLLEXPORT int DLLCALL tjCompressFromYUV(tjhandle handle, unsigned char *srcBuf,
  * for you, or
  * -# pre-allocate the buffer to a "worst case" size determined by calling
  * #tjBufSize().  This should ensure that the buffer never has to be
- * re-allocated (setting #TJFLAG_NOREALLOC guarantees this.)
+ * re-allocated (setting #TJFLAG_NOREALLOC guarantees that it won't be.)
  * .
  * If you choose option 1, <tt>*jpegSize</tt> should be set to the size of your
  * pre-allocated buffer.  In any case, unless you have set #TJFLAG_NOREALLOC,
@@ -801,14 +800,15 @@ DLLEXPORT int DLLCALL tjCompressFromYUV(tjhandle handle, unsigned char *srcBuf,
  * @param jpegQual the image quality of the generated JPEG image (1 = worst,
  * 100 = best)
  *
- * @param flags the bitwise OR of one or more of the @ref TJFLAG_BOTTOMUP
+ * @param flags the bitwise OR of one or more of the @ref TJFLAG_ACCURATEDCT
  * "flags"
  *
  * @return 0 if successful, or -1 if an error occurred (see #tjGetErrorStr().)
 */
 DLLEXPORT int DLLCALL tjCompressFromYUVPlanes(tjhandle handle,
-	unsigned char **srcPlanes, int width, int *strides, int height, int subsamp,
-	unsigned char **jpegBuf, unsigned long *jpegSize, int jpegQual, int flags);
+  const unsigned char **srcPlanes, int width, const int *strides, int height,
+  int subsamp, unsigned char **jpegBuf, unsigned long *jpegSize, int jpegQual,
+  int flags);
 
 
 /**
@@ -880,7 +880,7 @@ DLLEXPORT unsigned long DLLCALL tjBufSizeYUV2(int width, int pad, int height,
  * plane, or -1 if the arguments are out of bounds.
  */
 DLLEXPORT unsigned long DLLCALL tjPlaneSizeYUV(int componentID, int width,
-	int stride, int height, int subsamp);
+  int stride, int height, int subsamp);
 
 
 /**
@@ -921,7 +921,7 @@ DLLEXPORT int tjPlaneHeight(int componentID, int height, int subsamp);
  * Encode an RGB or grayscale image into a YUV planar image.  This function
  * uses the accelerated color conversion routines in the underlying
  * codec but does not execute any of the other steps in the JPEG compression
- * process.  
+ * process.
  *
  * @param handle a handle to a TurboJPEG compressor or transformer instance
  *
@@ -960,14 +960,14 @@ DLLEXPORT int tjPlaneHeight(int componentID, int height, int subsamp);
  * Video, <tt>subsamp</tt> should be set to @ref TJSAMP_420.  This produces an
  * image compatible with the I420 (AKA "YUV420P") format.
  *
- * @param flags the bitwise OR of one or more of the @ref TJFLAG_BOTTOMUP
+ * @param flags the bitwise OR of one or more of the @ref TJFLAG_ACCURATEDCT
  * "flags"
  *
  * @return 0 if successful, or -1 if an error occurred (see #tjGetErrorStr().)
 */
 DLLEXPORT int DLLCALL tjEncodeYUV3(tjhandle handle,
-  unsigned char *srcBuf, int width, int pitch, int height, int pixelFormat,
-  unsigned char *dstBuf, int pad, int subsamp, int flags);
+  const unsigned char *srcBuf, int width, int pitch, int height,
+  int pixelFormat, unsigned char *dstBuf, int pad, int subsamp, int flags);
 
 
 /**
@@ -1018,14 +1018,15 @@ DLLEXPORT int DLLCALL tjEncodeYUV3(tjhandle handle,
  * Video, <tt>subsamp</tt> should be set to @ref TJSAMP_420.  This produces an
  * image compatible with the I420 (AKA "YUV420P") format.
  *
- * @param flags the bitwise OR of one or more of the @ref TJFLAG_BOTTOMUP
+ * @param flags the bitwise OR of one or more of the @ref TJFLAG_ACCURATEDCT
  * "flags"
  *
  * @return 0 if successful, or -1 if an error occurred (see #tjGetErrorStr().)
 */
 DLLEXPORT int DLLCALL tjEncodeYUVPlanes(tjhandle handle,
-  unsigned char *srcBuf, int width, int pitch, int height, int pixelFormat,
-  unsigned char **dstPlanes, int *strides, int subsamp, int flags);
+  const unsigned char *srcBuf, int width, int pitch, int height,
+  int pixelFormat, unsigned char **dstPlanes, int *strides, int subsamp,
+  int flags);
 
 
 /**
@@ -1063,8 +1064,8 @@ DLLEXPORT tjhandle DLLCALL tjInitDecompress(void);
  * @return 0 if successful, or -1 if an error occurred (see #tjGetErrorStr().)
 */
 DLLEXPORT int DLLCALL tjDecompressHeader3(tjhandle handle,
-  unsigned char *jpegBuf, unsigned long jpegSize, int *width, int *height,
-  int *jpegSubsamp, int *jpegColorspace);
+  const unsigned char *jpegBuf, unsigned long jpegSize, int *width,
+  int *height, int *jpegSubsamp, int *jpegColorspace);
 
 
 /**
@@ -1124,13 +1125,13 @@ DLLEXPORT tjscalingfactor* DLLCALL tjGetScalingFactors(int *numscalingfactors);
  * @param pixelFormat pixel format of the destination image (see @ref
  * TJPF "Pixel formats".)
  *
- * @param flags the bitwise OR of one or more of the @ref TJFLAG_BOTTOMUP
+ * @param flags the bitwise OR of one or more of the @ref TJFLAG_ACCURATEDCT
  * "flags"
  *
  * @return 0 if successful, or -1 if an error occurred (see #tjGetErrorStr().)
  */
 DLLEXPORT int DLLCALL tjDecompress2(tjhandle handle,
-  unsigned char *jpegBuf, unsigned long jpegSize, unsigned char *dstBuf,
+  const unsigned char *jpegBuf, unsigned long jpegSize, unsigned char *dstBuf,
   int width, int pitch, int height, int pixelFormat, int flags);
 
 
@@ -1174,13 +1175,13 @@ DLLEXPORT int DLLCALL tjDecompress2(tjhandle handle,
  * block height (see #tjMCUHeight), then an intermediate buffer copy will be
  * performed within TurboJPEG.
  *
- * @param flags the bitwise OR of one or more of the @ref TJFLAG_BOTTOMUP
+ * @param flags the bitwise OR of one or more of the @ref TJFLAG_ACCURATEDCT
  * "flags"
  *
  * @return 0 if successful, or -1 if an error occurred (see #tjGetErrorStr().)
  */
 DLLEXPORT int DLLCALL tjDecompressToYUV2(tjhandle handle,
-  unsigned char *jpegBuf, unsigned long jpegSize, unsigned char *dstBuf,
+  const unsigned char *jpegBuf, unsigned long jpegSize, unsigned char *dstBuf,
   int width, int pad, int height, int flags);
 
 
@@ -1230,14 +1231,14 @@ DLLEXPORT int DLLCALL tjDecompressToYUV2(tjhandle handle,
  * block height (see #tjMCUHeight), then an intermediate buffer copy will be
  * performed within TurboJPEG.
  *
- * @param flags the bitwise OR of one or more of the @ref TJFLAG_BOTTOMUP
+ * @param flags the bitwise OR of one or more of the @ref TJFLAG_ACCURATEDCT
  * "flags"
  *
  * @return 0 if successful, or -1 if an error occurred (see #tjGetErrorStr().)
  */
 DLLEXPORT int DLLCALL tjDecompressToYUVPlanes(tjhandle handle,
-  unsigned char *jpegBuf, unsigned long jpegSize, unsigned char **dstPlanes,
-  int width, int *strides, int height, int flags);
+  const unsigned char *jpegBuf, unsigned long jpegSize,
+  unsigned char **dstPlanes, int width, int *strides, int height, int flags);
 
 
 /**
@@ -1282,14 +1283,14 @@ DLLEXPORT int DLLCALL tjDecompressToYUVPlanes(tjhandle handle,
  * @param pixelFormat pixel format of the destination image (see @ref TJPF
  * "Pixel formats".)
  *
- * @param flags the bitwise OR of one or more of the @ref TJFLAG_BOTTOMUP
+ * @param flags the bitwise OR of one or more of the @ref TJFLAG_ACCURATEDCT
  * "flags"
  *
  * @return 0 if successful, or -1 if an error occurred (see #tjGetErrorStr().)
  */
-DLLEXPORT int DLLCALL tjDecodeYUV(tjhandle handle, unsigned char *srcBuf,
-	int pad, int subsamp, unsigned char *dstBuf, int width, int pitch,
-	int height, int pixelFormat, int flags);
+DLLEXPORT int DLLCALL tjDecodeYUV(tjhandle handle, const unsigned char *srcBuf,
+  int pad, int subsamp, unsigned char *dstBuf, int width, int pitch,
+  int height, int pixelFormat, int flags);
 
 
 /**
@@ -1339,14 +1340,15 @@ DLLEXPORT int DLLCALL tjDecodeYUV(tjhandle handle, unsigned char *srcBuf,
  * @param pixelFormat pixel format of the destination image (see @ref TJPF
  * "Pixel formats".)
  *
- * @param flags the bitwise OR of one or more of the @ref TJFLAG_BOTTOMUP
+ * @param flags the bitwise OR of one or more of the @ref TJFLAG_ACCURATEDCT
  * "flags"
  *
  * @return 0 if successful, or -1 if an error occurred (see #tjGetErrorStr().)
  */
 DLLEXPORT int DLLCALL tjDecodeYUVPlanes(tjhandle handle,
-	unsigned char **srcPlanes, int *strides, int subsamp, unsigned char *dstBuf,
-	int width, int pitch, int height, int pixelFormat, int flags);
+  const unsigned char **srcPlanes, const int *strides, int subsamp,
+  unsigned char *dstBuf, int width, int pitch, int height, int pixelFormat,
+  int flags);
 
 
 /**
@@ -1389,9 +1391,13 @@ DLLEXPORT tjhandle DLLCALL tjInitTransform(void);
  * -# set <tt>dstBufs[i]</tt> to NULL to tell TurboJPEG to allocate the buffer
  * for you, or
  * -# pre-allocate the buffer to a "worst case" size determined by calling
- * #tjBufSize() with the transformed or cropped width and height.  This should
- * ensure that the buffer never has to be re-allocated (setting
- * #TJFLAG_NOREALLOC guarantees this.)
+ * #tjBufSize() with the transformed or cropped width and height.  Under normal
+ * circumstances, this should ensure that the buffer never has to be
+ * re-allocated (setting #TJFLAG_NOREALLOC guarantees that it won't be.)  Note,
+ * however, that there are some rare cases (such as transforming images with a
+ * large amount of embedded EXIF or ICC profile data) in which the output image
+ * will be larger than the worst-case size, and #TJFLAG_NOREALLOC cannot be
+ * used in those cases.
  * .
  * If you choose option 1, <tt>dstSizes[i]</tt> should be set to the size of
  * your pre-allocated buffer.  In any case, unless you have set
@@ -1408,14 +1414,15 @@ DLLEXPORT tjhandle DLLCALL tjInitTransform(void);
  * which specifies the transform parameters and/or cropping region for the
  * corresponding transformed output image.
  *
- * @param flags the bitwise OR of one or more of the @ref TJFLAG_BOTTOMUP
+ * @param flags the bitwise OR of one or more of the @ref TJFLAG_ACCURATEDCT
  * "flags"
  *
  * @return 0 if successful, or -1 if an error occurred (see #tjGetErrorStr().)
  */
-DLLEXPORT int DLLCALL tjTransform(tjhandle handle, unsigned char *jpegBuf,
-  unsigned long jpegSize, int n, unsigned char **dstBufs,
-  unsigned long *dstSizes, tjtransform *transforms, int flags);
+DLLEXPORT int DLLCALL tjTransform(tjhandle handle,
+  const unsigned char *jpegBuf, unsigned long jpegSize, int n,
+  unsigned char **dstBufs, unsigned long *dstSizes, tjtransform *transforms,
+  int flags);
 
 
 /**
@@ -1431,8 +1438,8 @@ DLLEXPORT int DLLCALL tjDestroy(tjhandle handle);
 
 /**
  * Allocate an image buffer for use with TurboJPEG.  You should always use
- * this function to allocate the JPEG destination buffer(s) for #tjCompress2()
- * and #tjTransform() unless you are disabling automatic buffer
+ * this function to allocate the JPEG destination buffer(s) for the compression
+ * and transform functions unless you are disabling automatic buffer
  * (re)allocation (by setting #TJFLAG_NOREALLOC.)
  *
  * @param bytes the number of bytes to allocate
@@ -1448,8 +1455,8 @@ DLLEXPORT unsigned char* DLLCALL tjAlloc(int bytes);
 /**
  * Free an image buffer previously allocated by TurboJPEG.  You should always
  * use this function to free JPEG destination buffer(s) that were automatically
- * (re)allocated by #tjCompress2() or #tjTransform() or that were manually
- * allocated using #tjAlloc().
+ * (re)allocated by the compression and transform functions or that were
+ * manually allocated using #tjAlloc().
  *
  * @param buffer address of the buffer to free
  *
