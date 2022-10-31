@@ -1,3 +1,4 @@
+#frozen_string_literal: false
 require 'strscan'
 
 module JSON
@@ -48,7 +49,7 @@ module JSON
         )+
       )mx
 
-      UNPARSED = Object.new
+      UNPARSED = Object.new.freeze
 
       # Creates a new JSON::Pure::Parser instance for the string _source_.
       #
@@ -58,23 +59,25 @@ module JSON
       #   structures. Disable depth checking with :max_nesting => false|nil|0,
       #   it defaults to 100.
       # * *allow_nan*: If set to true, allow NaN, Infinity and -Infinity in
-      #   defiance of RFC 4627 to be parsed by the Parser. This option defaults
+      #   defiance of RFC 7159 to be parsed by the Parser. This option defaults
       #   to false.
+      # * *freeze*: If set to true, all parsed objects will be frozen. Parsed
+      #   string will be deduplicated if possible.
       # * *symbolize_names*: If set to true, returns symbols for the names
-      #   (keys) in a JSON object. Otherwise strings are returned, which is also
-      #   the default.
+      #   (keys) in a JSON object. Otherwise strings are returned, which is
+      #   also the default. It's not possible to use this option in
+      #   conjunction with the *create_additions* option.
       # * *create_additions*: If set to true, the Parser creates
-      #   additions when if a matching class and create_id was found. This
+      #   additions when a matching class and create_id are found. This
       #   option defaults to false.
       # * *object_class*: Defaults to Hash
       # * *array_class*: Defaults to Array
-      # * *quirks_mode*: Enables quirks_mode for parser, that is for example
-      #   parsing single JSON values instead of documents is possible.
+      # * *decimal_class*: Specifies which class to use instead of the default
+      #    (Float) when parsing decimal numbers. This class must accept a single
+      #    string argument in its constructor.
       def initialize(source, opts = {})
         opts ||= {}
-        unless @quirks_mode = opts[:quirks_mode]
-          source = convert_encoding source
-        end
+        source = convert_encoding source
         super source
         if !opts.key?(:max_nesting) # defaults to 100
           @max_nesting = 100
@@ -85,61 +88,45 @@ module JSON
         end
         @allow_nan = !!opts[:allow_nan]
         @symbolize_names = !!opts[:symbolize_names]
+        @freeze = !!opts[:freeze]
         if opts.key?(:create_additions)
           @create_additions = !!opts[:create_additions]
         else
           @create_additions = false
         end
+        @symbolize_names && @create_additions and raise ArgumentError,
+          'options :symbolize_names and :create_additions cannot be used '\
+          'in conjunction'
         @create_id = @create_additions ? JSON.create_id : nil
         @object_class = opts[:object_class] || Hash
         @array_class  = opts[:array_class] || Array
+        @decimal_class = opts[:decimal_class]
         @match_string = opts[:match_string]
       end
 
       alias source string
-
-      def quirks_mode?
-        !!@quirks_mode
-      end
 
       def reset
         super
         @current_nesting = 0
       end
 
-      # Parses the current JSON string _source_ and returns the complete data
-      # structure as a result.
+      # Parses the current JSON string _source_ and returns the
+      # complete data structure as a result.
       def parse
         reset
         obj = nil
-        if @quirks_mode
-          while !eos? && skip(IGNORE)
-          end
-          if eos?
-            raise ParserError, "source did not contain any JSON!"
-          else
-            obj = parse_value
-            obj == UNPARSED and raise ParserError, "source did not contain any JSON!"
-          end
+        while !eos? && skip(IGNORE) do end
+        if eos?
+          raise ParserError, "source is not valid JSON!"
         else
-          until eos?
-            case
-            when scan(OBJECT_OPEN)
-              obj and raise ParserError, "source '#{peek(20)}' not in JSON!"
-              @current_nesting = 1
-              obj = parse_object
-            when scan(ARRAY_OPEN)
-              obj and raise ParserError, "source '#{peek(20)}' not in JSON!"
-              @current_nesting = 1
-              obj = parse_array
-            when skip(IGNORE)
-              ;
-            else
-              raise ParserError, "source '#{peek(20)}' not in JSON!"
-            end
-          end
-          obj or raise ParserError, "source did not contain any JSON!"
+          obj = parse_value
+          UNPARSED.equal?(obj) and raise ParserError,
+            "source is not valid JSON!"
+          obj.freeze if @freeze
         end
+        while !eos? && skip(IGNORE) do end
+        eos? or raise ParserError, "source is not valid JSON!"
         obj
       end
 
@@ -149,43 +136,12 @@ module JSON
         if source.respond_to?(:to_str)
           source = source.to_str
         else
-          raise TypeError, "#{source.inspect} is not like a string"
+          raise TypeError,
+            "#{source.inspect} is not like a string"
         end
-        if defined?(::Encoding)
-          if source.encoding == ::Encoding::ASCII_8BIT
-            b = source[0, 4].bytes.to_a
-            source =
-              case
-              when b.size >= 4 && b[0] == 0 && b[1] == 0 && b[2] == 0
-                source.dup.force_encoding(::Encoding::UTF_32BE).encode!(::Encoding::UTF_8)
-              when b.size >= 4 && b[0] == 0 && b[2] == 0
-                source.dup.force_encoding(::Encoding::UTF_16BE).encode!(::Encoding::UTF_8)
-              when b.size >= 4 && b[1] == 0 && b[2] == 0 && b[3] == 0
-                source.dup.force_encoding(::Encoding::UTF_32LE).encode!(::Encoding::UTF_8)
-              when b.size >= 4 && b[1] == 0 && b[3] == 0
-                source.dup.force_encoding(::Encoding::UTF_16LE).encode!(::Encoding::UTF_8)
-              else
-                source.dup
-              end
-          else
-            source = source.encode(::Encoding::UTF_8)
-          end
+        if source.encoding != ::Encoding::ASCII_8BIT
+          source = source.encode(::Encoding::UTF_8)
           source.force_encoding(::Encoding::ASCII_8BIT)
-        else
-          b = source
-          source =
-            case
-            when b.size >= 4 && b[0] == 0 && b[1] == 0 && b[2] == 0
-              JSON.iconv('utf-8', 'utf-32be', b)
-            when b.size >= 4 && b[0] == 0 && b[2] == 0
-              JSON.iconv('utf-8', 'utf-16be', b)
-            when b.size >= 4 && b[1] == 0 && b[2] == 0 && b[3] == 0
-              JSON.iconv('utf-8', 'utf-32le', b)
-            when b.size >= 4 && b[1] == 0 && b[3] == 0
-              JSON.iconv('utf-8', 'utf-16le', b)
-            else
-              b
-            end
         end
         source
       end
@@ -209,6 +165,7 @@ module JSON
         EMPTY_8BIT_STRING.force_encoding Encoding::ASCII_8BIT
       end
 
+      STR_UMINUS = ''.respond_to?(:-@)
       def parse_string
         if scan(STRING)
           return '' if self[1].empty?
@@ -228,6 +185,15 @@ module JSON
           if string.respond_to?(:force_encoding)
             string.force_encoding(::Encoding::UTF_8)
           end
+
+          if @freeze
+            if STR_UMINUS
+              string = -string
+            else
+              string.freeze
+            end
+          end
+
           if @create_additions and @match_string
             for (regexp, klass) in @match_string
               klass.json_creatable? or next
@@ -245,7 +211,15 @@ module JSON
       def parse_value
         case
         when scan(FLOAT)
-          Float(self[1])
+          if @decimal_class then
+            if @decimal_class == BigDecimal then
+              BigDecimal(self[1])
+            else
+              @decimal_class.new(self[1]) || Float(self[1])
+            end
+          else
+            Float(self[1])
+          end
         when scan(INTEGER)
           Integer(self[1])
         when scan(TRUE)
@@ -254,7 +228,7 @@ module JSON
           false
         when scan(NULL)
           nil
-        when (string = parse_string) != UNPARSED
+        when !UNPARSED.equal?(string = parse_string)
           string
         when scan(ARRAY_OPEN)
           @current_nesting += 1
@@ -282,9 +256,11 @@ module JSON
           @max_nesting.nonzero? && @current_nesting > @max_nesting
         result = @array_class.new
         delim = false
-        until eos?
+        loop do
           case
-          when (value = parse_value) != UNPARSED
+          when eos?
+            raise ParserError, "unexpected end of string while parsing array"
+          when !UNPARSED.equal?(value = parse_value)
             delim = false
             result << value
             skip(IGNORE)
@@ -314,15 +290,17 @@ module JSON
           @max_nesting.nonzero? && @current_nesting > @max_nesting
         result = @object_class.new
         delim = false
-        until eos?
+        loop do
           case
-          when (string = parse_string) != UNPARSED
+          when eos?
+            raise ParserError, "unexpected end of string while parsing object"
+          when !UNPARSED.equal?(string = parse_string)
             skip(IGNORE)
             unless scan(PAIR_DELIMITER)
               raise ParserError, "expected ':' in object at '#{peek(20)}'!"
             end
             skip(IGNORE)
-            unless (value = parse_value).equal? UNPARSED
+            unless UNPARSED.equal?(value = parse_value)
               result[@symbolize_names ? string.to_sym : string] = value
               delim = false
               skip(IGNORE)
