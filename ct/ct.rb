@@ -12,7 +12,6 @@ require 'thread'
 # Local modules
 $LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__)))
 $LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__)) + "/ctlib")
-require 'backports'
 require 'image_size'
 require 'json'
 require 'tile'
