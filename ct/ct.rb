@@ -638,7 +638,8 @@ class VideosetCompiler
       "video_width"  => @vid_width,
       "video_height" => @vid_height,
       "width"        => parent.source.width,
-      "height"       => parent.source.height
+      "height"       => parent.source.height,
+      "tileStride"   => $tile_mode == "webgl" ? 4 : 1
     }
     @frames_per_fragment and ret['frames_per_fragment']=@frames_per_fragment
     ret
