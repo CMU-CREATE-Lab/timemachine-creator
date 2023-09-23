@@ -40,7 +40,7 @@ CDEBUG=$(CDEBUG) -N
 LDEBUG=$(LDEBUG) -N
 !endif
 
-# -O3 optimize for speed
+# -O2 optimize for speed
 # -d  merge duplicate strings
 # -k- turn off standard stack frame
 # -w  display all warnings

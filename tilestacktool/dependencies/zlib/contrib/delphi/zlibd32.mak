@@ -11,7 +11,7 @@ CC = bcc32
 LD = bcc32
 AR = tlib
 # do not use "-pr" in CFLAGS
-CFLAGS = -a -d -k- -O3 $(LOC)
+CFLAGS = -a -d -k- -O2 $(LOC)
 LDFLAGS =
 
 
