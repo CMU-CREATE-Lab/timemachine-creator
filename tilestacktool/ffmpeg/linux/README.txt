@@ -1,2 +1,2 @@
-Fetched from http://johnvansickle.com/ffmpeg/ on 29-June-2015
-ffmpeg-g4ccd2b3 static binary for 64bit Linux 2.6.32+/3.x/4.x
+Fetched from http://johnvansickle.com/ffmpeg/ on 04-March-2024
+release v6.1 static binary for 64bit kernels Linux 3.2.0+

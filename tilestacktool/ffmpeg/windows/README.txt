@@ -1,2 +1,2 @@
-Fetched from http://ffmpeg.zeranoe.com/builds/ on 29-June-2015
-ffmpeg-ca3b274 static binary for Win 32bit
+Fetched from https://www.gyan.dev/ffmpeg/builds/ on 04-March-2024
+release v6.1.1 static binary for Win 64bit (Windows 7 and above)
