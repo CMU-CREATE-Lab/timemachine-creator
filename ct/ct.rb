@@ -1292,7 +1292,7 @@ class Compiler
     if not Filesystem.cached_exists? @videosets_dir
       videosets_tmp = "#{@videosets_dir}.#{temp_file_unique_fragment}"
       Filesystem.mkdir_p videosets_tmp
-      Filesystem.cp_r ['css', 'images', 'js', 'templates', 'update_ajax_includes.rb', 'template_includes.js', 'VERSION'].map{|path|"#{$explorer_source_dir}/#{path}"}, videosets_tmp
+      Filesystem.cp_r ['css', 'images', 'js', 'templates', 'libs', 'update_ajax_includes.rb', 'template_includes.js', 'VERSION'].map{|path|"#{$explorer_source_dir}/#{path}"}, videosets_tmp
       Filesystem.cp "#{$explorer_source_dir}/public/tmca_viewer.html", "#{videosets_tmp}/view.html"
       Filesystem.mv videosets_tmp, @videosets_dir
     end
